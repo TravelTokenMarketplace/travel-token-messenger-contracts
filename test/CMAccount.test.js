@@ -367,8 +367,8 @@ describe("CMAccount", function () {
                     expirationTimestamp,
                     price,
                     ethers.ZeroAddress, // zero address
-                    0, // off chain payment currency
-                    true,
+                    0n, // off chain payment currency
+                    true, // cancellable
                 );
 
             // Advance time to after the expiration
