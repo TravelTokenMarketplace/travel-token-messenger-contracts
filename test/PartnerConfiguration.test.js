@@ -60,6 +60,63 @@ describe("PartnerConfiguration", function () {
                 .withArgs(serviceName);
         });
 
+        it("should remove a supported service correctly", async function () {
+            const { cmAccountManager, cmAccount } = await loadFixture(deployAndConfigureAllFixture);
+
+            const SERVICE_REGISTRY_ADMIN_ROLE = await cmAccountManager.SERVICE_REGISTRY_ADMIN_ROLE();
+
+            // Grant SERVICE_REGISTRY_ADMIN_ROLE
+            await expect(
+                cmAccountManager
+                    .connect(signers.managerAdmin)
+                    .grantRole(SERVICE_REGISTRY_ADMIN_ROLE, signers.otherAccount1.address),
+            )
+                .to.emit(cmAccountManager, "RoleGranted")
+                .withArgs(SERVICE_REGISTRY_ADMIN_ROLE, signers.otherAccount1.address, signers.managerAdmin.address);
+
+            const serviceName = "cmp.service.accommodation.v1alpha.AccommodationSearchService";
+            const serviceHash = ethers.keccak256(ethers.toUtf8Bytes(serviceName));
+
+            await expect(cmAccountManager.connect(signers.otherAccount1).registerService(serviceName))
+                .to.emit(cmAccountManager, "ServiceRegistered")
+                .withArgs(serviceName, serviceHash);
+
+            // get the SERVICE_ADMIN_ROLE
+            const SERVICE_ADMIN_ROLE = await cmAccount.SERVICE_ADMIN_ROLE();
+
+            // Grant SERVICE_ADMIN_ROLE
+            await expect(
+                cmAccount.connect(signers.cmAccountAdmin).grantRole(SERVICE_ADMIN_ROLE, signers.otherAccount1.address),
+            )
+                .to.emit(cmAccount, "RoleGranted")
+                .withArgs(SERVICE_ADMIN_ROLE, signers.otherAccount1.address, signers.cmAccountAdmin.address);
+
+            const fee = 1000n;
+            const restrictedRate = false;
+            const capabilities = [];
+
+            await expect(
+                cmAccount.connect(signers.otherAccount1).addService(serviceName, fee, restrictedRate, capabilities),
+            )
+                .to.emit(cmAccount, "ServiceAdded")
+                .withArgs(serviceName);
+
+            // Try to remove with non-auth address
+            await expect(cmAccount.connect(signers.otherAccount3).removeService(serviceName))
+                .to.be.revertedWithCustomError(cmAccount, "AccessControlUnauthorizedAccount")
+                .withArgs(signers.otherAccount3.address, await cmAccount.SERVICE_ADMIN_ROLE());
+
+            // Remove the service
+            await expect(cmAccount.connect(signers.otherAccount1).removeService(serviceName))
+                .to.emit(cmAccount, "ServiceRemoved")
+                .withArgs(serviceName);
+
+            // Try to remove the service again, should fail
+            await expect(
+                cmAccount.connect(signers.otherAccount1).removeService(serviceName),
+            ).to.be.revertedWithCustomError(cmAccount, "ServiceDoesNotExist");
+        });
+
         it("should revert if the caller does not have the SERVICE_ADMIN_ROLE", async function () {
             const { cmAccountManager, cmAccount } = await loadFixture(deployAndConfigureAllFixture);
 
@@ -227,6 +284,15 @@ describe("PartnerConfiguration", function () {
                 .to.emit(cmAccount, "ServiceFeeUpdated")
                 .withArgs(services.serviceName3, newFee3);
 
+            // Try with non-auth address
+            await expect(
+                cmAccount
+                    .connect(signers.otherAccount1)
+                    ["setServiceFee(string,uint256)"](services.serviceName1, newFee1),
+            )
+                .to.be.revertedWithCustomError(cmAccount, "AccessControlUnauthorizedAccount")
+                .withArgs(signers.otherAccount1.address, await cmAccount.SERVICE_ADMIN_ROLE());
+
             // Restricted Rate Setter
             await expect(
                 await cmAccount
@@ -249,6 +315,15 @@ describe("PartnerConfiguration", function () {
                     .connect(signers.cmServiceAdmin)
                     ["setServiceRestrictedRate(string,bool)"](services.serviceName3, newRestrictedRate3),
             ).to.emit(cmAccount, "ServiceRestrictedRateUpdated");
+
+            // Try with non-auth address
+            await expect(
+                cmAccount
+                    .connect(signers.otherAccount1)
+                    ["setServiceRestrictedRate(string,bool)"](services.serviceName1, newRestrictedRate1),
+            )
+                .to.be.revertedWithCustomError(cmAccount, "AccessControlUnauthorizedAccount")
+                .withArgs(signers.otherAccount1.address, await cmAccount.SERVICE_ADMIN_ROLE());
 
             // Capabilities Setter
             await expect(
@@ -274,6 +349,56 @@ describe("PartnerConfiguration", function () {
             )
                 .to.emit(cmAccount, "ServiceCapabilitiesUpdated")
                 .withArgs(services.serviceName3);
+
+            // Try with non-auth address
+            await expect(
+                cmAccount
+                    .connect(signers.otherAccount1)
+                    ["setServiceCapabilities(string,string[])"](services.serviceName1, newCapabilities1),
+            )
+                .to.be.revertedWithCustomError(cmAccount, "AccessControlUnauthorizedAccount")
+                .withArgs(signers.otherAccount1.address, await cmAccount.SERVICE_ADMIN_ROLE());
+
+            // Single Capability add/remove
+            await expect(
+                cmAccount
+                    .connect(signers.cmServiceAdmin)
+                    .addServiceCapability(services.serviceName3, "newCapabilities4"),
+            )
+                .to.emit(cmAccount, "ServiceCapabilityAdded")
+                .withArgs(services.serviceName3, "newCapabilities4");
+
+            // Try with non-auth address
+            await expect(
+                cmAccount
+                    .connect(signers.otherAccount1)
+                    .addServiceCapability(services.serviceName3, "newCapabilities4"),
+            )
+                .to.be.revertedWithCustomError(cmAccount, "AccessControlUnauthorizedAccount")
+                .withArgs(signers.otherAccount1.address, await cmAccount.SERVICE_ADMIN_ROLE());
+
+            const newCapabilityList = newCapabilities3.concat(["newCapabilities4"]);
+
+            expect(await cmAccount["getServiceCapabilities(string)"](services.serviceName3)).to.be.deep.equal(
+                newCapabilityList,
+            );
+
+            await expect(
+                cmAccount
+                    .connect(signers.cmServiceAdmin)
+                    .removeServiceCapability(services.serviceName3, "newCapabilities4"),
+            )
+                .to.emit(cmAccount, "ServiceCapabilityRemoved")
+                .withArgs(services.serviceName3, "newCapabilities4");
+
+            // Try with non-auth address
+            await expect(
+                cmAccount
+                    .connect(signers.otherAccount1)
+                    .removeServiceCapability(services.serviceName3, "newCapabilities4"),
+            )
+                .to.be.revertedWithCustomError(cmAccount, "AccessControlUnauthorizedAccount")
+                .withArgs(signers.otherAccount1.address, await cmAccount.SERVICE_ADMIN_ROLE());
 
             // TEST GETTERS with hashes
 
@@ -303,6 +428,13 @@ describe("PartnerConfiguration", function () {
             expect(await cmAccount["getServiceCapabilities(bytes32)"](services.serviceHash3)).to.be.deep.equal(
                 newCapabilities3,
             );
+
+            // Test failures
+            const nonExistingHash = ethers.keccak256(ethers.toUtf8Bytes("NON EXISTING HASH"));
+
+            await expect(cmAccount["getServiceCapabilities(bytes32)"](nonExistingHash))
+                .to.be.revertedWithCustomError(cmAccount, "ServiceDoesNotExist")
+                .withArgs(nonExistingHash);
         });
 
         it("should revert if the service is not registered", async function () {
@@ -332,6 +464,11 @@ describe("PartnerConfiguration", function () {
             await expect(cmAccount.connect(signers.cmServiceAdmin).addWantedServices([services.serviceName1]))
                 .to.emit(cmAccount, "WantedServiceAdded")
                 .withArgs(services.serviceName1);
+
+            // Try with non-auth address
+            await expect(cmAccount.connect(signers.otherAccount1).addWantedServices([services.serviceName1]))
+                .to.be.revertedWithCustomError(cmAccount, "AccessControlUnauthorizedAccount")
+                .withArgs(signers.otherAccount1.address, await cmAccount.SERVICE_ADMIN_ROLE());
         });
 
         it("should add multiple (6) wanted services correctly", async function () {
@@ -399,6 +536,11 @@ describe("PartnerConfiguration", function () {
             await expect(cmAccount.connect(signers.cmServiceAdmin).addWantedServices([services.serviceName1]))
                 .to.emit(cmAccount, "WantedServiceAdded")
                 .withArgs(services.serviceName1);
+
+            // Try with non-auth address
+            await expect(
+                cmAccount.connect(signers.otherAccount1).removeWantedServices([services.serviceName1]),
+            ).to.be.revertedWithCustomError(cmAccount, "AccessControlUnauthorizedAccount");
 
             await expect(cmAccount.connect(signers.cmServiceAdmin).removeWantedServices([services.serviceName1]))
                 .to.emit(cmAccount, "WantedServiceRemoved")
@@ -490,6 +632,11 @@ describe("PartnerConfiguration", function () {
                 .to.emit(cmAccount, "OffChainPaymentSupportUpdated")
                 .withArgs(true);
 
+            // Try with non-auth address
+            await expect(
+                cmAccount.connect(signers.otherAccount1).setOffChainPaymentSupported(false),
+            ).to.be.revertedWithCustomError(cmAccount, "AccessControlUnauthorizedAccount");
+
             // Get off chain payment supported expecting true
             expect(await cmAccount.offChainPaymentSupported()).to.be.equal(true);
 
@@ -500,6 +647,11 @@ describe("PartnerConfiguration", function () {
             await expect(cmAccount.connect(signers.cmServiceAdmin).addSupportedToken(supportedToken1))
                 .to.emit(cmAccount, "PaymentTokenAdded")
                 .withArgs(supportedToken1);
+
+            // Try with non-auth address
+            await expect(
+                cmAccount.connect(signers.otherAccount1).addSupportedToken(supportedToken1),
+            ).to.be.revertedWithCustomError(cmAccount, "AccessControlUnauthorizedAccount");
 
             await expect(cmAccount.connect(signers.cmServiceAdmin).addSupportedToken(supportedToken2))
                 .to.emit(cmAccount, "PaymentTokenAdded")
@@ -517,6 +669,16 @@ describe("PartnerConfiguration", function () {
             // Remove supported token
             await expect(cmAccount.connect(signers.cmServiceAdmin).removeSupportedToken(supportedToken1))
                 .to.emit(cmAccount, "PaymentTokenRemoved")
+                .withArgs(supportedToken1);
+
+            // Try with non-auth address
+            await expect(
+                cmAccount.connect(signers.otherAccount1).removeSupportedToken(supportedToken1),
+            ).to.be.revertedWithCustomError(cmAccount, "AccessControlUnauthorizedAccount");
+
+            // Remove it again, should revert
+            await expect(cmAccount.connect(signers.cmServiceAdmin).removeSupportedToken(supportedToken1))
+                .to.be.revertedWithCustomError(cmAccount, "PaymentTokenDoesNotExist")
                 .withArgs(supportedToken1);
 
             // Get supported tokens, should only return supportedToken2
@@ -540,6 +702,11 @@ describe("PartnerConfiguration", function () {
                 .to.emit(cmAccount, "PublicKeyAdded")
                 .withArgs(addr);
 
+            // Try with non-auth address
+            await expect(
+                cmAccount.connect(signers.otherAccount1).addPublicKey(addr, pubkey),
+            ).to.be.revertedWithCustomError(cmAccount, "AccessControlUnauthorizedAccount");
+
             // Get public keys and check if they are correct, should include only addr and pubkey
             const publicKeys = await cmAccount.getPublicKey(addr);
             expect(publicKeys).to.be.deep.equal(pubkey);
@@ -560,8 +727,21 @@ describe("PartnerConfiguration", function () {
                 .to.emit(cmAccount, "PublicKeyAdded")
                 .withArgs(addr);
 
+            // Try with non-auth address
+            const SERVICE_ADMIN_ROLE = await cmAccount.SERVICE_ADMIN_ROLE();
+
+            await expect(cmAccount.connect(signers.otherAccount1).removePublicKey(addr))
+                .to.be.revertedWithCustomError(cmAccount, "AccessControlUnauthorizedAccount")
+                .withArgs(signers.otherAccount1.address, SERVICE_ADMIN_ROLE);
+
+            // Remove public key
             await expect(cmAccount.connect(signers.cmServiceAdmin).removePublicKey(addr))
                 .to.emit(cmAccount, "PublicKeyRemoved")
+                .withArgs(addr);
+
+            // Try to remove it again, should revert
+            await expect(cmAccount.connect(signers.cmServiceAdmin).removePublicKey(addr))
+                .to.be.revertedWithCustomError(cmAccount, "PublicKeyDoesNotExist")
                 .withArgs(addr);
 
             // Get public keys, it should be a array of two empty arrays
@@ -570,7 +750,7 @@ describe("PartnerConfiguration", function () {
                 .withArgs(addr);
         });
 
-        it("should get public keys correctly", async function () {
+        it("should get public keys and addresses correctly", async function () {
             const { cmAccountManager, cmAccount } = await loadFixture(
                 deployAndConfigureAllWithRegisteredServicesFixture,
             );
@@ -600,6 +780,10 @@ describe("PartnerConfiguration", function () {
             expect(publicKeys).to.be.deep.equal(pubkey1);
             const publicKeys2 = await cmAccount.getPublicKey(addr2);
             expect(publicKeys2).to.be.deep.equal(pubkey2);
+
+            // Get all public key addresses
+            const allPublicKeys = await cmAccount.getPublicKeysAddresses();
+            expect(allPublicKeys).to.be.deep.equal([addr1, addr2]);
         });
 
         it("should revert when adding the same public key", async function () {

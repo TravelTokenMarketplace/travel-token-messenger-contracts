@@ -1,6 +1,9 @@
 const { loadFixture } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
 const { expect } = require("chai");
+
 const { ethers } = require("hardhat");
+
+const helpers = require("@nomicfoundation/hardhat-network-helpers");
 
 // Fixtures
 const {
@@ -35,6 +38,125 @@ describe("BookingToken", function () {
 
             expect(await bookingToken.version()).to.deep.equal([1, 0, 0]);
         });
+
+        it("should reinitialize correctly", async function () {
+            const { cmAccountManager, supplierCMAccount, distributorCMAccount, bookingToken } =
+                await loadFixture(deployBookingTokenFixture);
+
+            const currentName = expect(await bookingToken.name()).to.be.equal("BookingToken");
+            const currentSymbol = expect(await bookingToken.symbol()).to.be.equal("TRIP");
+
+            const newName = "New Name";
+            const newSymbol = "NEW";
+
+            // Try to re-init with unauthorized caller
+            await expect(
+                bookingToken.connect(signers.otherAccount1).reinitializeV2(newName, newSymbol),
+            ).to.be.revertedWithCustomError(bookingToken, "AccessControlUnauthorizedAccount");
+
+            // Reinitialize
+            await expect(bookingToken.connect(signers.btAdmin).reinitializeV2(newName, newSymbol)).to.not.reverted;
+
+            // Check new name and symbol
+            expect(await bookingToken.name()).to.be.equal(newName);
+            expect(await bookingToken.symbol()).to.be.equal(newSymbol);
+
+            // Try to re-init again, should revert
+            await expect(
+                bookingToken.connect(signers.btAdmin).reinitializeV2("New Name 2", "NEW2"),
+            ).to.be.revertedWithCustomError(bookingToken, "InvalidInitialization");
+        });
+
+        it("should set/get manager address correctly", async function () {
+            const { cmAccountManager, supplierCMAccount, distributorCMAccount, bookingToken } =
+                await loadFixture(deployBookingTokenFixture);
+
+            // Try to set manager address with unauthorized caller
+            await expect(
+                bookingToken.connect(signers.otherAccount1).setManagerAddress(signers.otherAccount1.address),
+            ).to.be.revertedWithCustomError(bookingToken, "AccessControlUnauthorizedAccount");
+
+            // Set manager address
+            expect(await bookingToken.connect(signers.btAdmin).setManagerAddress(signers.otherAccount1.address)).to.be
+                .not.reverted;
+
+            // Check manager address
+            expect(await bookingToken.getManagerAddress()).to.be.equal(signers.otherAccount1.address);
+        });
+
+        it("should set/get min expiration timestamp diff correctly", async function () {
+            const { cmAccountManager, supplierCMAccount, distributorCMAccount, bookingToken } =
+                await loadFixture(deployBookingTokenFixture);
+
+            const newMinExpirationTimestampDiff = 120;
+
+            // Try to set min expiration timestamp diff with unauthorized caller
+            await expect(
+                bookingToken
+                    .connect(signers.otherAccount1)
+                    .setMinExpirationTimestampDiff(newMinExpirationTimestampDiff),
+            ).to.be.revertedWithCustomError(bookingToken, "AccessControlUnauthorizedAccount");
+
+            // Grant MIN_EXPIRATION_ADMIN_ROLE
+            const MIN_EXPIRATION_ADMIN_ROLE = await bookingToken.MIN_EXPIRATION_ADMIN_ROLE();
+            await bookingToken.connect(signers.btAdmin).grantRole(MIN_EXPIRATION_ADMIN_ROLE, signers.btAdmin.address);
+
+            // Set min expiration timestamp diff
+            expect(
+                await bookingToken
+                    .connect(signers.btAdmin)
+                    .setMinExpirationTimestampDiff(newMinExpirationTimestampDiff),
+            ).to.be.not.reverted;
+
+            // Check min expiration timestamp diff
+            expect(await bookingToken.getMinExpirationTimestampDiff()).to.be.equal(newMinExpirationTimestampDiff);
+        });
+
+        it("should support ERC165", async function () {
+            const { cmAccountManager, supplierCMAccount, distributorCMAccount, bookingToken } =
+                await loadFixture(deployBookingTokenFixture);
+
+            const _INTERFACE_ID_IERC165 = "0x01ffc9a7";
+            const _INTERFACE_ID_IERC721 = "0x80ac58cd";
+            const _INTERFACE_ID_IERC721METADATA = "0x5b5e139f";
+            const _INTERFACE_ID_IERC721ENUMERABLE = "0x780e9d63";
+
+            expect(await bookingToken.supportsInterface(_INTERFACE_ID_IERC165)).to.be.true;
+            expect(await bookingToken.supportsInterface(_INTERFACE_ID_IERC721)).to.be.true;
+            expect(await bookingToken.supportsInterface(_INTERFACE_ID_IERC721METADATA)).to.be.true;
+            expect(await bookingToken.supportsInterface(_INTERFACE_ID_IERC721ENUMERABLE)).to.be.true;
+
+            expect(await bookingToken.supportsInterface("0xaaaaaaaa")).to.be.false;
+        });
+
+        it("should upgrade correctly", async function () {
+            const { cmAccountManager, supplierCMAccount, distributorCMAccount, bookingToken } =
+                await loadFixture(deployBookingTokenFixture);
+
+            const BookingTokenTest = await ethers.getContractFactory("BookingToken");
+            const bookingTokenTest = await BookingTokenTest.deploy();
+
+            // Try to upgrade with unauthorized caller
+            await expect(
+                bookingToken.connect(signers.otherAccount1).upgradeToAndCall(await bookingTokenTest.getAddress(), "0x"),
+            ).to.be.revertedWithCustomError(bookingToken, "AccessControlUnauthorizedAccount");
+
+            // Try to upgrade to unsupported implementation
+            const DummyContract = await ethers.getContractFactory("Dummy");
+            const dummyContract = await DummyContract.deploy();
+
+            // Check dummy contract
+            expect(await dummyContract.getVersion()).to.be.equal("DUMMY");
+
+            await expect(
+                bookingToken.connect(signers.btUpgrader).upgradeToAndCall(await dummyContract.getAddress(), "0x"),
+            ).to.be.revertedWithCustomError(bookingToken, "ERC1967InvalidImplementation");
+
+            // Upgrade to new implementation
+            await expect(
+                bookingToken.connect(signers.btUpgrader).upgradeToAndCall(await bookingTokenTest.getAddress(), "0x"),
+            ).to.be.not.reverted;
+        });
     });
 
     describe("Mint", function () {
@@ -62,6 +184,47 @@ describe("BookingToken", function () {
             )
                 .to.be.revertedWithCustomError(bookingToken, "NotCMAccount") // Caller is not a CMAccount
                 .withArgs(signers.btAdmin.address);
+        });
+
+        it("Native: should revert invalid min expiration", async function () {
+            const { cmAccountManager, supplierCMAccount, distributorCMAccount, bookingToken } =
+                await loadFixture(deployBookingTokenFixture);
+
+            const tokenURI =
+                "data:application/json;base64,eyJuYW1lIjoiQ2FtaW5vIE1lc3NlbmdlciBCb29raW5nVG9rZW4gVGVzdCJ9Cg==";
+
+            const minExpirationTimestamp = await bookingToken.getMinExpirationTimestampDiff();
+
+            // get block time from the chain and mine
+            await network.provider.send("evm_mine");
+            const block = await ethers.provider.getBlock("latest");
+
+            const invalidExpirationTimestamp = BigInt(block.timestamp) + minExpirationTimestamp - 1n;
+
+            const price = ethers.parseEther("0.05");
+
+            // Grant BOOKING_OPERATOR_ROLE
+            const BOOKING_OPERATOR_ROLE = await supplierCMAccount.BOOKING_OPERATOR_ROLE();
+            await expect(
+                supplierCMAccount
+                    .connect(signers.cmAccountAdmin)
+                    .grantRole(BOOKING_OPERATOR_ROLE, signers.btAdmin.address),
+            ).to.not.reverted;
+
+            // Mint the booking token
+            await expect(
+                supplierCMAccount.connect(signers.btAdmin).mintBookingToken(
+                    distributorCMAccount.getAddress(), // reservedFor
+                    tokenURI, // tokenURI
+                    invalidExpirationTimestamp, // expiration
+                    price, // price
+                    ethers.ZeroAddress, // paymentToken: zero address, means native coin
+                    0,
+                    false,
+                ),
+            )
+                .to.be.revertedWithCustomError(bookingToken, "ExpirationTimestampTooSoon") // Caller is not a CMAccount
+                .withArgs(invalidExpirationTimestamp, minExpirationTimestamp);
         });
 
         it("Native: should revert if reservedFor is not a CMAccount", async function () {
@@ -96,6 +259,45 @@ describe("BookingToken", function () {
             )
                 .to.be.revertedWithCustomError(bookingToken, "NotCMAccount")
                 .withArgs(signers.otherAccount1.address); // reservedFor address
+        });
+
+        it("Native: should revert off chain payment currency mismatch", async function () {
+            const { cmAccountManager, supplierCMAccount, distributorCMAccount, bookingToken } =
+                await loadFixture(deployBookingTokenFixture);
+
+            const tokenURI =
+                "data:application/json;base64,eyJuYW1lIjoiQ2FtaW5vIE1lc3NlbmdlciBCb29raW5nVG9rZW4gVGVzdCJ9Cg==";
+
+            const expirationTimestamp = Math.floor(Date.now() / 1000) + 120;
+
+            const price = ethers.parseEther("0.05");
+
+            // Grant BOOKING_OPERATOR_ROLE
+            const BOOKING_OPERATOR_ROLE = await supplierCMAccount.BOOKING_OPERATOR_ROLE();
+            await expect(
+                supplierCMAccount
+                    .connect(signers.cmAccountAdmin)
+                    .grantRole(BOOKING_OPERATOR_ROLE, signers.btAdmin.address),
+            ).to.not.reverted;
+
+            // Off chain payment mismatch: Use paymentToken address of address(0) with non-zero off chain payment currency
+
+            // Dummy off chain payment currency
+            const dummyOffChainPaymentCurrency = 99n;
+
+            await expect(
+                supplierCMAccount.connect(signers.btAdmin).mintBookingToken(
+                    distributorCMAccount.getAddress(), // reservedFor
+                    tokenURI, // tokenURI
+                    expirationTimestamp, // expiration
+                    price, // price
+                    ethers.ZeroAddress, // paymentToken: zero address, means native coin
+                    dummyOffChainPaymentCurrency, // Provide a dummy off chain payment currency, should revert
+                    false,
+                ),
+            )
+                .to.be.revertedWithCustomError(bookingToken, "UnexpectedOffchainPaymentCurrency")
+                .withArgs(dummyOffChainPaymentCurrency);
         });
 
         it("Native: should mint a booking token correctly", async function () {
@@ -142,6 +344,9 @@ describe("BookingToken", function () {
 
             // Check token ownership
             expect(await bookingToken.ownerOf(0n)).to.equal(await supplierCMAccount.getAddress());
+
+            // Check token URI
+            expect(await bookingToken.tokenURI(0n)).to.equal(tokenURI);
 
             // Check token booking status
             expect(await bookingToken.getBookingStatus(0n)).to.equal(1); // Reserved == 1
@@ -243,6 +448,19 @@ describe("BookingToken", function () {
              *                   SUPPLIER                      *
              ***************************************************/
 
+            // Try to mint with non-auth address
+            await expect(
+                supplierCMAccount.connect(signers.otherAccount3).mintBookingToken(
+                    distributorCMAccount.getAddress(), // set reservedFor address to distributor CMAccount
+                    tokenURI, // tokenURI
+                    expirationTimestamp, // expiration
+                    price, // price
+                    ethers.ZeroAddress, // paymentToken: zero address, means native coin
+                    0,
+                    false,
+                ),
+            ).to.be.revertedWithCustomError(supplierCMAccount, "AccessControlUnauthorizedAccount");
+
             // Grant BOOKING_OPERATOR_ROLE
             const BOOKING_OPERATOR_ROLE = await supplierCMAccount.BOOKING_OPERATOR_ROLE();
             await expect(
@@ -306,6 +524,11 @@ describe("BookingToken", function () {
                 .to.revertedWithCustomError(BookingTokenOperator, "UnexpectedPaymentToken")
                 .withArgs(0n, ethers.ZeroAddress, invalidPaymentToken);
 
+            // Reverts: try to buy with non-auth address
+            await expect(
+                distributorCMAccount.connect(signers.otherAccount3).buyBookingToken(0n, price, ethers.ZeroAddress),
+            ).to.be.revertedWithCustomError(distributorCMAccount, "AccessControlUnauthorizedAccount");
+
             // Try to buy the token
             const buyTx = distributorCMAccount.connect(signers.btAdmin).buyBookingToken(0n, price, ethers.ZeroAddress);
 
@@ -320,6 +543,11 @@ describe("BookingToken", function () {
 
             // Check token booking status
             expect(await bookingToken.getBookingStatus(0n)).to.equal(3); // Bought == 3
+
+            // Try to expire the token, should revert with InvalidTokenStatus
+            await expect(distributorCMAccount.connect(signers.btAdmin).recordExpiration(0n))
+                .to.revertedWithCustomError(bookingToken, "InvalidTokenStatus")
+                .withArgs(0n, 3); // Bought == 3
         });
 
         it("Native: should buy a booking token with zero price correctly", async function () {
@@ -941,6 +1169,85 @@ describe("BookingToken", function () {
                 .to.be.revertedWithCustomError(bookingToken, "ReservationMismatch")
                 .withArgs(supplierCMAccount.getAddress(), distributorCMAccount.getAddress());
         });
+
+        it("Native: should revert if token reservation is expired", async function () {
+            const { cmAccountManager, supplierCMAccount, distributorCMAccount, bookingToken } =
+                await loadFixture(deployBookingTokenFixture);
+
+            const tokenURI =
+                "data:application/json;base64,eyJuYW1lIjoiQ2FtaW5vIE1lc3NlbmdlciBCb29raW5nVG9rZW4gVGVzdCJ9Cg==";
+
+            const expirationTimestamp = Math.floor(Date.now() / 1000) + 120;
+
+            const price = ethers.parseEther("0.05");
+
+            /***************************************************
+             *                   SUPPLIER                      *
+             ***************************************************/
+
+            // Grant BOOKING_OPERATOR_ROLE
+            const BOOKING_OPERATOR_ROLE = await supplierCMAccount.BOOKING_OPERATOR_ROLE();
+            await expect(
+                supplierCMAccount
+                    .connect(signers.cmAccountAdmin)
+                    .grantRole(BOOKING_OPERATOR_ROLE, signers.btAdmin.address),
+            ).to.not.reverted;
+
+            await expect(
+                await supplierCMAccount.connect(signers.btAdmin).mintBookingToken(
+                    distributorCMAccount.getAddress(),
+                    tokenURI, // tokenURI
+                    expirationTimestamp, // expiration
+                    price, // price
+                    ethers.ZeroAddress, // paymentToken: zero address, means native coin
+                    0,
+                    false,
+                ),
+            )
+                .to.be.emit(bookingToken, "TokenReserved")
+                .withArgs(
+                    0n,
+                    distributorCMAccount.getAddress(),
+                    supplierCMAccount.getAddress(),
+                    expirationTimestamp,
+                    price,
+                    ethers.ZeroAddress, // paymentToken: zero address, means native coin
+                    0,
+                    false,
+                );
+
+            // Move time forward and mine a block
+            await helpers.time.increaseTo(expirationTimestamp + 1);
+
+            /***************************************************
+             *                  DISTRIBUTOR                    *
+             ***************************************************/
+
+            // Grant BOOKING_OPERATOR_ROLE
+            await expect(
+                distributorCMAccount
+                    .connect(signers.cmAccountAdmin)
+                    .grantRole(BOOKING_OPERATOR_ROLE, signers.btAdmin.address),
+            ).to.not.reverted;
+
+            // Try to buy the token
+            const buyTx = distributorCMAccount.connect(signers.btAdmin).buyBookingToken(0n, price, ethers.ZeroAddress);
+
+            // Check emitted events
+            await expect(buyTx)
+                .to.be.revertedWithCustomError(bookingToken, "ReservationExpired")
+                .withArgs(0n, expirationTimestamp);
+        });
+
+        it("Native: should revert if caller is not CMAccount", async function () {
+            const { cmAccountManager, supplierCMAccount, distributorCMAccount, bookingToken } =
+                await loadFixture(deployBookingTokenFixture);
+
+            // Try with non-CMAccount address
+            await expect(
+                bookingToken.connect(signers.otherAccount3).buyReservedToken(0n),
+            ).to.be.revertedWithCustomError(bookingToken, "NotCMAccount");
+        });
     });
 
     describe("Transfer", function () {
@@ -1108,6 +1415,14 @@ describe("BookingToken", function () {
             )
                 .to.emit(bookingToken, "Transfer")
                 .withArgs(signers.otherAccount2.address, signers.otherAccount3.address, 0n);
+
+            // Try to transfer status unspecified token (checkTransferable func)
+            // (this is only possible for non-existing tokens)
+            await expect(
+                bookingToken
+                    .connect(signers.otherAccount3)
+                    .safeTransferFrom(signers.otherAccount3.address, signers.otherAccount2.address, 99n),
+            ).to.be.revertedWithCustomError(bookingToken, "ERC721NonexistentToken");
         });
 
         it("should revert transfer if the token is cancelled", async function () {
@@ -1389,6 +1704,11 @@ describe("BookingToken", function () {
             await network.provider.send("evm_increaseTime", [24 * 60 * 60]);
             await network.provider.send("evm_mine");
 
+            // Try to expire with non-auth address
+            await expect(
+                supplierCMAccount.connect(signers.otherAccount1).recordExpiration(0n),
+            ).to.be.revertedWithCustomError(bookingToken, "AccessControlUnauthorizedAccount");
+
             // Expire the token
             await expect(supplierCMAccount.connect(signers.btAdmin).recordExpiration(0n))
                 .to.emit(bookingToken, "TokenReservationExpired")
@@ -1396,8 +1716,30 @@ describe("BookingToken", function () {
 
             // Check token booking status
             expect(await bookingToken.getBookingStatus(0n)).to.equal(2); // Expired == 2
+
+            // Try to expire the token again
+            await expect(supplierCMAccount.connect(signers.btAdmin).recordExpiration(0n))
+                .to.be.revertedWithCustomError(bookingToken, "InvalidTokenStatus")
+                .withArgs(0n, 2); // RESERVATION_EXPIRED == 2
+
+            // Try to transfer the token, should not revert
+            await supplierCMAccount
+                .connect(signers.cmAccountAdmin)
+                .grantRole(await supplierCMAccount.WITHDRAWER_ROLE(), signers.otherAccount1.address);
+            await expect(
+                supplierCMAccount
+                    .connect(signers.otherAccount1)
+                    .transferERC721(
+                        bookingToken.getAddress(),
+                        signers.otherAccount1.address,
+                        0n,
+                        distributorCMAccount.getAddress(),
+                    ),
+            )
+                .to.emit(bookingToken, "Transfer")
+                .withArgs(supplierCMAccount.getAddress(), signers.otherAccount1.address, 0n);
         });
-        it("should revert recording a as expired if it's bought already", async function () {
+        it("should revert recording as expired if it's bought already", async function () {
             const { cmAccountManager, supplierCMAccount, distributorCMAccount, bookingToken } =
                 await loadFixture(deployBookingTokenFixture);
 
@@ -1543,6 +1885,55 @@ describe("BookingToken", function () {
             await expect(
                 otherCMAccount.connect(otherBookingOperator).finalizeCancellation(token_id, refundAmount),
             ).to.revertedWithCustomError(bookingToken, "OnlySupplierCanFinalizeCancellation");
+        });
+
+        it("should revert if caller is not CMAccount", async function () {
+            const {
+                supplierCMAccount,
+                distributorCMAccount,
+                bookingToken,
+                nullUSD,
+                tokenWithNativePayment,
+                tokenWithNullUSDPayment,
+                supplierBookingOperator,
+                distributorBookingOperator,
+                otherCMAccount,
+                otherBookingOperator,
+            } = await loadFixture(deployCancellationSupportFixture);
+
+            const token_id = tokenWithNativePayment;
+            const refundAmount = ethers.parseEther("0.045");
+            const reason = 42;
+            const reasonVersion = 1;
+
+            await expect(
+                bookingToken
+                    .connect(signers.otherAccount3)
+                    .initiateCancellation(token_id, refundAmount, reason, reasonVersion),
+            ).to.revertedWithCustomError(bookingToken, "NotCMAccount");
+
+            await expect(
+                bookingToken.connect(signers.otherAccount3).acceptCancellation(token_id, refundAmount),
+            ).to.revertedWithCustomError(bookingToken, "NotCMAccount");
+
+            await expect(
+                bookingToken
+                    .connect(signers.otherAccount3)
+                    .counterCancellation(token_id, refundAmount, reason, reasonVersion),
+            ).to.revertedWithCustomError(bookingToken, "NotCMAccount");
+
+            await expect(
+                bookingToken.connect(signers.otherAccount3).withdrawCancellation(token_id, reason, reasonVersion),
+            ).to.revertedWithCustomError(bookingToken, "NotCMAccount");
+
+            await expect(
+                bookingToken.connect(signers.otherAccount3).rejectCancellation(token_id, reason, reasonVersion),
+            ).to.revertedWithCustomError(bookingToken, "NotCMAccount");
+
+            // Special case for finalize
+            await expect(
+                bookingToken.connect(signers.otherAccount3).finalizeCancellation(token_id, refundAmount),
+            ).to.revertedWithCustomError(bookingToken, "NotCMAccount");
         });
 
         it("should initiate a cancellation proposal correctly", async function () {
@@ -1915,6 +2306,21 @@ describe("BookingToken", function () {
             const counterCancellationReasonVersion = 2;
             const counterRefundAmount = ethers.parseEther("0.05");
 
+            // REVERTS: TRY WITH NON-BOUGHT TOKEN
+
+            await expect(
+                distributorCMAccount
+                    .connect(distributorBookingOperator)
+                    .counterCancellation(
+                        tokenWithoutBuying,
+                        counterRefundAmount,
+                        counterCancellationReason,
+                        counterCancellationReasonVersion,
+                    ),
+            )
+                .to.revertedWithCustomError(bookingToken, "InvalidTokenStatus")
+                .withArgs(tokenWithoutBuying, 1n); // TOKEN: RESERVED: 1
+
             // REVERTS: TRY TO COUNTER NON-INITIATED PROPOSAL
 
             await expect(
@@ -2049,6 +2455,16 @@ describe("BookingToken", function () {
                     0, // timesRejected
                 );
 
+            // REVERTS: TRY WITH NON-BOUGHT TOKEN
+
+            await expect(
+                distributorCMAccount
+                    .connect(distributorBookingOperator)
+                    .withdrawCancellation(tokenWithoutBuying, withdrawalReason, withdrawalReasonVersion),
+            )
+                .to.revertedWithCustomError(bookingToken, "InvalidTokenStatus")
+                .withArgs(tokenWithoutBuying, 1n); // TOKEN: RESERVED: 1
+
             // REVERTS: TRY TO WITHDRAW WITH NON-CURRENT PROPOSER
 
             await expect(
@@ -2151,6 +2567,16 @@ describe("BookingToken", function () {
                     0, // timesCountered
                     0, // timesRejected
                 );
+
+            // REVERTS: TRY WITH NON-BOUGHT TOKEN
+
+            await expect(
+                distributorCMAccount
+                    .connect(distributorBookingOperator)
+                    .rejectCancellation(tokenWithoutBuying, rejectionReason, rejectionReasonVersion),
+            )
+                .to.revertedWithCustomError(bookingToken, "InvalidTokenStatus")
+                .withArgs(tokenWithoutBuying, 1n); // TOKEN: RESERVED: 1
 
             // REVERTS: TRY TO REJECT WITH PROPOSER
 
@@ -2548,6 +2974,16 @@ describe("BookingToken", function () {
             const cancellationReason = 42;
             const cancellationReasonVersion = 1;
 
+            // REVERTS: TRY WITH NON-BOUGHT TOKEN
+
+            await expect(
+                supplierCMAccount
+                    .connect(supplierBookingOperator)
+                    .finalizeCancellation(tokenWithoutBuying, refundAmount),
+            )
+                .to.revertedWithCustomError(bookingToken, "InvalidTokenStatus")
+                .withArgs(tokenWithoutBuying, 1n); // RESERVED: 1
+
             // REVERTS: TRY TO FINALIZE NON-INITIATED PROPOSAL
 
             await expect(
@@ -2723,6 +3159,11 @@ describe("BookingToken", function () {
             )
                 .to.be.revertedWithCustomError(bookingToken, "InvalidTokenStatus")
                 .withArgs(tokenWithNullUSDPayment, 4); // CANCELLED: 4
+
+            // Test record expiration
+            await expect(
+                supplierCMAccount.connect(supplierBookingOperator).recordExpiration(tokenWithNullUSDPayment),
+            ).to.be.revertedWithCustomError(bookingToken, "InvalidTokenStatus");
 
             // INIT with DISTRIBUTOR with OFFCHAIN PAYMENT
 
