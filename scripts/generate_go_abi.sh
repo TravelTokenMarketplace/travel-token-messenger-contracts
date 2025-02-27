@@ -79,6 +79,46 @@ else
     echo -e "Skipping yarn install and hardhat compile..."
 fi
 
+# Check abigen version
+echo -e "Checking abigen version..."
+
+# Extract expected version (remove leading "v" if present and then only keep the numeric part)
+EXPECTED_VERSION=$(echo "$GO_ETH_VERSION" | sed -E 's/^v//; s/([^0-9]*([0-9]+\.[0-9]+\.[0-9]+).*)/\2/')
+
+# Get abigen version and extract only the major.minor.patch portion
+if command -v abigen >/dev/null 2>&1; then
+    ABIGEN_FULL_VERSION=$(abigen --version)
+    ABIGEN_VERSION=$(echo "$ABIGEN_FULL_VERSION" | sed -E 's/([^0-9]*([0-9]+\.[0-9]+\.[0-9]+).*)/\2/')
+else
+    echo "abigen command not found."
+    ABIGEN_VERSION="0.0.0"
+    ABIGEN_FULL_VERSION="None"
+fi
+
+# Compare versions
+
+if [ "$ABIGEN_VERSION" != "$EXPECTED_VERSION" ]; then
+    echo "Abigen version mismatch. Expected: $GO_ETH_VERSION, Found: $ABIGEN_FULL_VERSION"
+
+    # Check if GOBIN is set
+    if [ -z "$GOBIN" ]; then
+        GOBIN="$(go env GOPATH)/bin"
+    fi
+
+    echo -e -n "Installing abigen to $GOBIN..."
+    go install github.com/ethereum/go-ethereum/cmd/abigen@${GO_ETH_VERSION} &&
+        echo -e "${WHITE}done!${NC}"
+
+    # Add abigen to PATH
+    export PATH="$GOBIN:$PATH"
+else
+    echo "Abigen version matches. Expected: $GO_ETH_VERSION, Found: $ABIGEN_FULL_VERSION"
+fi
+
+# Show versions
+echo -e "${WHITE}Go version: $(go version)${NC}"
+echo -e "${WHITE}abigen version: $(abigen --version)${NC}"
+
 echo "Generating Go ABI bindings..."
 for CONTRACT in "${ARTIFACTS[@]}"; do
 
@@ -122,7 +162,7 @@ echo -e "Running ${WHITE}go mod init ${GO_MODULE_NAME} ${NC}..."
 go mod init ${GO_MODULE_NAME}
 
 # Get ethereum/go-ethereum
-echo -e "Running ${WHITE}go get github.com/ethereum/go-ethereum${GO_ETH_VERSION} ${NC}..."
+echo -e "Running ${WHITE}go get github.com/ethereum/go-ethereum@${GO_ETH_VERSION} ${NC}..."
 go get github.com/ethereum/go-ethereum@${GO_ETH_VERSION}
 
 # Run go mod tidy
