@@ -457,3 +457,151 @@ Ethers.js, check out the [`test/ChequeManager.test.js`](test/ChequeManager.test.
 #### Python
 
 **TODO:** WIP
+
+## Camino Messenger Account Setup
+
+> [!WARNING]
+> This guide is for development purposes only. For officially registered
+> CM Accounts, please visit [Camino Messenger
+> Partners](https://suite.camino.network/partners) and select "**Register As A
+> Partner**" from top right.
+
+To set up your Camino Messenger Account (CM Account) for use with the Camino Messenger Bot, you need to:
+
+1. Create a CM Account
+2. Register your bot on your CM Account
+3. Register the services you provide on your CM Account
+
+Follow the steps below to complete this process.
+
+### Prerequisites
+
+Before you begin, ensure you have completed the following steps:
+
+- **Compile the Contracts:** Ensure all contracts are successfully compiled. (`yarn compile --force`)
+- **KYC Verification:** Complete [the KYC process](https://docs.camino.network/guides/kyc) for your wallet, as deploying a new contract (your CM Account) requires verification.
+- **Fund Your Wallet:** Use [the faucet](https://docs.camino.network/developer/guides/how-to-deploy-a-smart-contract/#3-request-funds-from-the-discord-faucet) to fund your wallet. Your new CM Account will initially needs to receive 100 CAM tokens, so ensure your wallet contains more than 100 CAM tokens.
+
+### Creating a CM Account
+
+To create your CM Account, run the following command:
+
+```
+yarn hardhat account create --private-key <PrivateKeyValue> --network columbus
+```
+
+<details>
+<summary>Example output:</summary>
+
+```
+yarn run v1.22.22
+$ /hgst/work/github.com/chain4travel/camino-messenger-contracts/node_modules/.bin/hardhat account create --private-key <private-key-deducted> --network columbus
+Running on columbus
+Creating CMAccount...
+Signer: 0xFe77dcE375C3814F15F8035bCAC1A791D3dCdf21
+Tx: 0x9b3bf383c7415cad9c442b60ff051c7c6467f5393e5b7a3c56a2aae475cc8f2d
+CMAccount Address: 0xe7C3AAd26fA667a2dc51A4B3c56f8919574b275A
+Done in 2.86s.
+```
+
+</details>
+
+> [!TIP]
+> Instead of specifying your private key and CM Account address from the CLI,
+> you can export them as variables.
+>
+> Use these commands to set the variables, and then you can omit the `--private-key`
+> and `--cm-account` arguments from the `yarn hardhat account` commands below:
+>
+> ```
+> export CMACCOUNT_PK=0x...
+> ```
+>
+> ```
+> export CMACCOUNT_ADDRESS=0x...
+> ```
+
+#### Command Parameters
+
+- **`--private-key`:** Enter the static private key of your wallet.
+- **`--network`:** Specify the network where you wish to create your account (as configured in the `hardhat.config.json`). For development purposes, use `columbus`.
+
+The command output will provide a new CM Account address that you must save for use in the following steps.
+
+### Registering Your Bot
+
+After creating your CM Account, you need to register the address of your bot on the
+CM Account to enable it to sign cheques. Execute the following command:
+
+```
+yarn hardhat account bot:add --cm-account <CMAccountAddress> --private-key <PrivateKeyValue> --bot <BotAddress> --network columbus
+```
+
+<details>
+<summary>Example output:</summary>
+
+```
+yarn run v1.22.22
+$ /hgst/work/github.com/chain4travel/camino-messenger-contracts/node_modules/.bin/hardhat account bot:add --cm-account 0xe7C3AAd26fA667a2dc51A4B3c56f8919574b275A --private-key <private-key-deducted> --network columbus --bot 0xd41786599F2B225A5A1eA35cDc4A2a6Fa9E92BeA
+CMAccount: 0xe7C3AAd26fA667a2dc51A4B3c56f8919574b275A
+Bot: 0xd41786599F2B225A5A1eA35cDc4A2a6Fa9E92BeA
+Gas: 0 (This amount will be transferred from the CMAccount to the bot address)
+Adding bot to CMAccount...
+Signer: 0xFe77dcE375C3814F15F8035bCAC1A791D3dCdf21
+Tx: 0x24421b26f36caadcdb007c1a5d010416b8889586c36471d399a3ab367ff967a4
+Done in 2.16s.
+```
+
+</details>
+
+#### Command Parameters
+
+- **`--cm-account`:** The EVM contract address of your newly created CM Account.
+- **`--private-key`:** The static private key of the wallet used for creating the CM Account.
+- **`--bot`:** The address of the bot you are registering. Ensure that this address is your C-chain address and not the same as your CM Account wallet.
+- **`--network`:** Specify the network (as configured in the `hardhat.config.json`).
+
+### Registering Services
+
+With your CM Account and bot registered, you can now add supported services. For example, to register the Ping Service, use the following command:
+
+```
+yarn hardhat account service:add --cm-account  <CMAccountAddress> --private-key <PrivateKeyValue> --service-name cmp.services.ping.v1.PingService --fee 10 --network columbus
+```
+
+<details>
+<summary>Example output:</summary>
+
+```
+yarn run v1.22.22
+$ /hgst/work/github.com/chain4travel/camino-messenger-contracts/node_modules/.bin/hardhat account service:add --service-name cmp.services.ping.v1.PingService --fee 10 --cm-account 0xe7C3AAd26fA667a2dc51A4B3c56f8919574b275A --private-key <private-key-deducted> --network columbus
+CMAccount: 0xe7C3AAd26fA667a2dc51A4B3c56f8919574b275A
+Service Name: cmp.services.ping.v1.PingService
+Fee: 10
+Restricted Rate: false
+Capabilities: undefined
+Adding service to CMAccount...
+Signer: 0xFe77dcE375C3814F15F8035bCAC1A791D3dCdf21
+Tx: 0xe84c6e7e8bfa90f9a35a4534add7b182a5b2240c6b0c1f2433cfad5156b4628d
+Done in 2.11s.
+```
+
+</details>
+
+#### Command Parameters
+
+- **`--cm-account`:** The EVM contract address of your CM Account.
+- **`--private-key`:** The static private key of the wallet used to create your CM Account.
+- **`--service-name`:** The full-service name to register. For a complete list of supported services, consult the [Camino Messenger Protocol documentation](https://buf.build/chain4travel/camino-messenger-protocol/docs). (You can also check the service names here in the [services](./services/) folder)
+- **`--fee`:** The service fee associated with your service in `aCAM` (`wei` in EVM terms).
+- **`--network`:** Specify the network (as configured in the `hardhat.config.json`).
+
+### Summary
+
+Following these steps, you will have:
+
+1. Created your CM Account.
+2. Registered your bot with the newly created CM Account.
+3. Added and configured services to enhance your account's capabilities.
+
+You can now add your CM Account address to the Camino Messenger Bot configuration and start running the bot.
