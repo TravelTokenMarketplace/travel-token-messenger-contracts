@@ -93,7 +93,7 @@ Service admin role can add & remove supported & wanted services.
 struct CMAccountStorage {
     address _manager;
     address _bookingToken;
-    uint256 _prefundAmount;
+    uint256 _unused;
 }
 ```
 
@@ -232,7 +232,7 @@ constructor() public
 ### initialize
 
 ```solidity
-function initialize(address manager, address bookingToken, uint256 prefundAmount, address defaultAdmin, address upgrader) public
+function initialize(address manager, address bookingToken, address defaultAdmin, address upgrader) public
 ```
 
 ### receive
@@ -268,20 +268,6 @@ Returns the booking token address.
 | Name | Type    | Description          |
 | ---- | ------- | -------------------- |
 | [0]  | address | BookingToken address |
-
-### getPrefundAmount
-
-```solidity
-function getPrefundAmount() public view returns (uint256)
-```
-
-Returns the prefund amount.
-
-#### Return Values
-
-| Name | Type    | Description    |
-| ---- | ------- | -------------- |
-| [0]  | uint256 | prefund amount |
 
 ### \_authorizeUpgrade
 
@@ -326,9 +312,12 @@ function withdraw(address payable recipient, uint256 amount) external
 
 Withdraw CAM from the CMAccount
 
-This function reverts if the amount is bigger then the prefund left to spend. This is to prevent
-spam by forcing user to spend the full prefund for cheques, so they can not just create an account
-and withdraw the prefund.
+#### Parameters
+
+| Name      | Type            | Description                     |
+| --------- | --------------- | ------------------------------- |
+| recipient | address payable | The recipient of the withdrawal |
+| amount    | uint256         | The amount to withdraw          |
 
 ### mintBookingToken
 
@@ -454,6 +443,15 @@ function removeService(string serviceName) public
 ```
 
 Remove a service from the account by its name
+
+### removeAllServices
+
+```solidity
+function removeAllServices() public
+```
+
+Remove all supported services from the account.
+This function retrieves all currently supported service names and removes them one by one.
 
 ### setServiceFee
 
@@ -642,7 +640,8 @@ Remove public key by address
 function addMessengerBot(address bot, uint256 gasMoney) public
 ```
 
-Adds messenger bot with initial gas money.
+Adds messenger bot with initial gas money. The amount of `gasMoney`
+need to be present in the contract.
 
 ### removeMessengerBot
 
@@ -754,7 +753,7 @@ Pre-computed hash of the MessengerCheque type
 
 ```
 keccak256(
-    "MessengerCheque(address fromCMAccount,address toCMAccount,address toBot,uint256 counter,uint256 amount,uint256 createdAt,uint256 expiresAt)"
+    "MessengerCheque(address fromCMAccount,address toCMAccount,address toBot,uint256 counter,uint256 amount,uint256 createdAt,uint256 expiresAt,address paymentToken)"
 );
 ```
 
@@ -783,6 +782,7 @@ struct MessengerCheque {
     uint256 amount;
     uint256 createdAt;
     uint256 expiresAt;
+    address paymentToken;
 }
 ```
 
@@ -807,13 +807,15 @@ struct ChequeManagerStorage {
   mapping(address => mapping(address => struct ChequeManager.LastCashIn)) _lastCashIns;
   uint256 _totalChequePayments;
   bytes32 _domainSeparator;
+  mapping(address => mapping(address => mapping(address => struct ChequeManager.LastCashIn))) _lastCashInsPerToken;
+  mapping(address => uint256) _totalChequePaymentsPerToken;
 }
 ```
 
 ### ChequeCashedIn
 
 ```solidity
-event ChequeCashedIn(address fromCMAccount, address toCMAccount, address fromBot, address toBot, uint256 counter, uint256 amount, uint256 paidChequeAmount, uint256 paidDeveloperFee)
+event ChequeCashedIn(address fromCMAccount, address toCMAccount, address fromBot, address toBot, uint256 counter, uint256 amount, uint256 paidChequeAmount, uint256 paidDeveloperFee, address paymentToken)
 ```
 
 Cash-in event. Emitted when a cheque is cashed in.
@@ -867,6 +869,50 @@ error ChequeExpired(uint256 expiresAt)
 
 The cheque is expired at the given timestamp.
 
+### IncorrectValue
+
+```solidity
+error IncorrectValue(uint256 current, uint256 expected)
+```
+
+Incorrect value.
+
+#### Parameters
+
+| Name     | Type    | Description     |
+| -------- | ------- | --------------- |
+| current  | uint256 | Current value.  |
+| expected | uint256 | Expected value. |
+
+### UnexpectedNativePayment
+
+```solidity
+error UnexpectedNativePayment(uint256 amount)
+```
+
+Error if there is an unexpected native payment.
+
+#### Parameters
+
+| Name   | Type    | Description           |
+| ------ | ------- | --------------------- |
+| amount | uint256 | The unexpected amount |
+
+### InvalidPaymentToken
+
+```solidity
+error InvalidPaymentToken(address paymentToken, address expectedPaymentToken)
+```
+
+Invalid payment token.
+
+#### Parameters
+
+| Name                 | Type    | Description                |
+| -------------------- | ------- | -------------------------- |
+| paymentToken         | address | The payment token          |
+| expectedPaymentToken | address | The expected payment token |
+
 ### \_\_ChequeManager_init
 
 ```solidity
@@ -893,7 +939,7 @@ Returns the domain separator.
 ### hashMessengerCheque
 
 ```solidity
-function hashMessengerCheque(address fromCMAccount, address toCMAccount, address toBot, uint256 counter, uint256 amount, uint256 createdAt, uint256 expiresAt) public pure returns (bytes32)
+function hashMessengerCheque(address fromCMAccount, address toCMAccount, address toBot, uint256 counter, uint256 amount, uint256 createdAt, uint256 expiresAt, address paymentToken) public pure returns (bytes32)
 ```
 
 Returns the hash of the `MessengerCheque` encoded with
@@ -902,7 +948,7 @@ Returns the hash of the `MessengerCheque` encoded with
 ### hashTypedDataV4
 
 ```solidity
-function hashTypedDataV4(address fromCMAccount, address toCMAccount, address toBot, uint256 counter, uint256 amount, uint256 createdAt, uint256 expiresAt) public view returns (bytes32)
+function hashTypedDataV4(address fromCMAccount, address toCMAccount, address toBot, uint256 counter, uint256 amount, uint256 createdAt, uint256 expiresAt, address paymentToken) public view returns (bytes32)
 ```
 
 Returns the hash of the typed data (cheque) with prefix and domain
@@ -911,7 +957,7 @@ separator.
 ### recoverSigner
 
 ```solidity
-function recoverSigner(address fromCMAccount, address toCMAccount, address toBot, uint256 counter, uint256 amount, uint256 createdAt, uint256 expiresAt, bytes signature) internal view returns (address signer)
+function recoverSigner(address fromCMAccount, address toCMAccount, address toBot, uint256 counter, uint256 amount, uint256 createdAt, uint256 expiresAt, address paymentToken, bytes signature) internal view returns (address signer)
 ```
 
 Returns the signer for the given cheque and signature. Uses {ECDSA} library to
@@ -920,12 +966,12 @@ recover the signer.
 ### verifyCheque
 
 ```solidity
-function verifyCheque(address fromCMAccount, address toCMAccount, address toBot, uint256 counter, uint256 amount, uint256 createdAt, uint256 expiresAt, bytes signature) public view returns (address signer, uint256 paymentAmount)
+function verifyCheque(address fromCMAccount, address toCMAccount, address toBot, uint256 counter, uint256 amount, uint256 createdAt, uint256 expiresAt, address paymentToken, bytes signature) public view returns (address signer, uint256 paymentAmount)
 ```
 
 Returns signer and payment amount if the signature is valid for the
 given cheque, the signer is an allowed bot, cheque counter and amounts are
-valid according to last cash ins.
+valid according to last cash ins per payment token.
 
 Please be aware that `cheque.amount < paymentAmount` for a valid cheque as
 long as the last amount is lower than the cheque amount. Only the difference
@@ -934,11 +980,12 @@ between the cheque amount and the last recorded amount is paid.
 ### cashInCheque
 
 ```solidity
-function cashInCheque(address fromCMAccount, address toCMAccount, address toBot, uint256 counter, uint256 amount, uint256 createdAt, uint256 expiresAt, bytes signature) public
+function cashInCheque(address fromCMAccount, address toCMAccount, address toBot, uint256 counter, uint256 amount, uint256 createdAt, uint256 expiresAt, address paymentToken, bytes signature) public
 ```
 
 Cash in a cheque by verifying it and paying the difference between the
-cheque amount and the last recorded amount for the signer and `toBot` pair.
+cheque amount and the last recorded amount for the signer and `toBot` pair per
+payment token.
 
 A percentage of the amount is also paid to the developer wallet.
 
@@ -953,22 +1000,24 @@ A percentage of the amount is also paid to the developer wallet.
 | amount        | uint256 | The amount on the cheque. Should be greater then or equal the last recorded amount. |
 | createdAt     | uint256 | The creation timestamp of the cheque.                                               |
 | expiresAt     | uint256 | The expiration timestamp of the cheque.                                             |
+| paymentToken  | address | The payment token of the cheque.                                                    |
 | signature     | bytes   | The signature of the cheque.                                                        |
 
 ### getLastCashIn
 
 ```solidity
-function getLastCashIn(address fromBot, address toBot) public view returns (uint256 lastCounter, uint256 lastAmount, uint256 lastCreatedAt, uint256 lastExpiresAt)
+function getLastCashIn(address fromBot, address toBot, address paymentToken) public view returns (uint256 lastCounter, uint256 lastAmount, uint256 lastCreatedAt, uint256 lastExpiresAt)
 ```
 
-Returns last cash-in details for given `fromBot` & `toBot` pair.
+Returns last cash-in details for given `fromBot` & `toBot` pair and payment token.
 
 #### Parameters
 
-| Name    | Type    | Description                                                                                                      |
-| ------- | ------- | ---------------------------------------------------------------------------------------------------------------- |
-| fromBot | address | The address of the bot that sent the cheque.                                                                     |
-| toBot   | address | The address of the bot that received the cheque. Returns (lastCounter, lastAmount, lastCreatedAt, lastExpiresAt) |
+| Name         | Type    | Description                                                                                      |
+| ------------ | ------- | ------------------------------------------------------------------------------------------------ |
+| fromBot      | address | The address of the bot that sent the cheque.                                                     |
+| toBot        | address | The address of the bot that received the cheque.                                                 |
+| paymentToken | address | The payment token of the cheque. Returns (lastCounter, lastAmount, lastCreatedAt, lastExpiresAt) |
 
 #### Return Values
 
@@ -982,21 +1031,22 @@ Returns last cash-in details for given `fromBot` & `toBot` pair.
 ### setLastCashIn
 
 ```solidity
-function setLastCashIn(address fromBot, address toBot, uint256 counter, uint256 amount, uint256 createdAt, uint256 expiresAt) internal
+function setLastCashIn(address fromBot, address toBot, uint256 counter, uint256 amount, uint256 createdAt, uint256 expiresAt, address paymentToken) internal
 ```
 
-Sets last cash-in for given `fromBot`, `toBot` pair.
+Sets last cash-in for given `fromBot`, `toBot` pair and payment token.
 
 #### Parameters
 
-| Name      | Type    | Description                                      |
-| --------- | ------- | ------------------------------------------------ |
-| fromBot   | address | The address of the bot that sent the cheque.     |
-| toBot     | address | The address of the bot that received the cheque. |
-| counter   | uint256 | The counter of the cheque.                       |
-| amount    | uint256 | The amount of the cheque.                        |
-| createdAt | uint256 | The creation timestamp of the cheque.            |
-| expiresAt | uint256 | The expiration timestamp of the cheque.          |
+| Name         | Type    | Description                                      |
+| ------------ | ------- | ------------------------------------------------ |
+| fromBot      | address | The address of the bot that sent the cheque.     |
+| toBot        | address | The address of the bot that received the cheque. |
+| counter      | uint256 | The counter of the cheque.                       |
+| amount       | uint256 | The amount of the cheque.                        |
+| createdAt    | uint256 | The creation timestamp of the cheque.            |
+| expiresAt    | uint256 | The expiration timestamp of the cheque.          |
+| paymentToken | address | The payment token of the cheque.                 |
 
 ### getTotalChequePayments
 
@@ -1004,13 +1054,35 @@ Sets last cash-in for given `fromBot`, `toBot` pair.
 function getTotalChequePayments() public view returns (uint256)
 ```
 
-Returns total cheque payments. This is the sum of all cashed in cheques.
+[Legacy] Returns total cheque payments. This is the sum [CAM] of all cashed in cheques.
+
+This function is deprecated, please use `getTotalChequePaymentsPerToken` instead.
 
 #### Return Values
 
 | Name | Type    | Description                                         |
 | ---- | ------- | --------------------------------------------------- |
 | [0]  | uint256 | totalChequePayments The total cheque payments made. |
+
+### getTotalChequePaymentsPerToken
+
+```solidity
+function getTotalChequePaymentsPerToken(address paymentToken) public view returns (uint256)
+```
+
+Returns total cheque payments for given payment token.
+
+#### Parameters
+
+| Name         | Type    | Description                      |
+| ------------ | ------- | -------------------------------- |
+| paymentToken | address | The payment token of the cheque. |
+
+#### Return Values
+
+| Name | Type    | Description                                                               |
+| ---- | ------- | ------------------------------------------------------------------------- |
+| [0]  | uint256 | totalChequePayments The total cheque payments made for the payment token. |
 
 ### isBotAllowed
 
@@ -1163,7 +1235,7 @@ Returns the gas money withdrawal details for an account.
 ### initialize
 
 ```solidity
-function initialize(address manager, address bookingToken, uint256 prefundAmount, address owner, address upgrader) external
+function initialize(address manager, address bookingToken, address owner, address upgrader) external
 ```
 
 ## BookingToken
@@ -2380,9 +2452,10 @@ address.
 
 Create CM Account: Users who want to create an account should call
 `createCMAccount(address admin, address upgrader)` function with addresses of
-the accounts admin and upgrader roles and also send the pre fund amount,
-which is currently set as 100 CAMs. When the manager contract is paused,
-account creation is stopped.
+the accounts admin and upgrader roles and they also need to approve the service
+fee token with the amount of prefund.
+
+When the manager contract is paused, account creation is stopped.
 
 Developer Fee: This contracts also keeps the info about the developer wallet
 and fee basis points. Which are used during the cheque cash in to pay for the
@@ -2471,6 +2544,14 @@ bytes32 CMACCOUNT_ROLE
 This role is granted to the created CM Accounts. It is used to keep
 an enumerable list of CM Accounts.
 
+### SERVICE_FEE_TOKEN_ADMIN_ROLE
+
+```solidity
+bytes32 SERVICE_FEE_TOKEN_ADMIN_ROLE
+```
+
+This role is able to set the service fee token address.
+
 ### CMAccountInfo
 
 CMAccount info struct, to keep track of created CM Accounts and their
@@ -2493,6 +2574,7 @@ struct CMAccountManagerStorage {
   uint256 _developerFeeBp;
   address _bookingToken;
   mapping(address => struct CMAccountManager.CMAccountInfo) _cmAccountInfo;
+  address _serviceFeeToken;
 }
 ```
 
@@ -2570,6 +2652,36 @@ Booking token address updated event.
 | oldBookingToken | address | The old booking token address |
 | newBookingToken | address | The new booking token address |
 
+### ServiceFeeTokenUpdated
+
+```solidity
+event ServiceFeeTokenUpdated(address oldServiceFeeToken, address newServiceFeeToken)
+```
+
+Service fee token address updated event.
+
+#### Parameters
+
+| Name               | Type    | Description                       |
+| ------------------ | ------- | --------------------------------- |
+| oldServiceFeeToken | address | The old service fee token address |
+| newServiceFeeToken | address | The new service fee token address |
+
+### PrefundAmountUpdated
+
+```solidity
+event PrefundAmountUpdated(uint256 oldPrefundAmount, uint256 newPrefundAmount)
+```
+
+Prefund amount updated event.
+
+#### Parameters
+
+| Name             | Type    | Description            |
+| ---------------- | ------- | ---------------------- |
+| oldPrefundAmount | uint256 | The old prefund amount |
+| newPrefundAmount | uint256 | The new prefund amount |
+
 ### CMAccountInvalidImplementation
 
 ```solidity
@@ -2626,20 +2738,19 @@ Invalid booking token address.
 | ------------ | ------- | ------------------------- |
 | bookingToken | address | The booking token address |
 
-### IncorrectPrefundAmount
+### InvalidServiceFeeToken
 
 ```solidity
-error IncorrectPrefundAmount(uint256 expected, uint256 sended)
+error InvalidServiceFeeToken(address serviceFeeToken)
 ```
 
-Incorrect pre fund amount.
+Invalid service fee token error.
 
 #### Parameters
 
-| Name     | Type    | Description                  |
-| -------- | ------- | ---------------------------- |
-| expected | uint256 | The expected pre fund amount |
-| sended   | uint256 |                              |
+| Name            | Type    | Description                   |
+| --------------- | ------- | ----------------------------- |
+| serviceFeeToken | address | The service fee token address |
 
 ### constructor
 
@@ -2690,9 +2801,27 @@ implementation from the manager.
 Because this function is deploying a contract, it reverts if the caller is
 not KYC or KYB verified. (For EOAs only)
 
-Caller must send the pre-fund amount with the transaction.
+Caller must approve the pre-fund amount before calling this function.
 
 _Emits a {CMAccountCreated} event._
+
+### \_transferServiceFeePrefund
+
+```solidity
+function _transferServiceFeePrefund(address account) internal
+```
+
+Transfers the service fee prefund amount to the CMAccount
+
+_This function is called when a CMAccount is created. The msg.sender
+should approve the allowance of the service fee token to the
+CMAccountManager._
+
+#### Parameters
+
+| Name    | Type    | Description           |
+| ------- | ------- | --------------------- |
+| account | address | The CMAccount address |
 
 ### \_setCMAccountInfo
 
@@ -2727,6 +2856,34 @@ Check if an address is CMAccount created by the manager.
 | Name    | Type    | Description                  |
 | ------- | ------- | ---------------------------- |
 | account | address | The account address to check |
+
+### getServiceFeeToken
+
+```solidity
+function getServiceFeeToken() public view returns (address)
+```
+
+Returns the service fee token address.
+
+### setServiceFeeToken
+
+```solidity
+function setServiceFeeToken(address serviceFeeToken) public
+```
+
+Sets the service fee token address.
+
+#### Parameters
+
+| Name            | Type    | Description                   |
+| --------------- | ------- | ----------------------------- |
+| serviceFeeToken | address | The service fee token address |
+
+### \_setServiceFeeToken
+
+```solidity
+function _setServiceFeeToken(address serviceFeeToken) internal
+```
 
 ### getAccountImplementation
 
@@ -2898,6 +3055,12 @@ function getRegisteredServiceHashByName(string serviceName) external view return
 
 ```solidity
 function getRegisteredServiceNameByHash(bytes32 serviceHash) external view returns (string serviceName)
+```
+
+### getServiceFeeToken
+
+```solidity
+function getServiceFeeToken() external view returns (address)
 ```
 
 ## CMAccountManagerTest

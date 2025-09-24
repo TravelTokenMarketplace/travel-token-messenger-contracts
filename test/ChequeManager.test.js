@@ -11,6 +11,7 @@ const {
     deployCMAccountManagerWithCMAccountImplFixture,
     deployAndConfigureAllFixture,
     deployCMAccountWithDepositFixture,
+    deployNullUSDFixture,
 } = require("./utils/fixtures");
 
 // Cheque utils
@@ -61,7 +62,8 @@ describe("ChequeManager", function () {
         });
 
         it("Should hash the messenger cheque correctly", async function () {
-            const { cmAccount } = await loadFixture(deployCMAccountWithDepositFixture);
+            const { cmAccount, nullUSD } = await loadFixture(deployCMAccountWithDepositFixture);
+
             const cheque = {
                 fromCMAccount: await cmAccount.getAddress(),
                 toCMAccount: signers.chequeOperator.address,
@@ -70,6 +72,7 @@ describe("ChequeManager", function () {
                 amount: ethers.parseEther("1"),
                 createdAt: ethers.toBigInt(Math.floor(Date.now() / 1000)),
                 expiresAt: ethers.toBigInt(Math.floor(Date.now() / 1000)) + 300n,
+                paymentToken: await nullUSD.getAddress(),
             };
 
             const calculatedHash = calculateMessengerChequeHash(cheque);
@@ -82,6 +85,7 @@ describe("ChequeManager", function () {
                 cheque.amount,
                 cheque.createdAt,
                 cheque.expiresAt,
+                cheque.paymentToken,
             );
 
             expect(hashFromContract).to.be.equal(calculatedHash);
@@ -89,7 +93,7 @@ describe("ChequeManager", function () {
 
         it("Should hash TypedData correctly", async function () {
             // Set up signers and contract instance
-            const { cmAccount } = await loadFixture(deployCMAccountWithDepositFixture);
+            const { cmAccount, nullUSD } = await loadFixture(deployCMAccountWithDepositFixture);
 
             // Create a MessengerCheque object
             const cheque = {
@@ -100,6 +104,7 @@ describe("ChequeManager", function () {
                 amount: ethers.parseEther("1"),
                 createdAt: ethers.toBigInt(Math.floor(Date.now() / 1000)),
                 expiresAt: ethers.toBigInt(Math.floor(Date.now() / 1000)) + 300n,
+                paymentToken: await nullUSD.getAddress(),
             };
 
             // Calculate domain separator
@@ -118,6 +123,7 @@ describe("ChequeManager", function () {
                 cheque.amount,
                 cheque.createdAt,
                 cheque.expiresAt,
+                cheque.paymentToken,
             );
 
             // Assert that the calculated typedDataHash is equal to the typedDataHash from contract
@@ -127,7 +133,12 @@ describe("ChequeManager", function () {
 
     describe("Cheque Operations", function () {
         it("Should verify a cheque with a valid signature", async function () {
-            const { cmAccount, cmAccountManager, prefundAmount } = await loadFixture(deployCMAccountWithDepositFixture);
+            const { cmAccount, cmAccountManager, prefundAmount, nullUSD, nullUSDDecimals } = await loadFixture(
+                deployCMAccountWithDepositFixture,
+            );
+
+            // Approve service fee
+            await nullUSD.approve(await cmAccountManager.getAddress(), prefundAmount);
 
             // Create receiving account (toCMAccount)
             const tx = await cmAccountManager.createCMAccount(
@@ -156,9 +167,10 @@ describe("ChequeManager", function () {
                 toCMAccount: toCMAccountAddress,
                 toBot: signers.otherAccount2.address,
                 counter: 1,
-                amount: ethers.parseEther("1"),
+                amount: ethers.parseUnits("1", nullUSDDecimals),
                 createdAt: ethers.toBigInt(Math.floor(Date.now() / 1000)),
                 expiresAt: ethers.toBigInt(Math.floor(Date.now() / 1000)) + 300n,
+                paymentToken: await nullUSD.getAddress(),
             };
 
             // Grant CHEQUE_OPERATOR_ROLE
@@ -178,14 +190,23 @@ describe("ChequeManager", function () {
                 cheque.amount,
                 cheque.createdAt,
                 cheque.expiresAt,
+                cheque.paymentToken,
                 signature,
             );
 
-            expect(verifyResponse).to.be.deep.equal([signers.chequeOperator.address, ethers.parseEther("1")]);
+            expect(verifyResponse).to.be.deep.equal([
+                signers.chequeOperator.address,
+                ethers.parseUnits("1", nullUSDDecimals),
+            ]);
         });
 
         it("Should not verify a cheque with an invalid signature", async function () {
-            const { cmAccount, cmAccountManager, prefundAmount } = await loadFixture(deployCMAccountWithDepositFixture);
+            const { cmAccount, cmAccountManager, prefundAmount, nullUSD, nullUSDDecimals } = await loadFixture(
+                deployCMAccountWithDepositFixture,
+            );
+
+            // Approve service fee
+            await nullUSD.approve(await cmAccountManager.getAddress(), prefundAmount);
 
             // Create receiving account (toCMAccount)
             const tx = await cmAccountManager.createCMAccount(
@@ -217,6 +238,7 @@ describe("ChequeManager", function () {
                 amount: ethers.parseEther("1"),
                 createdAt: ethers.toBigInt(Math.floor(Date.now() / 1000)),
                 expiresAt: ethers.toBigInt(Math.floor(Date.now() / 1000)) + 300n,
+                paymentToken: await nullUSD.getAddress(),
             };
 
             // Grant CHEQUE_OPERATOR_ROLE
@@ -239,6 +261,7 @@ describe("ChequeManager", function () {
                     cheque.amount,
                     cheque.createdAt,
                     cheque.expiresAt,
+                    cheque.paymentToken,
                     signature,
                 ),
             )
@@ -247,7 +270,12 @@ describe("ChequeManager", function () {
         });
 
         it("Should not verify a cheque with non-allowed signer", async function () {
-            const { cmAccount, cmAccountManager, prefundAmount } = await loadFixture(deployCMAccountWithDepositFixture);
+            const { cmAccount, cmAccountManager, prefundAmount, nullUSD, nullUSDDecimals } = await loadFixture(
+                deployCMAccountWithDepositFixture,
+            );
+
+            // Approve service fee
+            await nullUSD.approve(await cmAccountManager.getAddress(), prefundAmount);
 
             // Create receiving account (toCMAccount)
             const tx = await cmAccountManager.createCMAccount(
@@ -279,11 +307,12 @@ describe("ChequeManager", function () {
                 amount: ethers.parseEther("1"),
                 createdAt: ethers.toBigInt(Math.floor(Date.now() / 1000)),
                 expiresAt: ethers.toBigInt(Math.floor(Date.now() / 1000)) + 300n,
+                paymentToken: await nullUSD.getAddress(),
             };
 
             // Be sure that the signer does not have the CHEQUE_OPERATOR_ROLE role
             const CHEQUE_OPERATOR_ROLE = await cmAccount.CHEQUE_OPERATOR_ROLE();
-            expect(await cmAccountManager.hasRole(CHEQUE_OPERATOR_ROLE, signers.chequeOperator.address)).to.be.false;
+            expect(await cmAccount.hasRole(CHEQUE_OPERATOR_ROLE, signers.chequeOperator.address)).to.be.false;
 
             // Sign the cheque. Signature is valid but the signer is not allowed to sign on the `fromCMAccount`
             const signature = await signMessengerCheque(cheque, signers.chequeOperator);
@@ -298,6 +327,7 @@ describe("ChequeManager", function () {
                     cheque.amount,
                     cheque.createdAt,
                     cheque.expiresAt,
+                    cheque.paymentToken,
                     signature,
                 ),
             )
@@ -306,7 +336,12 @@ describe("ChequeManager", function () {
         });
 
         it("Should not verify a cheque if from/to is not CMAccount", async function () {
-            const { cmAccount, cmAccountManager, prefundAmount } = await loadFixture(deployCMAccountWithDepositFixture);
+            const { cmAccount, cmAccountManager, prefundAmount, nullUSD, nullUSDDecimals } = await loadFixture(
+                deployCMAccountWithDepositFixture,
+            );
+
+            // Approve service fee
+            await nullUSD.approve(await cmAccountManager.getAddress(), prefundAmount);
 
             // Create receiving account (toCMAccount)
             const tx = await cmAccountManager.createCMAccount(
@@ -339,6 +374,7 @@ describe("ChequeManager", function () {
                 amount: ethers.parseEther("1"),
                 createdAt: ethers.toBigInt(Math.floor(Date.now() / 1000)),
                 expiresAt: ethers.toBigInt(Math.floor(Date.now() / 1000)) + 300n,
+                paymentToken: await nullUSD.getAddress(),
             };
 
             const chequeWithInvalidTo = {
@@ -349,6 +385,7 @@ describe("ChequeManager", function () {
                 amount: ethers.parseEther("1"),
                 createdAt: ethers.toBigInt(Math.floor(Date.now() / 1000)),
                 expiresAt: ethers.toBigInt(Math.floor(Date.now() / 1000)) + 300n,
+                paymentToken: await nullUSD.getAddress(),
             };
 
             // Grant CHEQUE_OPERATOR_ROLE
@@ -369,6 +406,7 @@ describe("ChequeManager", function () {
                     chequeWithInvalidFrom.amount,
                     chequeWithInvalidFrom.createdAt,
                     chequeWithInvalidFrom.expiresAt,
+                    chequeWithInvalidFrom.paymentToken,
                     signatureFrom,
                 ),
             )
@@ -384,6 +422,7 @@ describe("ChequeManager", function () {
                     chequeWithInvalidTo.amount,
                     chequeWithInvalidTo.createdAt,
                     chequeWithInvalidTo.expiresAt,
+                    chequeWithInvalidTo.paymentToken,
                     signatureTo,
                 ),
             )
@@ -392,7 +431,12 @@ describe("ChequeManager", function () {
         });
 
         it("Should not verify an expired cheque", async function () {
-            const { cmAccount, cmAccountManager, prefundAmount } = await loadFixture(deployCMAccountWithDepositFixture);
+            const { cmAccount, cmAccountManager, prefundAmount, nullUSD, nullUSDDecimals } = await loadFixture(
+                deployCMAccountWithDepositFixture,
+            );
+
+            // Approve service fee
+            await nullUSD.approve(await cmAccountManager.getAddress(), prefundAmount);
 
             // Create receiving account (toCMAccount)
             const tx = await cmAccountManager.createCMAccount(
@@ -427,6 +471,7 @@ describe("ChequeManager", function () {
                 amount: ethers.parseEther("1"),
                 createdAt: createdAt,
                 expiresAt: expiresAt,
+                paymentToken: await nullUSD.getAddress(),
             };
 
             // Grant CHEQUE_OPERATOR_ROLE
@@ -447,6 +492,7 @@ describe("ChequeManager", function () {
                     cheque.amount,
                     cheque.createdAt,
                     cheque.expiresAt,
+                    cheque.paymentToken,
                     signature,
                 ),
             )
@@ -454,8 +500,97 @@ describe("ChequeManager", function () {
                 .withArgs(expiresAt);
         });
 
+        it("Should not verify/cash in a cheque with an invalid payment token", async function () {
+            const { cmAccount, cmAccountManager, prefundAmount, nullUSD, nullUSDDecimals } = await loadFixture(
+                deployCMAccountWithDepositFixture,
+            );
+
+            // Approve service fee
+            await nullUSD.approve(await cmAccountManager.getAddress(), prefundAmount);
+
+            // Create receiving account (toCMAccount)
+            const tx = await cmAccountManager.createCMAccount(
+                signers.cmAccountAdmin.address,
+                signers.cmAccountUpgrader.address,
+                { value: prefundAmount },
+            );
+
+            const receipt = await tx.wait();
+
+            // Parse event to get the CMAccount address
+            const event = receipt.logs.find((log) => {
+                try {
+                    return cmAccountManager.interface.parseLog(log).name === "CMAccountCreated";
+                } catch (e) {
+                    return false;
+                }
+            });
+
+            const parsedEvent = cmAccountManager.interface.parseLog(event);
+            const toCMAccountAddress = parsedEvent.args.account;
+
+            // Define cheque
+            const cheque = {
+                fromCMAccount: await cmAccount.getAddress(),
+                toCMAccount: toCMAccountAddress,
+                toBot: signers.otherAccount2.address,
+                counter: 1,
+                amount: ethers.parseEther("1"),
+                createdAt: ethers.toBigInt(Math.floor(Date.now() / 1000)),
+                expiresAt: ethers.toBigInt(Math.floor(Date.now() / 1000)) + 300n,
+                paymentToken: "0x0000000000000000000000000000000000000001", // Invalid payment token
+            };
+
+            // Grant CHEQUE_OPERATOR_ROLE
+            await cmAccount
+                .connect(signers.cmAccountAdmin)
+                .grantRole(await cmAccount.CHEQUE_OPERATOR_ROLE(), signers.chequeOperator.address);
+
+            // Sign the cheque
+            const signature = await signMessengerCheque(cheque, signers.chequeOperator);
+
+            // Verify cheque, should revert with InvalidPaymentToken
+            await expect(
+                cmAccount.verifyCheque(
+                    cheque.fromCMAccount,
+                    cheque.toCMAccount,
+                    cheque.toBot,
+                    cheque.counter,
+                    cheque.amount,
+                    cheque.createdAt,
+                    cheque.expiresAt,
+                    cheque.paymentToken,
+                    signature,
+                ),
+            )
+                .to.be.revertedWithCustomError(cmAccount, "InvalidPaymentToken")
+                .withArgs(cheque.paymentToken, await nullUSD.getAddress());
+
+            // Try to cash-in the cheque, should revert with InvalidPaymentToken
+            await expect(
+                cmAccount.cashInCheque(
+                    cheque.fromCMAccount,
+                    cheque.toCMAccount,
+                    cheque.toBot,
+                    cheque.counter,
+                    cheque.amount,
+                    cheque.createdAt,
+                    cheque.expiresAt,
+                    cheque.paymentToken,
+                    signature,
+                ),
+            )
+                .to.be.revertedWithCustomError(cmAccount, "InvalidPaymentToken")
+                .withArgs(cheque.paymentToken, await nullUSD.getAddress());
+        });
+
         it("Should cash-in multiple cheques correctly", async function () {
-            const { cmAccount, cmAccountManager, prefundAmount } = await loadFixture(deployCMAccountWithDepositFixture);
+            const { cmAccount, cmAccountManager, prefundAmount, nullUSD, nullUSDDecimals } = await loadFixture(
+                deployCMAccountWithDepositFixture,
+            );
+
+            // Approve service fee
+            await nullUSD.approve(await cmAccountManager.getAddress(), prefundAmount);
 
             // Create receiving account (toCMAccount)
             const tx = await cmAccountManager.createCMAccount(
@@ -489,6 +624,7 @@ describe("ChequeManager", function () {
                 amount: ethers.parseEther("0.1"),
                 createdAt: createdAt,
                 expiresAt: createdAt + 300n,
+                paymentToken: await nullUSD.getAddress(),
             };
 
             // Grant CHEQUE_OPERATOR_ROLE
@@ -512,20 +648,25 @@ describe("ChequeManager", function () {
                 cheque.amount,
                 cheque.createdAt,
                 cheque.expiresAt,
+                cheque.paymentToken,
                 signature,
             );
 
             // CMAccount balance should decrease by cheque amount (developer fee cut is taken from the cheque amount)
-            await expect(await cashInResponse).to.changeEtherBalance(cmAccount, -cheque.amount);
+            await expect(cashInResponse).to.changeTokenBalance(nullUSD, cmAccount, -cheque.amount);
 
             // toCMAccount balance should increase by cheque amount - developerFee
-            await expect(await cashInResponse).to.changeEtherBalance(toCMAccountAddress, cheque.amount - developerFee);
+            await expect(cashInResponse).to.changeTokenBalance(
+                nullUSD,
+                toCMAccountAddress,
+                cheque.amount - developerFee,
+            );
 
             // DeveloperWallet balance should increase by developerFee
-            await expect(await cashInResponse).to.changeEtherBalance(signers.developerWallet, developerFee);
+            await expect(cashInResponse).to.changeTokenBalance(nullUSD, signers.developerWallet, developerFee);
 
             // Should emit event with correct data
-            await expect(await cashInResponse)
+            await expect(cashInResponse)
                 .to.emit(cmAccount, "ChequeCashedIn")
                 .withArgs(
                     cheque.fromCMAccount,
@@ -536,15 +677,21 @@ describe("ChequeManager", function () {
                     cheque.amount,
                     cheque.amount - developerFee, // paid amount
                     developerFee, // developer cut
+                    cheque.paymentToken,
                 );
 
             // Sanity checks: should set lastCashIns
-            const lastCashIn = await cmAccount.getLastCashIn(signers.chequeOperator, cheque.toBot);
+            const lastCashIn = await cmAccount.getLastCashIn(
+                signers.chequeOperator.address,
+                cheque.toBot,
+                cheque.paymentToken,
+            );
             expect(lastCashIn).to.be.deep.equal([cheque.counter, cheque.amount, createdAt, createdAt + 300n]);
+
             // Check total cheque payments
             // Total cheque payments should be equal to the last cheque amount
             // because we use same from/to CM accounts
-            expect(await cmAccount.getTotalChequePayments()).to.be.equal(cheque.amount);
+            expect(await cmAccount.getTotalChequePaymentsPerToken(cheque.paymentToken)).to.be.equal(cheque.amount);
 
             /**
              * Second cheque
@@ -561,6 +708,7 @@ describe("ChequeManager", function () {
                 amount: ethers.parseEther("0.234"),
                 createdAt: createdAt2,
                 expiresAt: createdAt2 + 300n,
+                paymentToken: await nullUSD.getAddress(),
             };
 
             // Sign Cheque
@@ -578,26 +726,29 @@ describe("ChequeManager", function () {
                 cheque2.amount,
                 cheque2.createdAt,
                 cheque2.expiresAt,
+                cheque2.paymentToken,
                 signature2,
             );
 
             // CMAccount balance decrease by (cheque2 amount - cheque amount)
-            await expect(await cashInResponse2).to.changeEtherBalance(
+            await expect(cashInResponse2).to.changeTokenBalance(
+                nullUSD,
                 cmAccount,
                 -cheque2.amount + cheque.amount, // Weird calculation but it works
             );
 
             // toCMAccount balance increase by (cheque2 amount - cheque amount) - developerFee2
-            await expect(await cashInResponse2).to.changeEtherBalance(
+            await expect(cashInResponse2).to.changeTokenBalance(
+                nullUSD,
                 toCMAccountAddress,
                 cheque2.amount - cheque.amount - developerFee2, // new cheque amount minus the lastCashIn amount
             );
 
             // DeveloperWallet balance increase by developerFee
-            await expect(await cashInResponse2).to.changeEtherBalance(signers.developerWallet, developerFee2);
+            await expect(cashInResponse2).to.changeTokenBalance(nullUSD, signers.developerWallet, developerFee2);
 
             // Should emit event with correct data
-            await expect(await cashInResponse2)
+            await expect(cashInResponse2)
                 .to.emit(cmAccount, "ChequeCashedIn")
                 .withArgs(
                     cheque2.fromCMAccount,
@@ -608,19 +759,116 @@ describe("ChequeManager", function () {
                     cheque2.amount,
                     cheque2.amount - cheque.amount - developerFee2, // paid amount for this cheque
                     developerFee2,
+                    cheque2.paymentToken,
                 );
 
             // Sanity checks: should set lastCashIns
-            expect(await cmAccount.getLastCashIn(signers.chequeOperator, cheque.toBot)).to.be.deep.equal([
-                cheque2.counter,
-                cheque2.amount,
-                createdAt2,
-                createdAt2 + 300n,
-            ]);
+            expect(
+                await cmAccount.getLastCashIn(signers.chequeOperator.address, cheque.toBot, cheque2.paymentToken),
+            ).to.be.deep.equal([cheque2.counter, cheque2.amount, createdAt2, createdAt2 + 300n]);
+
             // Check total cheque payments
             // Total cheque payments should be equal to the last cheque amount
             // because we use same from/to CM account pairs for cheques above
-            expect(await cmAccount.getTotalChequePayments()).to.be.equal(cheque2.amount);
+            expect(await cmAccount.getTotalChequePaymentsPerToken(cheque2.paymentToken)).to.be.equal(cheque2.amount);
+
+            // DIFFERENT CM ACCOUNT ----------------------------------------------------------------
+
+            // Approve ERC20 service fee
+            await nullUSD.approve(await cmAccountManager.getAddress(), prefundAmount);
+
+            // Create different CM Account to test total cheque payments
+            const diffCMAccount_tx = await cmAccountManager.createCMAccount(
+                signers.cmAccountAdmin.address,
+                signers.cmAccountUpgrader.address,
+                { value: prefundAmount },
+            );
+
+            const diffCMAccount_receipt = await diffCMAccount_tx.wait();
+
+            // Parse event to get the CMAccount address
+            const diffCMAccount_event = diffCMAccount_receipt.logs.find((log) => {
+                try {
+                    return cmAccountManager.interface.parseLog(log).name === "CMAccountCreated";
+                } catch (e) {
+                    return false;
+                }
+            });
+
+            const diffCMAccount_parsedEvent = cmAccountManager.interface.parseLog(diffCMAccount_event);
+            const diffCMAccountAddress = diffCMAccount_parsedEvent.args.account;
+
+            // New cheque with a higher counter and amount
+            const diffCMAccount_cheque = {
+                fromCMAccount: await cmAccount.getAddress(),
+                toCMAccount: diffCMAccountAddress,
+                toBot: signers.otherAccount3.address, // Use different bot
+                counter: 100,
+                amount: ethers.parseEther("0.432"),
+                createdAt: ethers.toBigInt(Math.floor(Date.now() / 1000)),
+                expiresAt: ethers.toBigInt(Math.floor(Date.now() / 1000)) + 300n,
+                paymentToken: await nullUSD.getAddress(),
+            };
+
+            // Sign Cheque
+            const diffCMAccount_signature = await signMessengerCheque(diffCMAccount_cheque, signers.chequeOperator);
+
+            // Cash-in cheque
+            const diffCMAccount_cashInResponse = await cmAccount.cashInCheque(
+                diffCMAccount_cheque.fromCMAccount,
+                diffCMAccount_cheque.toCMAccount,
+                diffCMAccount_cheque.toBot,
+                diffCMAccount_cheque.counter,
+                diffCMAccount_cheque.amount,
+                diffCMAccount_cheque.createdAt,
+                diffCMAccount_cheque.expiresAt,
+                diffCMAccount_cheque.paymentToken,
+                diffCMAccount_signature,
+            );
+
+            // Calculate developer fee
+            const diffCMAccount_developerFee = (diffCMAccount_cheque.amount * developerFeeBp) / 10000n;
+
+            // Should emit event with correct data
+            await expect(diffCMAccount_cashInResponse)
+                .to.emit(cmAccount, "ChequeCashedIn")
+                .withArgs(
+                    diffCMAccount_cheque.fromCMAccount,
+                    diffCMAccount_cheque.toCMAccount,
+                    signers.chequeOperator.address, // fromBot
+                    diffCMAccount_cheque.toBot,
+                    diffCMAccount_cheque.counter,
+                    diffCMAccount_cheque.amount,
+                    diffCMAccount_cheque.amount - diffCMAccount_developerFee, // paid amount for this cheque
+                    diffCMAccount_developerFee,
+                    diffCMAccount_cheque.paymentToken,
+                );
+
+            // CMAccount balance decrease by cheque amount
+            await expect(diffCMAccount_cashInResponse).to.changeTokenBalance(
+                nullUSD,
+                cmAccount,
+                -diffCMAccount_cheque.amount,
+            );
+
+            // diffCMAccount balance increase by cheque amount - developerFee
+            await expect(diffCMAccount_cashInResponse).to.changeTokenBalance(
+                nullUSD,
+                diffCMAccountAddress,
+                diffCMAccount_cheque.amount - diffCMAccount_developerFee,
+            );
+
+            // DeveloperWallet balance increase by developerFee
+            await expect(diffCMAccount_cashInResponse).to.changeTokenBalance(
+                nullUSD,
+                signers.developerWallet,
+                diffCMAccount_developerFee,
+            );
+
+            // Check total cheque payments per payment token, it should be equal to the sum of cheque2.amount and diffCMAccount_cheque.amount
+            expect(await cmAccount.getTotalChequePaymentsPerToken(diffCMAccount_cheque.paymentToken)).to.be.equal(
+                diffCMAccount_cheque.amount + cheque2.amount,
+            );
 
             // CHECK INVALID AMOUNT AND COUNTER ----------------------------------------------------
 
@@ -633,6 +881,7 @@ describe("ChequeManager", function () {
                 amount: cheque2.amount - 1n,
                 createdAt: ethers.toBigInt(Math.floor(Date.now() / 1000)),
                 expiresAt: ethers.toBigInt(Math.floor(Date.now() / 1000)) + 300n,
+                paymentToken: await nullUSD.getAddress(),
             };
 
             // Sign Cheque
@@ -651,6 +900,7 @@ describe("ChequeManager", function () {
                     chequeWithInvalidAmount.amount,
                     chequeWithInvalidAmount.createdAt,
                     chequeWithInvalidAmount.expiresAt,
+                    chequeWithInvalidAmount.paymentToken,
                     signatureWithInvalidAmount,
                 ),
             )
@@ -666,6 +916,7 @@ describe("ChequeManager", function () {
                 amount: cheque2.amount, // Same amount is OK (for zero value cheque from zero fee services)
                 createdAt: ethers.toBigInt(Math.floor(Date.now() / 1000)),
                 expiresAt: ethers.toBigInt(Math.floor(Date.now() / 1000)) + 300n,
+                paymentToken: await nullUSD.getAddress(),
             };
 
             // Sign Cheque
@@ -684,6 +935,7 @@ describe("ChequeManager", function () {
                     chequeWithInvalidCounter.amount,
                     chequeWithInvalidCounter.createdAt,
                     chequeWithInvalidCounter.expiresAt,
+                    chequeWithInvalidCounter.paymentToken,
                     signatureWithInvalidCounter,
                 ),
             )
@@ -701,6 +953,7 @@ describe("ChequeManager", function () {
                 amount: ethers.parseEther("100"),
                 createdAt: ethers.toBigInt(Math.floor(Date.now() / 1000)),
                 expiresAt: ethers.toBigInt(Math.floor(Date.now() / 1000)) + 300n,
+                paymentToken: await nullUSD.getAddress(),
             };
 
             // Sign Cheque
@@ -715,6 +968,7 @@ describe("ChequeManager", function () {
                 cheque3.amount,
                 cheque3.createdAt,
                 cheque3.expiresAt,
+                cheque3.paymentToken,
                 signature3,
             );
 
@@ -731,7 +985,9 @@ describe("ChequeManager", function () {
         });
 
         it("Should not update total cheque payments for same account", async function () {
-            const { cmAccount, cmAccountManager, prefundAmount } = await loadFixture(deployCMAccountWithDepositFixture);
+            const { cmAccount, cmAccountManager, prefundAmount, nullUSD, nullUSDDecimals } = await loadFixture(
+                deployCMAccountWithDepositFixture,
+            );
 
             // Define cheque
             const cheque = {
@@ -742,6 +998,7 @@ describe("ChequeManager", function () {
                 amount: ethers.parseEther("0.1"),
                 createdAt: ethers.toBigInt(Math.floor(Date.now() / 1000)),
                 expiresAt: ethers.toBigInt(Math.floor(Date.now() / 1000)) + 300n,
+                paymentToken: await nullUSD.getAddress(),
             };
 
             // Grant CHEQUE_OPERATOR_ROLE
@@ -753,7 +1010,7 @@ describe("ChequeManager", function () {
             const signature = await signMessengerCheque(cheque, signers.chequeOperator);
 
             // Initial total cheque payments should be zero
-            expect(await cmAccount.getTotalChequePayments()).to.be.equal(0n);
+            expect(await cmAccount.getTotalChequePaymentsPerToken(cheque.paymentToken)).to.be.equal(0n);
 
             // Cash-in cheque
             const cashInResponse = await cmAccount.cashInCheque(
@@ -764,12 +1021,16 @@ describe("ChequeManager", function () {
                 cheque.amount,
                 cheque.createdAt,
                 cheque.expiresAt,
+                cheque.paymentToken,
                 signature,
             );
             await expect(cashInResponse).to.be.not.reverted;
 
             // After cash-in total cheque payments should still be zero because the
             // cheque is from the same account (fromCMAccount === toCMAccount)
+            expect(await cmAccount.getTotalChequePaymentsPerToken(cheque.paymentToken)).to.be.equal(0n);
+
+            // Check legacy `getTotalChequePayments` function (for old CAM cheques)
             expect(await cmAccount.getTotalChequePayments()).to.be.equal(0n);
         });
     });

@@ -9,7 +9,8 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/I
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { AccessControlEnumerableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlEnumerableUpgradeable.sol";
 import { Address } from "@openzeppelin/contracts/utils/Address.sol";
-import { SafeERC20, IERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import { IERC721Receiver } from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import { ERC1967Utils } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
@@ -120,7 +121,7 @@ contract CMAccount is
         /**
          * @dev Prefund amount
          */
-        uint256 _prefundAmount;
+        uint256 _unused; // Not used, but do not remove. Previously used to store the prefund amount.
     }
 
     // keccak256(abi.encode(uint256(keccak256("camino.messenger.storage.CMAccount")) - 1)) & ~bytes32(uint256(0xff));
@@ -210,10 +211,10 @@ contract CMAccount is
         _disableInitializers();
     }
 
+    // `uint256 prefundAmount` is removed as it is no longer used in the contract @2025-08-28
     function initialize(
         address manager,
         address bookingToken,
-        uint256 prefundAmount,
         address defaultAdmin,
         address upgrader
     ) public initializer {
@@ -230,7 +231,6 @@ contract CMAccount is
 
         $._manager = manager;
         $._bookingToken = bookingToken;
-        $._prefundAmount = prefundAmount;
 
         // Initialize GasMoneyManager
         uint256 withdrawalLimit = 10 ether; // 10 CAM
@@ -262,16 +262,6 @@ contract CMAccount is
     function getBookingTokenAddress() public view returns (address) {
         CMAccountStorage storage $ = _getCMAccountStorage();
         return $._bookingToken;
-    }
-
-    /**
-     * @notice Returns the prefund amount.
-     *
-     * @return prefund amount
-     */
-    function getPrefundAmount() public view returns (uint256) {
-        CMAccountStorage storage $ = _getCMAccountStorage();
-        return $._prefundAmount;
     }
 
     /***************************************************
@@ -318,42 +308,15 @@ contract CMAccount is
     }
 
     /**
-     * @notice Verifies if the amount is withdrawable by checking if prefund is spent
-     *
-     * @param amount The amount to check if it's withdrawable
-     */
-    function _checkPrefundSpent(uint256 amount) private view {
-        uint256 prefundAmount = getPrefundAmount();
-        uint256 totalChequePayments = getTotalChequePayments();
-
-        // Check if prefund is spent. If total cheque payments is bigger or equal to
-        // prefund amount it's ok to withdraw any amount
-        if (totalChequePayments < prefundAmount) {
-            // Balance should be bigger or equal to the { prefundLeft } because the
-            // total sum of prefund is not yet spent. So, we subtract that
-            // (prefundLeft) from the balance to find the withdrawable amount.
-            uint256 prefundLeft = prefundAmount - totalChequePayments;
-            uint256 withdrawableAmount = address(this).balance - prefundLeft;
-
-            // If amount is bigger than withdrawable amount, revert.
-            // Otherwise, it's ok to withdraw the amount.
-            if (amount > withdrawableAmount) {
-                revert PrefundNotSpentYet(withdrawableAmount, prefundLeft, amount);
-            }
-        }
-    }
-
-    /**
      * @notice Withdraw CAM from the CMAccount
      *
-     * This function reverts if the amount is bigger then the prefund left to spend. This is to prevent
-     * spam by forcing user to spend the full prefund for cheques, so they can not just create an account
-     * and withdraw the prefund.
+     * @param recipient The recipient of the withdrawal
+     * @param amount The amount to withdraw
      */
     function withdraw(address payable recipient, uint256 amount) external nonReentrant onlyRole(WITHDRAWER_ROLE) {
-        // Check if amount is withdrawable according to the prefund spent amount
-        _checkPrefundSpent(amount);
-
+        if (recipient == address(0)) {
+            revert TransferToZeroAddress();
+        }
         recipient.sendValue(amount);
         emit Withdraw(recipient, amount);
     }
@@ -496,6 +459,19 @@ contract CMAccount is
     function removeService(string memory serviceName) public onlyRole(SERVICE_ADMIN_ROLE) {
         _removeService(getServiceHash(serviceName));
         emit ServiceRemoved(serviceName);
+    }
+
+    /**
+     * @notice Remove all supported services from the account.
+     * This function retrieves all currently supported service names and removes them one by one.
+     */
+    function removeAllServices() public onlyRole(SERVICE_ADMIN_ROLE) {
+        (string[] memory serviceNames, ) = getSupportedServices();
+
+        for (uint256 i = 0; i < serviceNames.length; i++) {
+            _removeService(getServiceHash(serviceNames[i]));
+            emit ServiceRemoved(serviceNames[i]);
+        }
     }
 
     // FEE
@@ -716,11 +692,12 @@ contract CMAccount is
      ***************************************************/
 
     /**
-     * @notice Adds messenger bot with initial gas money.
+     * @notice Adds messenger bot with initial gas money. The amount of `gasMoney`
+     * need to be present in the contract.
      */
     function addMessengerBot(address bot, uint256 gasMoney) public onlyRole(BOT_ADMIN_ROLE) {
-        // Check if we can spend the gasMoney to send it to the bot
-        _checkPrefundSpent(gasMoney);
+        // Check if bot is valid to prevent accidental transfers of funds to zero address
+        if (bot == address(0)) revert TransferToZeroAddress();
 
         // Grant roles to bot
         _grantRole(CHEQUE_OPERATOR_ROLE, bot);
@@ -754,7 +731,6 @@ contract CMAccount is
      * @param amount The amount to withdraw in aCAM (wei)
      */
     function withdrawGasMoney(uint256 amount) public nonReentrant onlyRole(GAS_WITHDRAWER_ROLE) {
-        _checkPrefundSpent(amount);
         _withdrawGasMoney(amount);
     }
 
