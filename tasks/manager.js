@@ -107,12 +107,27 @@ function handleTransactionError(error, contract) {
 }
 
 async function handleServices(taskArgs, hre, action) {
+    if (taskArgs.service && taskArgs.json) {
+        throw new Error("Cannot provide both --service and --json parameters.");
+    }
+
+    let services = [];
+    if (taskArgs.service) {
+        services = [taskArgs.service];
+    } else if (taskArgs.json) {
+        const parsed = require(taskArgs.json);
+        if (!Array.isArray(parsed) || parsed.length === 0 || !parsed.every((s) => typeof s === "string")) {
+            throw new Error("JSON file must be a non-empty array of strings.");
+        }
+        services = parsed;
+    } else {
+        throw new Error("You must provide either --service or --json parameter.");
+    }
+
     const manager = await getManager(hre);
 
     console.log(`${action === "register" ? "Registering" : "Unregistering"} services...`);
 
-    // Iterate over the services from the services file and perform the action
-    const services = require(taskArgs.json);
     for (const service of services) {
         console.log(`⏳ ${action === "register" ? "Registering" : "Unregistering"} Service:`, service);
         try {
@@ -184,13 +199,15 @@ MANAGER_SCOPE.task("status", "Print status of deployed contracts").setAction(asy
 });
 
 MANAGER_SCOPE.task("services:register", "Register services")
-    .addParam("json", "Full path to the services json file")
+    .addOptionalParam("json", "Full path to the services json file")
+    .addOptionalParam("service", "Service name to register")
     .setAction(async (taskArgs, hre) => {
         await handleServices(taskArgs, hre, "register");
     });
 
 MANAGER_SCOPE.task("services:unregister", "Unregister services")
-    .addParam("json", "Full path to the services json file")
+    .addOptionalParam("json", "Full path to the services json file")
+    .addOptionalParam("service", "Service name to unregister")
     .setAction(async (taskArgs, hre) => {
         await handleServices(taskArgs, hre, "unregister");
     });
