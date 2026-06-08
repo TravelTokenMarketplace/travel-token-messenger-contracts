@@ -74,8 +74,8 @@ yarn test
 
 ### Setting Hardhat Vars
 
-For Camino (mainnet) and Columbus (testnet) networks, we are using hardhat's vars
-tool to store private keys. To set these you can use the commands below:
+For Camino (mainnet), Columbus (testnet), Base Sepolia (testnet), and Base (mainnet) networks, we are using hardhat's vars
+tool to store private keys and URLs. To set these you can use the commands below:
 
 ```
 yarn hardhat vars set COLUMBUS_DEPLOYER_PRIVATE_KEY
@@ -84,6 +84,34 @@ yarn hardhat vars set COLUMBUS_DEPLOYER_PRIVATE_KEY
 ```
 yarn hardhat vars set CAMINO_DEPLOYER_PRIVATE_KEY
 ```
+
+```
+yarn hardhat vars set BASE_SEPOLIA_DEPLOYER_PRIVATE_KEY
+```
+
+```
+yarn hardhat vars set BASE_DEPLOYER_PRIVATE_KEY
+```
+
+Optional settings for Base:
+
+```
+yarn hardhat vars set BASE_SEPOLIA_URL
+```
+
+(Defaults to `wss://base-sepolia.drpc.org` if not set)
+
+```
+yarn hardhat vars set BASE_URL
+```
+
+(Defaults to `wss://base.drpc.org` if not set)
+
+```
+yarn hardhat vars set BASESCAN_API_KEY
+```
+
+(Used for verifying contracts on Base and Base Sepolia)
 
 These will also be used for `yarn hardhat manager` tasks. These variables are stored
 in the `/home/$USER/.config/hardhat-nodejs/vars.json` file, so they are not
