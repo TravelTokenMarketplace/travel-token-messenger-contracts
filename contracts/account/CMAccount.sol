@@ -8,6 +8,7 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { AccessControlEnumerableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlEnumerableUpgradeable.sol";
+import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -16,7 +17,6 @@ import { IERC721Receiver } from "@openzeppelin/contracts/token/ERC721/IERC721Rec
 import { ERC1967Utils } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
 
 import { ICMAccountManager } from "../manager/ICMAccountManager.sol";
-import { ChequeManager } from "./ChequeManager.sol";
 import { BookingTokenOperator } from "../booking-token/BookingTokenOperator.sol";
 import { PartnerConfiguration } from "../partner/PartnerConfiguration.sol";
 import { GasMoneyManager } from "./GasMoneyManager.sol";
@@ -28,7 +28,7 @@ import { GasMoneyManager } from "./GasMoneyManager.sol";
  * Camino Messenger ecosystem.
  *
  * Registering bots is done by role based access control. Bot's with
- * `CHEQUE_OPERATOR_ROLE` can issue cheques to paid by the {CMAccount} contract.
+ * `MESSENGER_BOT_ROLE` are authorized to represent the CMAccount.
  * Bot can also have `GAS_WITHDRAWER_ROLE` and `BOOKING_OPERATOR_ROLE`.
  *
  * `GAS_WITHDRAWER_ROLE` enables a bot to withdraw native coins (CAM) from the
@@ -51,8 +51,8 @@ contract CMAccount is
     Initializable,
     AccessControlEnumerableUpgradeable,
     UUPSUpgradeable,
+    ReentrancyGuardUpgradeable,
     IERC721Receiver,
-    ChequeManager,
     PartnerConfiguration,
     GasMoneyManager
 {
@@ -75,10 +75,10 @@ contract CMAccount is
     bytes32 public constant BOT_ADMIN_ROLE = keccak256("BOT_ADMIN_ROLE");
 
     /**
-     * @notice Cheque operator role can issue cheques to be paid by this CMAccount
+     * @notice Messenger bot role can interact on behalf of this CMAccount
      * contract.
      */
-    bytes32 public constant CHEQUE_OPERATOR_ROLE = keccak256("CHEQUE_OPERATOR_ROLE");
+    bytes32 public constant MESSENGER_BOT_ROLE = keccak256("MESSENGER_BOT_ROLE");
 
     /**
      * @notice Gas withdrawer role can withdraw gas money from the contract. This is
@@ -171,7 +171,6 @@ contract CMAccount is
     event WantedServiceAdded(string indexed serviceName);
     event WantedServiceRemoved(string indexed serviceName);
 
-    event ServiceFeeUpdated(string indexed serviceName, uint256 fee);
     event ServiceRestrictedRateUpdated(string indexed serviceName, bool restrictedRate);
 
     event ServiceCapabilitiesUpdated(string indexed serviceName);
@@ -220,7 +219,7 @@ contract CMAccount is
     ) public initializer {
         __AccessControl_init();
         __UUPSUpgradeable_init();
-        __ChequeManager_init();
+        __ReentrancyGuard_init();
 
         _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
         _grantRole(SERVICE_ADMIN_ROLE, defaultAdmin);
@@ -249,7 +248,7 @@ contract CMAccount is
      *
      * @return CMAccountManager address
      */
-    function getManagerAddress() public view override returns (address) {
+    function getManagerAddress() public view returns (address) {
         CMAccountStorage storage $ = _getCMAccountStorage();
         return $._manager;
     }
@@ -299,12 +298,12 @@ contract CMAccount is
     }
 
     /**
-     * @notice Returns true if an address is authorized to sign cheques
+     * @notice Returns true if an address is an authorized messenger bot
      *
      * @param bot The bot's address
      */
-    function isBotAllowed(address bot) public view override returns (bool) {
-        return hasRole(CHEQUE_OPERATOR_ROLE, bot);
+    function isBotAllowed(address bot) public view returns (bool) {
+        return hasRole(MESSENGER_BOT_ROLE, bot);
     }
 
     /**
@@ -440,16 +439,14 @@ contract CMAccount is
      * definitions.
      *
      * @param serviceName Service name to add to the account as a supported service
-     * @param fee Fee of the service in aCAM (wei in ETH terminology)
      * @param capabilities Capabilities of the service (if any, optional)
      */
     function addService(
         string memory serviceName,
-        uint256 fee,
         bool restrictedRate,
         string[] memory capabilities
     ) public onlyRole(SERVICE_ADMIN_ROLE) {
-        _addService(getRegisteredServiceHash(serviceName), fee, capabilities, restrictedRate);
+        _addService(getRegisteredServiceHash(serviceName), capabilities, restrictedRate);
         emit ServiceAdded(serviceName);
     }
 
@@ -472,16 +469,6 @@ contract CMAccount is
             _removeService(getServiceHash(serviceNames[i]));
             emit ServiceRemoved(serviceNames[i]);
         }
-    }
-
-    // FEE
-
-    /**
-     * @notice Set the fee of a service by name
-     */
-    function setServiceFee(string memory serviceName, uint256 fee) public onlyRole(SERVICE_ADMIN_ROLE) {
-        _setServiceFee(getServiceHash(serviceName), fee);
-        emit ServiceFeeUpdated(serviceName, fee);
     }
 
     // RESTRICTED RATE
@@ -579,10 +566,12 @@ contract CMAccount is
     }
 
     /**
-     * @notice Get service fee by name. Overloading the getServiceFee function.
+     * @notice Check if a service is registered and supported.
+     *
+     * @param serviceName Service name to check
      */
-    function getServiceFee(string memory serviceName) public view returns (uint256 fee) {
-        return getServiceFee(getServiceHash(serviceName));
+    function isServiceSupported(string memory serviceName) public view returns (bool) {
+        return _isServiceSupported(getServiceHash(serviceName));
     }
 
     /**
@@ -713,7 +702,7 @@ contract CMAccount is
         if (bot == address(0)) revert TransferToZeroAddress();
 
         // Grant roles to bot
-        _grantRole(CHEQUE_OPERATOR_ROLE, bot);
+        _grantRole(MESSENGER_BOT_ROLE, bot);
         _grantRole(BOOKING_OPERATOR_ROLE, bot);
         _grantRole(GAS_WITHDRAWER_ROLE, bot);
 
@@ -727,7 +716,7 @@ contract CMAccount is
      * @notice Removes messenger bot by revoking the roles.
      */
     function removeMessengerBot(address bot) public onlyRole(BOT_ADMIN_ROLE) {
-        _revokeRole(CHEQUE_OPERATOR_ROLE, bot);
+        _revokeRole(MESSENGER_BOT_ROLE, bot);
         _revokeRole(BOOKING_OPERATOR_ROLE, bot);
         _revokeRole(GAS_WITHDRAWER_ROLE, bot);
 

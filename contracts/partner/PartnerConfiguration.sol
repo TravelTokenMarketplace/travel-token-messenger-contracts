@@ -24,7 +24,6 @@ abstract contract PartnerConfiguration is Initializable {
      * @notice Struct for storing supported service details for suppliers
      */
     struct Service {
-        uint256 _fee;
         /**
          * @dev  If set to true, this means the service is restricted to pre-agreement
          * with the partner. (Not a rack rate)
@@ -109,16 +108,10 @@ abstract contract PartnerConfiguration is Initializable {
      * @notice Adds a supported Service object for a given hash.
      *
      * @param serviceHash Hash of the service
-     * @param fee Fee for the service
      * @param capabilities Capabilities for the service
      * @param restrictedRate If the service is restricted to pre-agreement
      */
-    function _addService(
-        bytes32 serviceHash,
-        uint256 fee,
-        string[] memory capabilities,
-        bool restrictedRate
-    ) internal virtual {
+    function _addService(bytes32 serviceHash, string[] memory capabilities, bool restrictedRate) internal virtual {
         PartnerConfigurationStorage storage $ = _getPartnerConfigurationStorage();
 
         // Try to add the service to the services hash set
@@ -126,11 +119,7 @@ abstract contract PartnerConfiguration is Initializable {
         if (!added) {
             revert ServiceAlreadyExists(serviceHash);
         }
-        $._supportedServices[serviceHash] = Service({
-            _fee: fee,
-            _capabilities: capabilities,
-            _restrictedRate: restrictedRate
-        });
+        $._supportedServices[serviceHash] = Service({ _capabilities: capabilities, _restrictedRate: restrictedRate });
     }
 
     /**
@@ -148,21 +137,6 @@ abstract contract PartnerConfiguration is Initializable {
         }
 
         delete $._supportedServices[serviceHash];
-    }
-
-    /**
-     * @notice Sets the Service fee for a given hash.
-     *
-     * @param serviceHash Hash of the service
-     * @param fee Fee
-     */
-    function _setServiceFee(bytes32 serviceHash, uint256 fee) internal virtual {
-        PartnerConfigurationStorage storage $ = _getPartnerConfigurationStorage();
-
-        // Check if the service exists
-        _checkServiceExists(serviceHash, $);
-
-        $._supportedServices[serviceHash]._fee = fee;
     }
 
     /**
@@ -264,17 +238,13 @@ abstract contract PartnerConfiguration is Initializable {
     }
 
     /**
-     * @notice Returns the fee for a given service hash.
+     * @notice Checks if the service is supported.
      *
      * @param serviceHash Hash of the service
      */
-    function getServiceFee(bytes32 serviceHash) public view virtual returns (uint256 fee) {
+    function _isServiceSupported(bytes32 serviceHash) internal view returns (bool) {
         PartnerConfigurationStorage storage $ = _getPartnerConfigurationStorage();
-
-        // Check if the service exists
-        _checkServiceExists(serviceHash, $);
-
-        return $._supportedServices[serviceHash]._fee;
+        return $._servicesHashSet.contains(serviceHash);
     }
 
     /**

@@ -7,7 +7,7 @@ or wanted services, and multiple bots for distributors and suppliers on
 Camino Messenger ecosystem.
 
 Registering bots is done by role based access control. Bot's with
-`CHEQUE_OPERATOR_ROLE` can issue cheques to paid by the {CMAccount} contract.
+`MESSENGER_BOT_ROLE` are authorized to represent the CMAccount.
 Bot can also have `GAS_WITHDRAWER_ROLE` and `BOOKING_OPERATOR_ROLE`.
 
 `GAS_WITHDRAWER_ROLE` enables a bot to withdraw native coins (CAM) from the
@@ -42,13 +42,13 @@ bytes32 BOT_ADMIN_ROLE
 Bot admin role can add & remove bots and set gas money withdrawal
 parameters.
 
-### CHEQUE_OPERATOR_ROLE
+### MESSENGER_BOT_ROLE
 
 ```solidity
-bytes32 CHEQUE_OPERATOR_ROLE
+bytes32 MESSENGER_BOT_ROLE
 ```
 
-Cheque operator role can issue cheques to be paid by this CMAccount
+Messenger bot role can interact on behalf of this CMAccount
 contract.
 
 ### GAS_WITHDRAWER_ROLE
@@ -159,12 +159,6 @@ event WantedServiceAdded(string serviceName)
 
 ```solidity
 event WantedServiceRemoved(string serviceName)
-```
-
-### ServiceFeeUpdated
-
-```solidity
-event ServiceFeeUpdated(string serviceName, uint256 fee)
 ```
 
 ### ServiceRestrictedRateUpdated
@@ -296,7 +290,7 @@ _Emits a {CMAccountUpgraded} event._
 function isBotAllowed(address bot) public view returns (bool)
 ```
 
-Returns true if an address is authorized to sign cheques
+Returns true if an address is an authorized messenger bot
 
 #### Parameters
 
@@ -412,7 +406,7 @@ This function reverts if `to` is the zero address.
 ### addService
 
 ```solidity
-function addService(string serviceName, uint256 fee, bool restrictedRate, string[] capabilities) public
+function addService(string serviceName, bool restrictedRate, string[] capabilities) public
 ```
 
 Adds a service to the account as a supported service.
@@ -432,7 +426,6 @@ definitions._
 | Name           | Type     | Description                                               |
 | -------------- | -------- | --------------------------------------------------------- |
 | serviceName    | string   | Service name to add to the account as a supported service |
-| fee            | uint256  | Fee of the service in aCAM (wei in ETH terminology)       |
 | restrictedRate | bool     |                                                           |
 | capabilities   | string[] | Capabilities of the service (if any, optional)            |
 
@@ -452,14 +445,6 @@ function removeAllServices() public
 
 Remove all supported services from the account.
 This function retrieves all currently supported service names and removes them one by one.
-
-### setServiceFee
-
-```solidity
-function setServiceFee(string serviceName, uint256 fee) public
-```
-
-Set the fee of a service by name
 
 ### setServiceRestrictedRate
 
@@ -501,13 +486,19 @@ function getSupportedServices() public view returns (string[] serviceNames, stru
 
 Get all supported services. Return a list of service names and a list of service objects.
 
-### getServiceFee
+### isServiceSupported
 
 ```solidity
-function getServiceFee(string serviceName) public view returns (uint256 fee)
+function isServiceSupported(string serviceName) public view returns (bool)
 ```
 
-Get service fee by name. Overloading the getServiceFee function.
+Check if a service is registered and supported.
+
+#### Parameters
+
+| Name        | Type   | Description           |
+| ----------- | ------ | --------------------- |
+| serviceName | string | Service name to check |
 
 ### getServiceRestrictedRate
 
@@ -734,373 +725,6 @@ Finalizes a cancellation proposal. Only the supplier of the token can finalize.
 | ------------ | ------- | -------------------------------------------------------------------- |
 | tokenId      | uint256 | The token id for which to finalize the proposal                      |
 | refundAmount | uint256 | The refund amount to check, this is to prevent front-running attacks |
-
-## ChequeManager
-
-ChequeManager manages, verifies, and cashes in the messenger cheques.
-
-EIP712 Domain name & version:
-DOMAIN_NAME = "CaminoMessenger"
-DOMAIN_VERSION= "1"
-
-### MESSENGER_CHEQUE_TYPEHASH
-
-```solidity
-bytes32 MESSENGER_CHEQUE_TYPEHASH
-```
-
-Pre-computed hash of the MessengerCheque type
-
-```
-keccak256(
-    "MessengerCheque(address fromCMAccount,address toCMAccount,address toBot,uint256 counter,uint256 amount,uint256 createdAt,uint256 expiresAt,address paymentToken)"
-);
-```
-
-### DOMAIN_TYPEHASH
-
-```solidity
-bytes32 DOMAIN_TYPEHASH
-```
-
-Pre-computed hash of the EIP712Domain type
-
-```
-keccak256("EIP712Domain(string name,string version,uint256 chainId)");
-```
-
-### MessengerCheque
-
-Struct representing a Messenger Cheque.
-
-```solidity
-struct MessengerCheque {
-    address fromCMAccount;
-    address toCMAccount;
-    address toBot;
-    uint256 counter;
-    uint256 amount;
-    uint256 createdAt;
-    uint256 expiresAt;
-    address paymentToken;
-}
-```
-
-### LastCashIn
-
-Struct for tracking the counter, amount and timestamps used for the last
-cash-in operation.
-
-```solidity
-struct LastCashIn {
-    uint256 counter;
-    uint256 amount;
-    uint256 createdAt;
-    uint256 expiresAt;
-}
-```
-
-### ChequeManagerStorage
-
-```solidity
-struct ChequeManagerStorage {
-  mapping(address => mapping(address => struct ChequeManager.LastCashIn)) _lastCashIns;
-  uint256 _totalChequePayments;
-  bytes32 _domainSeparator;
-  mapping(address => mapping(address => mapping(address => struct ChequeManager.LastCashIn))) _lastCashInsPerToken;
-  mapping(address => uint256) _totalChequePaymentsPerToken;
-}
-```
-
-### ChequeCashedIn
-
-```solidity
-event ChequeCashedIn(address fromCMAccount, address toCMAccount, address fromBot, address toBot, uint256 counter, uint256 amount, uint256 paidChequeAmount, uint256 paidDeveloperFee, address paymentToken)
-```
-
-Cash-in event. Emitted when a cheque is cashed in.
-
-### InvalidFromCMAccount
-
-```solidity
-error InvalidFromCMAccount(address fromCMAccount)
-```
-
-Invalid CM Account. Cheque's `fromCMAccount` has to be for `address(this)`.
-
-### InvalidToCMAccount
-
-```solidity
-error InvalidToCMAccount(address toCMAccount)
-```
-
-`toCMAccount` address is not a registered CMAccount on the manager.
-
-### NotAllowedToSignCheques
-
-```solidity
-error NotAllowedToSignCheques(address signer)
-```
-
-The signer is not allowed to sign cheques
-
-### InvalidCounter
-
-```solidity
-error InvalidCounter(uint256 chequeCounter, uint256 lastCounter)
-```
-
-Invalid counter for the cheque. The counter on the cheque is not greater then the last
-recorded counter.
-
-### InvalidAmount
-
-```solidity
-error InvalidAmount(uint256 chequeAmount, uint256 lastAmount)
-```
-
-Last recorded amount is lower than the cheque's amount.
-
-### ChequeExpired
-
-```solidity
-error ChequeExpired(uint256 expiresAt)
-```
-
-The cheque is expired at the given timestamp.
-
-### IncorrectValue
-
-```solidity
-error IncorrectValue(uint256 current, uint256 expected)
-```
-
-Incorrect value.
-
-#### Parameters
-
-| Name     | Type    | Description     |
-| -------- | ------- | --------------- |
-| current  | uint256 | Current value.  |
-| expected | uint256 | Expected value. |
-
-### UnexpectedNativePayment
-
-```solidity
-error UnexpectedNativePayment(uint256 amount)
-```
-
-Error if there is an unexpected native payment.
-
-#### Parameters
-
-| Name   | Type    | Description           |
-| ------ | ------- | --------------------- |
-| amount | uint256 | The unexpected amount |
-
-### InvalidPaymentToken
-
-```solidity
-error InvalidPaymentToken(address paymentToken, address expectedPaymentToken)
-```
-
-Invalid payment token.
-
-#### Parameters
-
-| Name                 | Type    | Description                |
-| -------------------- | ------- | -------------------------- |
-| paymentToken         | address | The payment token          |
-| expectedPaymentToken | address | The expected payment token |
-
-### \_\_ChequeManager_init
-
-```solidity
-function __ChequeManager_init() internal
-```
-
-Initializes the contract, setting the domain separator with EIP712 domain type hash and
-the domain.
-
-EIP712Domain {
-string name;
-string version;
-uint256 chainid;
-}
-
-### getDomainSeparator
-
-```solidity
-function getDomainSeparator() public view returns (bytes32)
-```
-
-Returns the domain separator.
-
-### hashMessengerCheque
-
-```solidity
-function hashMessengerCheque(address fromCMAccount, address toCMAccount, address toBot, uint256 counter, uint256 amount, uint256 createdAt, uint256 expiresAt, address paymentToken) public pure returns (bytes32)
-```
-
-Returns the hash of the `MessengerCheque` encoded with
-`MESSENGER_CHEQUE_TYPEHASH`.
-
-### hashTypedDataV4
-
-```solidity
-function hashTypedDataV4(address fromCMAccount, address toCMAccount, address toBot, uint256 counter, uint256 amount, uint256 createdAt, uint256 expiresAt, address paymentToken) public view returns (bytes32)
-```
-
-Returns the hash of the typed data (cheque) with prefix and domain
-separator.
-
-### recoverSigner
-
-```solidity
-function recoverSigner(address fromCMAccount, address toCMAccount, address toBot, uint256 counter, uint256 amount, uint256 createdAt, uint256 expiresAt, address paymentToken, bytes signature) internal view returns (address signer)
-```
-
-Returns the signer for the given cheque and signature. Uses {ECDSA} library to
-recover the signer.
-
-### verifyCheque
-
-```solidity
-function verifyCheque(address fromCMAccount, address toCMAccount, address toBot, uint256 counter, uint256 amount, uint256 createdAt, uint256 expiresAt, address paymentToken, bytes signature) public view returns (address signer, uint256 paymentAmount)
-```
-
-Returns signer and payment amount if the signature is valid for the
-given cheque, the signer is an allowed bot, cheque counter and amounts are
-valid according to last cash ins per payment token.
-
-Please be aware that `cheque.amount < paymentAmount` for a valid cheque as
-long as the last amount is lower than the cheque amount. Only the difference
-between the cheque amount and the last recorded amount is paid.
-
-### cashInCheque
-
-```solidity
-function cashInCheque(address fromCMAccount, address toCMAccount, address toBot, uint256 counter, uint256 amount, uint256 createdAt, uint256 expiresAt, address paymentToken, bytes signature) public
-```
-
-Cash in a cheque by verifying it and paying the difference between the
-cheque amount and the last recorded amount for the signer and `toBot` pair per
-payment token.
-
-A percentage of the amount is also paid to the developer wallet.
-
-#### Parameters
-
-| Name          | Type    | Description                                                                         |
-| ------------- | ------- | ----------------------------------------------------------------------------------- |
-| fromCMAccount | address | The CM Account that will pay the amount. This contract.                             |
-| toCMAccount   | address | The CM Account that will receive the amount.                                        |
-| toBot         | address | The address of the bot that received the cheque.                                    |
-| counter       | uint256 | The counter of the cheque. Should be increased with every cheque.                   |
-| amount        | uint256 | The amount on the cheque. Should be greater then or equal the last recorded amount. |
-| createdAt     | uint256 | The creation timestamp of the cheque.                                               |
-| expiresAt     | uint256 | The expiration timestamp of the cheque.                                             |
-| paymentToken  | address | The payment token of the cheque.                                                    |
-| signature     | bytes   | The signature of the cheque.                                                        |
-
-### getLastCashIn
-
-```solidity
-function getLastCashIn(address fromBot, address toBot, address paymentToken) public view returns (uint256 lastCounter, uint256 lastAmount, uint256 lastCreatedAt, uint256 lastExpiresAt)
-```
-
-Returns last cash-in details for given `fromBot` & `toBot` pair and payment token.
-
-#### Parameters
-
-| Name         | Type    | Description                                                                                      |
-| ------------ | ------- | ------------------------------------------------------------------------------------------------ |
-| fromBot      | address | The address of the bot that sent the cheque.                                                     |
-| toBot        | address | The address of the bot that received the cheque.                                                 |
-| paymentToken | address | The payment token of the cheque. Returns (lastCounter, lastAmount, lastCreatedAt, lastExpiresAt) |
-
-#### Return Values
-
-| Name          | Type    | Description                                  |
-| ------------- | ------- | -------------------------------------------- |
-| lastCounter   | uint256 | The last counter of the cheque.              |
-| lastAmount    | uint256 | The last amount of the cheque.               |
-| lastCreatedAt | uint256 | The last creation timestamp of the cheque.   |
-| lastExpiresAt | uint256 | The last expiration timestamp of the cheque. |
-
-### setLastCashIn
-
-```solidity
-function setLastCashIn(address fromBot, address toBot, uint256 counter, uint256 amount, uint256 createdAt, uint256 expiresAt, address paymentToken) internal
-```
-
-Sets last cash-in for given `fromBot`, `toBot` pair and payment token.
-
-#### Parameters
-
-| Name         | Type    | Description                                      |
-| ------------ | ------- | ------------------------------------------------ |
-| fromBot      | address | The address of the bot that sent the cheque.     |
-| toBot        | address | The address of the bot that received the cheque. |
-| counter      | uint256 | The counter of the cheque.                       |
-| amount       | uint256 | The amount of the cheque.                        |
-| createdAt    | uint256 | The creation timestamp of the cheque.            |
-| expiresAt    | uint256 | The expiration timestamp of the cheque.          |
-| paymentToken | address | The payment token of the cheque.                 |
-
-### getTotalChequePayments
-
-```solidity
-function getTotalChequePayments() public view returns (uint256)
-```
-
-[Legacy] Returns total cheque payments. This is the sum [CAM] of all cashed in cheques.
-
-This function is deprecated, please use `getTotalChequePaymentsPerToken` instead.
-
-#### Return Values
-
-| Name | Type    | Description                                         |
-| ---- | ------- | --------------------------------------------------- |
-| [0]  | uint256 | totalChequePayments The total cheque payments made. |
-
-### getTotalChequePaymentsPerToken
-
-```solidity
-function getTotalChequePaymentsPerToken(address paymentToken) public view returns (uint256)
-```
-
-Returns total cheque payments for given payment token.
-
-#### Parameters
-
-| Name         | Type    | Description                      |
-| ------------ | ------- | -------------------------------- |
-| paymentToken | address | The payment token of the cheque. |
-
-#### Return Values
-
-| Name | Type    | Description                                                               |
-| ---- | ------- | ------------------------------------------------------------------------- |
-| [0]  | uint256 | totalChequePayments The total cheque payments made for the payment token. |
-
-### isBotAllowed
-
-```solidity
-function isBotAllowed(address bot) public view virtual returns (bool)
-```
-
-Abstract function to check if a bot is allowed to sign cheques. This
-must be implemented by the inheriting contract.
-
-### getManagerAddress
-
-```solidity
-function getManagerAddress() public view virtual returns (address)
-```
-
-Abstract function to get the manager address. This must be implemented
-by the inheriting contract.
 
 ## GasMoneyManager
 
@@ -2499,33 +2123,6 @@ The old {CMAccount} contracts are not affected by this. Owners of those
 should do the upgrade manually by calling the `upgradeToAndCall(address)`
 function on the account.
 
-### FEE_ADMIN_ROLE
-
-```solidity
-bytes32 FEE_ADMIN_ROLE
-```
-
-Fee admin role can set the developer fee basis points which used for
-calculating the developer fee that is cut from the cheque payments.
-
-### DEVELOPER_WALLET_ADMIN_ROLE
-
-```solidity
-bytes32 DEVELOPER_WALLET_ADMIN_ROLE
-```
-
-Developer wallet admin role can set the developer wallet address
-which is used to receive the developer fee.
-
-### PREFUND_ADMIN_ROLE
-
-```solidity
-bytes32 PREFUND_ADMIN_ROLE
-```
-
-Prefund admin role can set the mandatory prefund amount for {CMAccount}
-contracts.
-
 ### SERVICE_REGISTRY_ADMIN_ROLE
 
 ```solidity
@@ -2544,14 +2141,6 @@ bytes32 CMACCOUNT_ROLE
 This role is granted to the created CM Accounts. It is used to keep
 an enumerable list of CM Accounts.
 
-### SERVICE_FEE_TOKEN_ADMIN_ROLE
-
-```solidity
-bytes32 SERVICE_FEE_TOKEN_ADMIN_ROLE
-```
-
-This role is able to set the service fee token address.
-
 ### CMAccountInfo
 
 CMAccount info struct, to keep track of created CM Accounts and their
@@ -2569,12 +2158,8 @@ struct CMAccountInfo {
 ```solidity
 struct CMAccountManagerStorage {
   address _latestAccountImplementation;
-  uint256 _prefundAmount;
-  address _developerWallet;
-  uint256 _developerFeeBp;
   address _bookingToken;
   mapping(address => struct CMAccountManager.CMAccountInfo) _cmAccountInfo;
-  address _serviceFeeToken;
 }
 ```
 
@@ -2607,36 +2192,6 @@ CM Account implementation address updated event.
 | oldImplementation | address | The old implementation address |
 | newImplementation | address | The new implementation address |
 
-### DeveloperWalletUpdated
-
-```solidity
-event DeveloperWalletUpdated(address oldDeveloperWallet, address newDeveloperWallet)
-```
-
-Developer wallet address updated event.
-
-#### Parameters
-
-| Name               | Type    | Description                      |
-| ------------------ | ------- | -------------------------------- |
-| oldDeveloperWallet | address | The old developer wallet address |
-| newDeveloperWallet | address | The new developer wallet address |
-
-### DeveloperFeeBpUpdated
-
-```solidity
-event DeveloperFeeBpUpdated(uint256 oldDeveloperFeeBp, uint256 newDeveloperFeeBp)
-```
-
-Developer fee basis points updated event.
-
-#### Parameters
-
-| Name              | Type    | Description                        |
-| ----------------- | ------- | ---------------------------------- |
-| oldDeveloperFeeBp | uint256 | The old developer fee basis points |
-| newDeveloperFeeBp | uint256 | The new developer fee basis points |
-
 ### BookingTokenAddressUpdated
 
 ```solidity
@@ -2651,36 +2206,6 @@ Booking token address updated event.
 | --------------- | ------- | ----------------------------- |
 | oldBookingToken | address | The old booking token address |
 | newBookingToken | address | The new booking token address |
-
-### ServiceFeeTokenUpdated
-
-```solidity
-event ServiceFeeTokenUpdated(address oldServiceFeeToken, address newServiceFeeToken)
-```
-
-Service fee token address updated event.
-
-#### Parameters
-
-| Name               | Type    | Description                       |
-| ------------------ | ------- | --------------------------------- |
-| oldServiceFeeToken | address | The old service fee token address |
-| newServiceFeeToken | address | The new service fee token address |
-
-### PrefundAmountUpdated
-
-```solidity
-event PrefundAmountUpdated(uint256 oldPrefundAmount, uint256 newPrefundAmount)
-```
-
-Prefund amount updated event.
-
-#### Parameters
-
-| Name             | Type    | Description            |
-| ---------------- | ------- | ---------------------- |
-| oldPrefundAmount | uint256 | The old prefund amount |
-| newPrefundAmount | uint256 | The new prefund amount |
 
 ### CMAccountInvalidImplementation
 
@@ -2710,20 +2235,6 @@ The admin address is invalid.
 | ----- | ------- | ----------------- |
 | admin | address | The admin address |
 
-### InvalidDeveloperWallet
-
-```solidity
-error InvalidDeveloperWallet(address developerWallet)
-```
-
-Invalid developer address.
-
-#### Parameters
-
-| Name            | Type    | Description                  |
-| --------------- | ------- | ---------------------------- |
-| developerWallet | address | The developer wallet address |
-
 ### InvalidBookingTokenAddress
 
 ```solidity
@@ -2738,20 +2249,6 @@ Invalid booking token address.
 | ------------ | ------- | ------------------------- |
 | bookingToken | address | The booking token address |
 
-### InvalidServiceFeeToken
-
-```solidity
-error InvalidServiceFeeToken(address serviceFeeToken)
-```
-
-Invalid service fee token error.
-
-#### Parameters
-
-| Name            | Type    | Description                   |
-| --------------- | ------- | ----------------------------- |
-| serviceFeeToken | address | The service fee token address |
-
 ### constructor
 
 ```solidity
@@ -2761,7 +2258,7 @@ constructor() public
 ### initialize
 
 ```solidity
-function initialize(address defaultAdmin, address pauser, address upgrader, address versioner, address developerWallet, uint256 developerFeeBp) public
+function initialize(address defaultAdmin, address pauser, address upgrader, address versioner) public
 ```
 
 ### pause
@@ -2805,24 +2302,6 @@ Caller must approve the pre-fund amount before calling this function.
 
 _Emits a {CMAccountCreated} event._
 
-### \_transferServiceFeePrefund
-
-```solidity
-function _transferServiceFeePrefund(address account) internal
-```
-
-Transfers the service fee prefund amount to the CMAccount
-
-_This function is called when a CMAccount is created. The msg.sender
-should approve the allowance of the service fee token to the
-CMAccountManager._
-
-#### Parameters
-
-| Name    | Type    | Description           |
-| ------- | ------- | --------------------- |
-| account | address | The CMAccount address |
-
 ### \_setCMAccountInfo
 
 ```solidity
@@ -2857,34 +2336,6 @@ Check if an address is CMAccount created by the manager.
 | ------- | ------- | ---------------------------- |
 | account | address | The account address to check |
 
-### getServiceFeeToken
-
-```solidity
-function getServiceFeeToken() public view returns (address)
-```
-
-Returns the service fee token address.
-
-### setServiceFeeToken
-
-```solidity
-function setServiceFeeToken(address serviceFeeToken) public
-```
-
-Sets the service fee token address.
-
-#### Parameters
-
-| Name            | Type    | Description                   |
-| --------------- | ------- | ----------------------------- |
-| serviceFeeToken | address | The service fee token address |
-
-### \_setServiceFeeToken
-
-```solidity
-function _setServiceFeeToken(address serviceFeeToken) internal
-```
-
 ### getAccountImplementation
 
 ```solidity
@@ -2913,22 +2364,6 @@ Set a new CMAccount implementation address.
 function _setAccountImplementation(address newImplementation) internal
 ```
 
-### getPrefundAmount
-
-```solidity
-function getPrefundAmount() public view returns (uint256)
-```
-
-Returns the prefund amount.
-
-### setPrefundAmount
-
-```solidity
-function setPrefundAmount(uint256 newPrefundAmount) public
-```
-
-Sets the prefund amount.
-
 ### getBookingTokenAddress
 
 ```solidity
@@ -2950,44 +2385,6 @@ Sets booking token address.
 ```solidity
 function _setBookingTokenAddress(address token) internal
 ```
-
-### getDeveloperWallet
-
-```solidity
-function getDeveloperWallet() public view returns (address developerWallet)
-```
-
-Returns developer wallet address.
-
-### setDeveloperWallet
-
-```solidity
-function setDeveloperWallet(address developerWallet) public
-```
-
-Sets developer wallet address.
-
-### getDeveloperFeeBp
-
-```solidity
-function getDeveloperFeeBp() public view returns (uint256 developerFeeBp)
-```
-
-Returns developer fee in basis points.
-
-### setDeveloperFeeBp
-
-```solidity
-function setDeveloperFeeBp(uint256 bp) public
-```
-
-Sets developer fee in basis points.
-
-A basis point (bp) is one hundredth of 1 percentage point.
-
-1 bp = 0.01%, 1/10,000⁠, or 0.0001.
-10 bp = 0.1%, 1/1,000⁠, or 0.001.
-100 bp = 1%, ⁠1/100⁠, or 0.01.
 
 ### registerService
 
@@ -3027,18 +2424,6 @@ the service anymore.
 function getAccountImplementation() external view returns (address)
 ```
 
-### getDeveloperFeeBp
-
-```solidity
-function getDeveloperFeeBp() external view returns (uint256)
-```
-
-### getDeveloperWallet
-
-```solidity
-function getDeveloperWallet() external view returns (address)
-```
-
 ### isCMAccount
 
 ```solidity
@@ -3069,12 +2454,6 @@ function getRegisteredServiceNameByHash(bytes32 serviceHash) external view retur
 function getServiceNameByHash(bytes32 serviceHash) external view returns (string serviceName)
 ```
 
-### getServiceFeeToken
-
-```solidity
-function getServiceFeeToken() external view returns (address)
-```
-
 ## CMAccountManagerTest
 
 ### getVersion
@@ -3094,7 +2473,6 @@ Struct for storing supported service details for suppliers
 
 ```solidity
 struct Service {
-    uint256 _fee;
     bool _restrictedRate;
     string[] _capabilities;
 }
@@ -3221,7 +2599,7 @@ function __PartnerConfiguration_init_unchained() internal
 ### \_addService
 
 ```solidity
-function _addService(bytes32 serviceHash, uint256 fee, string[] capabilities, bool restrictedRate) internal virtual
+function _addService(bytes32 serviceHash, string[] capabilities, bool restrictedRate) internal virtual
 ```
 
 Adds a supported Service object for a given hash.
@@ -3231,7 +2609,6 @@ Adds a supported Service object for a given hash.
 | Name           | Type     | Description                                   |
 | -------------- | -------- | --------------------------------------------- |
 | serviceHash    | bytes32  | Hash of the service                           |
-| fee            | uint256  | Fee for the service                           |
 | capabilities   | string[] | Capabilities for the service                  |
 | restrictedRate | bool     | If the service is restricted to pre-agreement |
 
@@ -3248,21 +2625,6 @@ Removes a supported Service object for a given hash.
 | Name        | Type    | Description         |
 | ----------- | ------- | ------------------- |
 | serviceHash | bytes32 | Hash of the service |
-
-### \_setServiceFee
-
-```solidity
-function _setServiceFee(bytes32 serviceHash, uint256 fee) internal virtual
-```
-
-Sets the Service fee for a given hash.
-
-#### Parameters
-
-| Name        | Type    | Description         |
-| ----------- | ------- | ------------------- |
-| serviceHash | bytes32 | Hash of the service |
-| fee         | uint256 | Fee                 |
 
 ### \_setServiceRestrictedRate
 
@@ -3356,13 +2718,13 @@ definitions._
 | ----------- | ------- | ------------------- |
 | serviceHash | bytes32 | Hash of the service |
 
-### getServiceFee
+### \_isServiceSupported
 
 ```solidity
-function getServiceFee(bytes32 serviceHash) public view virtual returns (uint256 fee)
+function _isServiceSupported(bytes32 serviceHash) internal view returns (bool)
 ```
 
-Returns the fee for a given service hash.
+Checks if the service is supported.
 
 #### Parameters
 
@@ -3743,94 +3105,28 @@ constructor() public
 
 ## ServiceFeeToken
 
-This contract is intended to be used only on testnet as an ERC20 service
-fee token.
+This contract is deprecated and removed as part of Milestone 1 service fee removal.
 
-For more info see:
-https://github.com/chain4travel/camino-messenger-contracts/
-
-### PAUSER_ROLE
+### name
 
 ```solidity
-bytes32 PAUSER_ROLE
+function name() public pure returns (string)
 ```
 
-### MINTER_ROLE
+### symbol
 
 ```solidity
-bytes32 MINTER_ROLE
+function symbol() public pure returns (string)
 ```
 
-### UPGRADER_ROLE
+### decimals
 
 ```solidity
-bytes32 UPGRADER_ROLE
-```
-
-### constructor
-
-```solidity
-constructor() public
-```
-
-### initialize
-
-```solidity
-function initialize(address defaultAdmin, address pauser, address minter, address upgrader) public
-```
-
-### reinitializeV2
-
-```solidity
-function reinitializeV2(string newName, string newSymbol) public
-```
-
-This function allows reinitializing the contract to update the name and symbol
-
-_Only callable by DEFAULT_ADMIN_ROLE_
-
-#### Parameters
-
-| Name      | Type   | Description      |
-| --------- | ------ | ---------------- |
-| newName   | string | New token name   |
-| newSymbol | string | New token symbol |
-
-### pause
-
-```solidity
-function pause() public
-```
-
-### unpause
-
-```solidity
-function unpause() public
+function decimals() public pure returns (uint8)
 ```
 
 ### mint
 
 ```solidity
-function mint(address to, uint256 amount) public
+function mint(address, uint256) public
 ```
-
-### \_authorizeUpgrade
-
-```solidity
-function _authorizeUpgrade(address newImplementation) internal
-```
-
-\_Function that should revert when `msg.sender` is not authorized to upgrade the contract. Called by
-{upgradeToAndCall}.
-
-Normally, this function will use an xref:access.adoc[access control] modifier such as {Ownable-onlyOwner}.
-
-````solidity
-function _authorizeUpgrade(address) internal onlyOwner {}
-```_
-
-### _update
-
-```solidity
-function _update(address from, address to, uint256 value) internal
-````
