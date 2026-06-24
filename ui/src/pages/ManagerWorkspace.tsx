@@ -1,38 +1,34 @@
-import { Link, useParams, useSearchParams } from "react-router-dom";
-import { ArrowUpFromLine, Bot, Coins, KeyRound, Server, Users } from "lucide-react";
-import { type Address } from "viem";
-import { AccountSummary } from "../components/AccountSummary";
-import { AccountValidityNotice } from "../components/AccountValidityNotice";
+import { Link, useSearchParams } from "react-router-dom";
+import { KeyRound, Server, Settings, Ticket } from "lucide-react";
+import { Card } from "../components/Card";
+import { ManagerSummary } from "../components/ManagerSummary";
 import { RefreshButton } from "../components/RefreshButton";
 import { TxPanel } from "../components/TxPanel";
-import { BotsTab } from "./tabs/BotsTab";
-import { PaymentTokensTab } from "./tabs/PaymentTokensTab";
-import { ServicesTab } from "./tabs/ServicesTab";
-import { RolesTab } from "./tabs/RolesTab";
-import { PubkeysTab } from "./tabs/PubkeysTab";
-import { WithdrawalsTab } from "./tabs/WithdrawalsTab";
+import { useActiveContracts } from "../hooks/useActiveContracts";
+import { ManagerConfigTab } from "./tabs/ManagerConfigTab";
+import { ServiceRegistryTab } from "./tabs/ServiceRegistryTab";
+import { ManagerRolesTab } from "./tabs/ManagerRolesTab";
+import { BookingTokenTab } from "./tabs/BookingTokenTab";
 
 const TABS = [
-  { id: "bots", label: "Bots", Icon: Bot, Component: BotsTab },
-  { id: "tokens", label: "Payment Tokens", Icon: Coins, Component: PaymentTokensTab },
-  { id: "services", label: "Services", Icon: Server, Component: ServicesTab },
-  { id: "roles", label: "Roles", Icon: Users, Component: RolesTab },
-  { id: "pubkeys", label: "Pubkeys", Icon: KeyRound, Component: PubkeysTab },
-  { id: "withdrawals", label: "Withdrawals", Icon: ArrowUpFromLine, Component: WithdrawalsTab },
+  { id: "config", label: "Config", Icon: Settings, Component: ManagerConfigTab },
+  { id: "services", label: "Service Registry", Icon: Server, Component: ServiceRegistryTab },
+  { id: "roles", label: "Manager Roles", Icon: KeyRound, Component: ManagerRolesTab },
+  { id: "booking-token", label: "Booking Token", Icon: Ticket, Component: BookingTokenTab },
 ] as const;
 
-export function AccountWorkspace() {
-  const { address } = useParams();
+export function ManagerWorkspace() {
+  const { supported } = useActiveContracts();
   const [params] = useSearchParams();
   const active = params.get("tab") ?? TABS[0].id;
-  const account = address as Address;
   const Active = (TABS.find((t) => t.id === active) ?? TABS[0]).Component;
+
+  if (!supported) return <Card title="Manager">Connect to a supported network.</Card>;
 
   return (
     <div className="grid items-start gap-6 md:grid-cols-[260px_1fr]">
       <div className="flex flex-col gap-4">
-        <AccountValidityNotice account={account} />
-        <AccountSummary account={account} />
+        <ManagerSummary />
         <TxPanel />
       </div>
       <div className="flex min-w-0 flex-col gap-4">
@@ -56,7 +52,7 @@ export function AccountWorkspace() {
             <RefreshButton />
           </div>
         </div>
-        <Active account={account} />
+        <Active />
       </div>
     </div>
   );
