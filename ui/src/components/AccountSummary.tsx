@@ -5,8 +5,11 @@ import { APP_CHAINS } from "../config/chains";
 import { useActiveContracts } from "../hooks/useActiveContracts";
 import { useErc20Balances } from "../hooks/useErc20Balances";
 import { useAccountRolesFor } from "../hooks/useMyAccounts";
+import { formatAmount } from "../lib/format";
 import { AddressDisplay } from "./AddressDisplay";
 import { RoleBadge } from "./RoleBadge";
+import { TokenDisplay } from "./TokenDisplay";
+import { Tooltip } from "./Tooltip";
 
 export function AccountSummary({ account }: { account: Address }) {
   const { chainId } = useActiveContracts();
@@ -19,7 +22,9 @@ export function AccountSummary({ account }: { account: Address }) {
 
   return (
     <aside className="h-fit rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-800">
-      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Active account</h2>
+      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+        Active account
+      </h2>
 
       <div className="mb-4 text-sm">
         <AddressDisplay address={account} />
@@ -32,7 +37,17 @@ export function AccountSummary({ account }: { account: Address }) {
         </div>
         <div>
           <dt className="text-gray-500 dark:text-gray-400">Native balance</dt>
-          <dd>{bal ? `${bal.formatted} ${bal.symbol}` : "—"}</dd>
+          <dd className="font-num tabular-nums">
+            {bal ? (
+              <Tooltip content={`${bal.formatted} ${bal.symbol}`}>
+                <span>
+                  {formatAmount(bal.formatted).display} {bal.symbol}
+                </span>
+              </Tooltip>
+            ) : (
+              "—"
+            )}
+          </dd>
           {nativeZero && (
             <p className="mt-1 flex items-start gap-1 text-xs text-amber-700 dark:text-amber-300">
               <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
@@ -47,15 +62,19 @@ export function AccountSummary({ account }: { account: Address }) {
               {tokens.map((t) => (
                 <div key={t.address}>
                   <div className="flex items-center justify-between gap-2">
-                    <AddressDisplay address={t.address} className="text-xs" />
-                    <span className={t.isZero ? "text-amber-700 dark:text-amber-300" : ""}>
-                      {t.formatted} {t.symbol}
-                    </span>
+                    <TokenDisplay address={t.address} symbol={t.symbol} name={t.name} className="min-w-0 text-sm" />
+                    <Tooltip content={`${t.formatted} ${t.symbol}`}>
+                      <span
+                        className={`font-num tabular-nums whitespace-nowrap ${t.isZero ? "text-amber-700 dark:text-amber-300" : ""}`}
+                      >
+                        {formatAmount(t.formatted).display} {t.symbol}
+                      </span>
+                    </Tooltip>
                   </div>
                   {t.isZero && (
                     <p className="mt-0.5 flex items-start gap-1 text-xs text-amber-700 dark:text-amber-300">
-                      <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
-                      0 {t.symbol} — can't buy booking tokens paid in {t.symbol}.
+                      <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />0 {t.symbol} — can't buy booking tokens paid
+                      in {t.symbol}.
                     </p>
                   )}
                 </div>
@@ -66,7 +85,15 @@ export function AccountSummary({ account }: { account: Address }) {
         <div>
           <dt className="mb-1 text-gray-500 dark:text-gray-400">Your roles</dt>
           <dd className="flex flex-wrap gap-1">
-            {address ? (roles.length ? roles.map((r) => <RoleBadge key={r} role={r} />) : <span className="text-gray-400">None</span>) : <span className="text-gray-400">Connect wallet</span>}
+            {address ? (
+              roles.length ? (
+                roles.map((r) => <RoleBadge key={r} role={r} />)
+              ) : (
+                <span className="text-gray-400">None</span>
+              )
+            ) : (
+              <span className="text-gray-400">Connect wallet</span>
+            )}
           </dd>
         </div>
       </dl>
