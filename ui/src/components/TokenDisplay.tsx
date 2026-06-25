@@ -4,9 +4,11 @@ import { Identicon } from "./Identicon";
 import { Tooltip } from "./Tooltip";
 
 /**
- * Render an ERC20 token in a human-readable way: identicon + symbol headline
- * (or compact address when the symbol is unknown), the full name as muted
- * secondary text, and the compacted address (full on hover) with a copy button.
+ * Render an ERC20 token in a human-readable way on three stacked lines:
+ * identicon + symbol headline (or compact address when the symbol is unknown),
+ * the full name as muted secondary text, and the compacted address (full on
+ * hover) with a copy button. Stacking keeps the symbol and name from being
+ * truncated when the widget is in a narrow column.
  */
 export function TokenDisplay({
   address,
@@ -23,14 +25,12 @@ export function TokenDisplay({
   return (
     <span className={`inline-flex min-w-0 items-center gap-2 ${className}`}>
       <Identicon address={address} size={20} />
-      <span className="min-w-0">
-        <span className="flex min-w-0 items-baseline gap-2">
-          <span className="truncate font-medium">{symbol ?? short}</span>
-          {name && <span className="truncate text-xs text-gray-500 dark:text-gray-400">{name}</span>}
-        </span>
+      <span className="flex min-w-0 flex-col">
+        <span className="truncate font-medium leading-tight">{symbol ?? short}</span>
+        {name && <span className="truncate text-xs leading-tight text-gray-500 dark:text-gray-400">{name}</span>}
         <span className="flex items-center gap-1">
           <Tooltip content={address}>
-            <span className="font-mono text-xs text-gray-500 dark:text-gray-400">{short}</span>
+            <span className="font-mono text-[11px] leading-tight text-gray-500 dark:text-gray-400">{short}</span>
           </Tooltip>
           <CopyButton value={address} label="Copy address" />
         </span>

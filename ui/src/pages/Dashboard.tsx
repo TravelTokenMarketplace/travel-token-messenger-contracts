@@ -5,9 +5,9 @@ import { type Abi, type Address } from "viem";
 import { useAccount, useReadContract } from "wagmi";
 import { AddressDisplay } from "../components/AddressDisplay";
 import { Card } from "../components/Card";
-import { Checkbox } from "../components/Checkbox";
 import { GoToAccount } from "../components/GoToAccount";
 import { RefreshButton } from "../components/RefreshButton";
+import { Switch } from "../components/Switch";
 import { RoleBadge } from "../components/RoleBadge";
 import { useActiveContracts } from "../hooks/useActiveContracts";
 import { useAccountRolesFor, useManagerAccounts } from "../hooks/useMyAccounts";
@@ -80,15 +80,20 @@ export function Dashboard() {
         </dl>
       </Card>
 
-      <Card title="CM Accounts" actions={<RefreshButton />}>
-        <div className="mb-2">
-          <Checkbox
-            checked={onlyMine}
-            disabled={!address}
-            onChange={setOnlyMine}
-            label="Only accounts where I hold a role"
-          />
-        </div>
+      <Card
+        title="CM Accounts"
+        actions={
+          <div className="flex items-center gap-3">
+            <Switch
+              checked={onlyMine}
+              disabled={!address}
+              onChange={setOnlyMine}
+              label="Only accounts where I hold a role"
+            />
+            <RefreshButton />
+          </div>
+        }
+      >
         {isLoading ? (
           <p className="py-2 text-sm text-gray-400">Loading…</p>
         ) : (
