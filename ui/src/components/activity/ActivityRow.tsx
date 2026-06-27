@@ -13,15 +13,17 @@ export function ActivityRow({ event, explorerUrl }: { event: ActivityEvent; expl
   return (
     <li className="flex items-center gap-3 py-2">
       <span
-        className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${CATEGORY_STYLE[event.category].icon}`}
+        className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+          CATEGORY_STYLE[event.category].icon
+        }`}
         title={event.category}
       >
         <Icon className="h-4 w-4" aria-hidden />
       </span>
-      <span className="min-w-0 break-words text-sm text-gray-800 dark:text-gray-200">
+      <span className="min-w-0 break-words text-sm text-tarmac-800 dark:text-tarmac-200">
         <InlineSentence sentence={event.sentence} args={event.args} />
       </span>
-      <span className="ml-auto flex shrink-0 items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
+      <span className="ml-auto flex shrink-0 items-center gap-2 text-xs text-tarmac-400 dark:text-tarmac-500">
         <time title={absolute}>{when}</time>
         {explorerUrl && (
           <a
@@ -30,7 +32,7 @@ export function ActivityRow({ event, explorerUrl }: { event: ActivityEvent; expl
             rel="noreferrer"
             title="View transaction"
             aria-label="View transaction"
-            className="transition-colors hover:text-gray-700 dark:hover:text-gray-200"
+            className="transition-colors hover:text-tarmac-700 dark:hover:text-tarmac-200"
           >
             <ExternalLink className="h-3.5 w-3.5" />
           </a>

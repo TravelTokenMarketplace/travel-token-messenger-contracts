@@ -49,15 +49,47 @@ export function useManagerAccounts() {
 }
 
 /**
+ * Footprint counts for a single CM Account, batched in one multicall: how many
+ * services it supports, payment tokens it accepts, and public keys it has
+ * registered. Gives each dashboard row substance at a glance. Counts only — the
+ * array getters decode reliably for length even where tuple getters don't (see
+ * CLAUDE.md), so we read the hash/address arrays and take `.length`.
+ */
+export function useAccountStats(account: Address) {
+  const { cmAccountAbi } = useActiveContracts();
+  const { activeChainId } = useActiveChain();
+  const abi = cmAccountAbi as Abi;
+
+  const { data, isLoading } = useReadContracts({
+    contracts: [
+      { chainId: activeChainId, address: account, abi, functionName: "getAllServiceHashes" },
+      { chainId: activeChainId, address: account, abi, functionName: "getSupportedTokens" },
+      { chainId: activeChainId, address: account, abi, functionName: "getPublicKeysAddresses" },
+    ],
+    allowFailure: true,
+  });
+
+  const len = (i: number) => {
+    const r = data?.[i];
+    return r?.status === "success" && Array.isArray(r.result) ? (r.result as unknown[]).length : undefined;
+  };
+
+  return { services: len(0), tokens: len(1), pubkeys: len(2), isLoading };
+}
+
+/**
  * For a single CM Account, returns which account-level roles the given address
- * holds. Uses a multicall batch of hasRole() reads (plain eth_call).
+ * holds. Uses a multicall batch of hasRole() reads (plain eth_call). Returns
+ * `isLoading` so callers can distinguish "no roles" from "not resolved yet" —
+ * filtering on `roles.length === 0` before the read settles would wrongly drop
+ * every row.
  */
 export function useAccountRolesFor(account: Address, address: Address | undefined) {
   const { cmAccountAbi } = useActiveContracts();
   const { activeChainId } = useActiveChain();
   const abi = cmAccountAbi as Abi;
 
-  const { data } = useReadContracts({
+  const { data, isLoading } = useReadContracts({
     contracts: ACCOUNT_ROLES.map((r) => ({
       chainId: activeChainId,
       address: account,
@@ -70,5 +102,5 @@ export function useAccountRolesFor(account: Address, address: Address | undefine
   });
 
   const roles = ACCOUNT_ROLES.filter((_, i) => data?.[i]?.result === true);
-  return roles;
+  return { roles, isLoading };
 }
