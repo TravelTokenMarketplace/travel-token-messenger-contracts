@@ -5,9 +5,9 @@
  *
  * Ex:
  *
- * ❯ node examples/erc7201.js camino.messenger.storage.CMAccount
- * NAMESPACE ID: camino.messenger.storage.CMAccount
- * Storage Location: 0x0c7b73796c7cc89b9f849b9056a93200eba741881e57a1b03b9bedb2c0e07100
+ * ❯ node examples/erc7201.js traveltoken.messenger.storage.TTMAccount
+ * NAMESPACE ID: traveltoken.messenger.storage.TTMAccount
+ * Storage Location: 0x17fbd8e22750b6dc617ceae09f600bf2810b53ccc1f790a9a4f78a3f7169b900
  */
 
 const ethers = require("ethers");
@@ -26,7 +26,7 @@ const NAMESPACE_ID = process.argv[2];
 // Calculate storage location according to ERC-7201 specification.
 //
 // Same calculation on Solidity:
-// keccak256(abi.encode(uint256(keccak256("camino.messenger.storage.PartnerConfiguration")) - 1)) & ~bytes32(uint256(0xff));
+// keccak256(abi.encode(uint256(keccak256("traveltoken.messenger.storage.PartnerConfiguration")) - 1)) & ~bytes32(uint256(0xff));
 
 const hash = ethers.keccak256(ethers.toUtf8Bytes(NAMESPACE_ID));
 const hashAsBigInt = BigInt(hash);

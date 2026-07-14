@@ -6,22 +6,22 @@ async function main() {
     const addresses = require(`../ignition/deployments/chain-${chainId}/deployed_addresses.json`);
 
     const managerImplementation = await ethers.getContractAt(
-        "CMAccountManager",
-        addresses["CaminoMessengerModule#CMAccountManager"],
+        "TTMAccountManager",
+        addresses["TravelTokenMessengerModule#TTMAccountManager"],
     );
 
-    const manager = await ethers.getContractAt("CMAccountManager", addresses["CaminoMessengerModule#ManagerProxy"]);
+    const manager = await ethers.getContractAt("TTMAccountManager", addresses["TravelTokenMessengerModule#ManagerProxy"]);
 
-    const cmAccount = await ethers.getContractAt("CMAccount", addresses["CaminoMessengerModule#CMAccount"]);
+    const ttmAccount = await ethers.getContractAt("TTMAccount", addresses["TravelTokenMessengerModule#TTMAccount"]);
 
     const bookingTokenImplementation = await ethers.getContractAt(
         "BookingToken",
-        addresses["CaminoMessengerModule#BookingToken"],
+        addresses["TravelTokenMessengerModule#BookingToken"],
     );
 
     const bookingToken = await ethers.getContractAt(
         "BookingToken",
-        addresses["CaminoMessengerModule#BookingTokenProxy"],
+        addresses["TravelTokenMessengerModule#BookingTokenProxy"],
     );
 
     console.log("========================= MANAGER =========================");
@@ -29,8 +29,8 @@ async function main() {
     console.log(`Implementation: ${await managerImplementation.getAddress()}`);
 
     console.log();
-    console.log("======================== CM ACCOUNT ========================");
-    console.log(`Implementation: ${await cmAccount.getAddress()}`);
+    console.log("======================== TTM ACCOUNT ========================");
+    console.log(`Implementation: ${await ttmAccount.getAddress()}`);
 
     console.log();
     console.log("====================== BOOKING TOKEN ======================");
@@ -39,7 +39,7 @@ async function main() {
 
     console.log();
     console.log("====================== CONFIGURATION ======================");
-    console.log(`CM Account Impl: ${await manager.getAccountImplementation()}`);
+    console.log(`TTM Account Impl: ${await manager.getAccountImplementation()}`);
     console.log(`Developer Wallet: ${await manager.getDeveloperWallet()}`);
     console.log(`Fee Basis Points: ${await manager.getDeveloperFeeBp()}`);
     console.log(`Prefund Amount: ${ethers.formatEther(await manager.getPrefundAmount())} CAM`);

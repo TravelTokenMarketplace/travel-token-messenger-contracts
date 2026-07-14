@@ -44,14 +44,14 @@ describe("Upgrade Check", function () {
         // Address at run time on Columbus: 0xe55E387F5474a012D1b048155E25ea78C7DBfBBC
         const NewBookingToken = await ethers.getContractFactory("BookingToken");
 
-        await upgrades.validateUpgrade(addresses["CaminoMessengerModule#BookingTokenProxy"], NewBookingToken);
+        await upgrades.validateUpgrade(addresses["TravelTokenMessengerModule#BookingTokenProxy"], NewBookingToken);
     });
 });
 
 // [Note@2025-01-23]
 //
 // Output for BookingTokenV2 contract that was used before the refactoring at
-// https://github.com/chain4travel/camino-messenger-contracts/pull/55
+// https://github.com/TravelTokenMarketplace/travel-token-messenger-contracts/pull/55
 //
 // The output below compares the deployed BookingTokenV2 contract storage layout
 // with the new BookingToken contract storage layout after the refactoring.

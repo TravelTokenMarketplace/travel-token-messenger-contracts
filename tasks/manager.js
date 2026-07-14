@@ -1,6 +1,6 @@
 require("@nomicfoundation/hardhat-toolbox");
 
-const MANAGER_SCOPE = scope("manager", "CM Account Manager Tasks");
+const MANAGER_SCOPE = scope("manager", "TTM Account Manager Tasks");
 const BT_SCOPE = scope("btoken", "Booking Token Tasks");
 
 // TODO: Handle transaction failures
@@ -11,7 +11,7 @@ const ROLES = [
     "UPGRADER_ROLE",
     "VERSIONER_ROLE",
     "SERVICE_REGISTRY_ADMIN_ROLE",
-    //"CMACCOUNT_ROLE", // Disabled because it slows down the role:all output a lot. Use `account:list` instead
+    //"TTMACCOUNT_ROLE", // Disabled because it slows down the role:all output a lot. Use `account:list` instead
 ];
 
 function bold(text) {
@@ -47,12 +47,12 @@ function getAddressesForNetwork(hre) {
 
 async function getManager(hre) {
     const addresses = getAddressesForNetwork(hre);
-    return await ethers.getContractAt("CMAccountManager", addresses["CaminoMessengerModule#ManagerProxy"]);
+    return await ethers.getContractAt("TTMAccountManager", addresses["TravelTokenMessengerModule#ManagerProxy"]);
 }
 
 async function getBookingToken(hre) {
     const addresses = getAddressesForNetwork(hre);
-    return await ethers.getContractAt("BookingToken", addresses["CaminoMessengerModule#BookingTokenProxy"]);
+    return await ethers.getContractAt("BookingToken", addresses["TravelTokenMessengerModule#BookingTokenProxy"]);
 }
 
 // ServiceFeeToken helper removed as service fees are deprecated
@@ -88,7 +88,7 @@ function handleTransactionError(error, contract) {
     } else if (error.data?.message) {
         console.error(`Reason: ${error.data.message}`);
     } else if (error.message?.includes("[taskArgs.role] is not a function")) {
-        console.error("Reason: CMAccount does not have this role.");
+        console.error("Reason: TTMAccount does not have this role.");
     } else if (error.message) {
         console.error("Message:", error.message);
         console.error("Error:", error);
@@ -138,22 +138,22 @@ MANAGER_SCOPE.task("status", "Print status of deployed contracts").setAction(asy
     const addresses = getAddressesForNetwork(hre);
 
     const managerImplementation = await ethers.getContractAt(
-        "CMAccountManager",
-        addresses["CaminoMessengerModule#CMAccountManager"],
+        "TTMAccountManager",
+        addresses["TravelTokenMessengerModule#TTMAccountManager"],
     );
 
-    const manager = await ethers.getContractAt("CMAccountManager", addresses["CaminoMessengerModule#ManagerProxy"]);
+    const manager = await ethers.getContractAt("TTMAccountManager", addresses["TravelTokenMessengerModule#ManagerProxy"]);
 
-    const cmAccount = await ethers.getContractAt("CMAccount", addresses["CaminoMessengerModule#CMAccount"]);
+    const ttmAccount = await ethers.getContractAt("TTMAccount", addresses["TravelTokenMessengerModule#TTMAccount"]);
 
     const bookingTokenImplementation = await ethers.getContractAt(
         "BookingToken",
-        addresses["CaminoMessengerModule#BookingToken"],
+        addresses["TravelTokenMessengerModule#BookingToken"],
     );
 
     const bookingToken = await ethers.getContractAt(
         "BookingToken",
-        addresses["CaminoMessengerModule#BookingTokenProxy"],
+        addresses["TravelTokenMessengerModule#BookingTokenProxy"],
     );
 
     console.log("================ MANAGER =======================================");
@@ -161,8 +161,8 @@ MANAGER_SCOPE.task("status", "Print status of deployed contracts").setAction(asy
     console.log(`Implementation: ${await managerImplementation.getAddress()}`);
 
     console.log();
-    console.log("================ CM ACCOUNT ====================================");
-    console.log(`Implementation: ${await cmAccount.getAddress()}`);
+    console.log("================ TTM ACCOUNT ====================================");
+    console.log(`Implementation: ${await ttmAccount.getAddress()}`);
 
     console.log();
     console.log("================ BOOKING TOKEN =================================");
@@ -171,7 +171,7 @@ MANAGER_SCOPE.task("status", "Print status of deployed contracts").setAction(asy
 
     console.log();
     console.log("================ CONFIGURATION on MANAGER ======================");
-    console.log(`CM Account Impl: ${await manager.getAccountImplementation()}`);
+    console.log(`TTM Account Impl: ${await manager.getAccountImplementation()}`);
 });
 
 MANAGER_SCOPE.task("services:register", "Register services")
@@ -190,7 +190,7 @@ MANAGER_SCOPE.task("services:unregister", "Unregister services")
 
 MANAGER_SCOPE.task("services:list", "List registered services").setAction(async (taskArgs, hre) => {
     const addresses = getAddressesForNetwork(hre);
-    const manager = await ethers.getContractAt("CMAccountManager", addresses["CaminoMessengerModule#ManagerProxy"]);
+    const manager = await ethers.getContractAt("TTMAccountManager", addresses["TravelTokenMessengerModule#ManagerProxy"]);
     console.log("Getting all registered services...");
     const services = await manager.getAllRegisteredServiceNames();
     console.log(services);
@@ -249,12 +249,12 @@ MANAGER_SCOPE.task("role:all", "List all roles").setAction(async (taskArgs, hre)
     }
 });
 
-MANAGER_SCOPE.task("account:list", "List CM Accounts").setAction(async (taskArgs, hre) => {
-    await hre.run({ scope: "manager", task: "role:members" }, { role: "CMACCOUNT_ROLE" });
+MANAGER_SCOPE.task("account:list", "List TTM Accounts").setAction(async (taskArgs, hre) => {
+    await hre.run({ scope: "manager", task: "role:members" }, { role: "TTMACCOUNT_ROLE" });
 });
 
-MANAGER_SCOPE.task("account:set-implementation", "Set CMAccount implementation address")
-    .addParam("address", "Implementation address to set as the new CMAccount impl")
+MANAGER_SCOPE.task("account:set-implementation", "Set TTMAccount implementation address")
+    .addParam("address", "Implementation address to set as the new TTMAccount impl")
     .setAction(async (taskArgs, hre) => {
         const manager = await getManager(hre);
         const tx = await manager.setAccountImplementation(taskArgs.address);
@@ -274,17 +274,17 @@ MANAGER_SCOPE.task("btoken:set", "Set Booking Token address on the manager contr
         console.log("Tx:", txReceipt.hash);
     });
 
-MANAGER_SCOPE.task("pause", "Pause CM Account Manager (stops account creation)").setAction(async (taskArgs, hre) => {
+MANAGER_SCOPE.task("pause", "Pause TTM Account Manager (stops account creation)").setAction(async (taskArgs, hre) => {
     const manager = await getManager(hre);
-    console.log("Pausing CMAccountManager...");
+    console.log("Pausing TTMAccountManager...");
     const tx = await manager.pause();
     const txReceipt = await tx.wait();
     console.log("Tx:", txReceipt.hash);
 });
 
-MANAGER_SCOPE.task("unpause", "Unpause CM Account Manager").setAction(async (taskArgs, hre) => {
+MANAGER_SCOPE.task("unpause", "Unpause TTM Account Manager").setAction(async (taskArgs, hre) => {
     const manager = await getManager(hre);
-    console.log("Unpausing CMAccountManager...");
+    console.log("Unpausing TTMAccountManager...");
     const tx = await manager.unpause();
     const txReceipt = await tx.wait();
     console.log("Tx:", txReceipt.hash);

@@ -8,7 +8,7 @@ async function main() {
     console.log(`Connected to chain: ${chainId}`);
 
     const addresses = require(`../ignition/deployments/chain-${chainId}/deployed_addresses.json`);
-    const bookingTokenProxyAddress = addresses["CaminoMessengerModule#BookingTokenProxy"];
+    const bookingTokenProxyAddress = addresses["TravelTokenMessengerModule#BookingTokenProxy"];
     console.log(`BookingTokenProxy address: ${bookingTokenProxyAddress}`);
 
     const bookingToken = await ethers.getContractAt("BookingToken", bookingTokenProxyAddress);

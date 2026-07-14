@@ -9,14 +9,14 @@ set -e
 ### Variables ###
 
 GO_ETH_VERSION="v1.14.12"
-GO_MODULE_NAME="github.com/chain4travel/camino-messenger-contracts/go/contracts"
+GO_MODULE_NAME="github.com/TravelTokenMarketplace/travel-token-messenger-contracts/go/contracts"
 
 GEN_PATH="go/contracts"
 ARTIFACTS_PATH="artifacts"
 ARTIFACTS=(
     "contracts/test/NullUSD.sol/NullUSD.json"
-    "contracts/account/CMAccount.sol/CMAccount.json"
-    "contracts/manager/CMAccountManager.sol/CMAccountManager.json"
+    "contracts/account/TTMAccount.sol/TTMAccount.json"
+    "contracts/manager/TTMAccountManager.sol/TTMAccountManager.json"
     "contracts/booking-token/BookingToken.sol/BookingToken.json"
     "contracts/booking-token/BookingTokenOperator.sol/BookingTokenOperator.json"
     "@openzeppelin/contracts/token/ERC20/ERC20.sol/ERC20.json"
@@ -50,7 +50,7 @@ start=$(date +%s.%N)
 
 # Set workdir
 if [ -z "${WORKDIR}" ]; then
-    # camino-messenger-bot root folder
+    # travel-token-messenger-bot root folder
     WORKDIR=$(
         cd "$(dirname "${BASH_SOURCE[0]}")"
         cd .. && pwd
