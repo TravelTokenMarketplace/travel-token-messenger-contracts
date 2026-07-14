@@ -74,4 +74,4 @@ A wallet-connected management UI for these contracts lives in
 ## License
 
 Licensed under the GNU Lesser General Public License v3.0 — see
-[LICENSE](LICENSE).
+[LICENSE.md](LICENSE.md).
