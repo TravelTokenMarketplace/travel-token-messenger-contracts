@@ -105,7 +105,10 @@ describe("TTMAccountManager", function () {
 
             const { ttmAccountManager } = await loadFixture(deployTTMAccountManagerFixture);
 
-            const TTMAccountManagerTest = await ethers.getContractFactory("TTMAccountManagerTest", signers.managerPauser);
+            const TTMAccountManagerTest = await ethers.getContractFactory(
+                "TTMAccountManagerTest",
+                signers.managerPauser,
+            );
 
             await expect(upgrades.upgradeProxy(ttmAccountManager, TTMAccountManagerTest)).to.be.revertedWithCustomError(
                 TTMAccountManagerTest,
@@ -125,7 +128,9 @@ describe("TTMAccountManager", function () {
             const ttmAccountImplAddress = await ttmAccountImpl.getAddress();
 
             await expect(
-                await ttmAccountManager.connect(signers.managerVersioner).setAccountImplementation(ttmAccountImplAddress),
+                await ttmAccountManager
+                    .connect(signers.managerVersioner)
+                    .setAccountImplementation(ttmAccountImplAddress),
             )
                 .to.emit(ttmAccountManager, "TTMAccountImplementationUpdated")
                 .withArgs(ethers.ZeroAddress, ttmAccountImplAddress);
@@ -236,9 +241,13 @@ describe("TTMAccountManager", function () {
 
             // Create TTMAccount
             await expect(
-                ttmAccountManager.createTTMAccount(signers.ttmAccountAdmin.address, signers.ttmAccountUpgrader.address, {
-                    value: ethers.parseEther("100"),
-                }),
+                ttmAccountManager.createTTMAccount(
+                    signers.ttmAccountAdmin.address,
+                    signers.ttmAccountUpgrader.address,
+                    {
+                        value: ethers.parseEther("100"),
+                    },
+                ),
             ).to.be.revertedWithCustomError(ttmAccountManager, "InvalidBookingTokenAddress");
 
             // Set acct impl code to zero
@@ -246,9 +255,13 @@ describe("TTMAccountManager", function () {
 
             // Create TTMAccount
             await expect(
-                ttmAccountManager.createTTMAccount(signers.ttmAccountAdmin.address, signers.ttmAccountUpgrader.address, {
-                    value: ethers.parseEther("100"),
-                }),
+                ttmAccountManager.createTTMAccount(
+                    signers.ttmAccountAdmin.address,
+                    signers.ttmAccountUpgrader.address,
+                    {
+                        value: ethers.parseEther("100"),
+                    },
+                ),
             ).to.be.revertedWithCustomError(ttmAccountManager, "TTMAccountInvalidImplementation");
         });
 

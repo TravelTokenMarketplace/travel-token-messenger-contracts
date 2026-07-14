@@ -34,11 +34,15 @@ describe("TTMAccount", function () {
             const newImplementationAddress = await ttmAccountImplV2.getAddress();
 
             // Set new implementation on the manager
-            await ttmAccountManager.connect(signers.managerVersioner).setAccountImplementation(newImplementationAddress);
+            await ttmAccountManager
+                .connect(signers.managerVersioner)
+                .setAccountImplementation(newImplementationAddress);
             await expect(await ttmAccountManager.getAccountImplementation()).to.be.equal(newImplementationAddress);
 
             // Upgrade the account
-            await expect(ttmAccount.connect(signers.ttmAccountUpgrader).upgradeToAndCall(newImplementationAddress, "0x"))
+            await expect(
+                ttmAccount.connect(signers.ttmAccountUpgrader).upgradeToAndCall(newImplementationAddress, "0x"),
+            )
                 .to.emit(ttmAccount, "TTMAccountUpgraded")
                 .withArgs(oldImplementationAddress, newImplementationAddress);
         });
@@ -62,7 +66,9 @@ describe("TTMAccount", function () {
             // SKIP: DO NOT set new implementation on the manager here
 
             // Try to upgrade the account
-            await expect(ttmAccount.connect(signers.ttmAccountUpgrader).upgradeToAndCall(newImplementationAddress, "0x"))
+            await expect(
+                ttmAccount.connect(signers.ttmAccountUpgrader).upgradeToAndCall(newImplementationAddress, "0x"),
+            )
                 .to.be.revertedWithCustomError(ttmAccount, "TTMAccountImplementationMismatch")
                 .withArgs(oldImplementationAddress, newImplementationAddress);
         });
@@ -80,11 +86,15 @@ describe("TTMAccount", function () {
             const newImplementationAddress = await dummyAccountImplV2.getAddress();
 
             // Set new implementation on the manager
-            await ttmAccountManager.connect(signers.managerVersioner).setAccountImplementation(newImplementationAddress);
+            await ttmAccountManager
+                .connect(signers.managerVersioner)
+                .setAccountImplementation(newImplementationAddress);
             await expect(await ttmAccountManager.getAccountImplementation()).to.be.equal(newImplementationAddress);
 
             // Upgrade the account
-            await expect(ttmAccount.connect(signers.ttmAccountUpgrader).upgradeToAndCall(newImplementationAddress, "0x"))
+            await expect(
+                ttmAccount.connect(signers.ttmAccountUpgrader).upgradeToAndCall(newImplementationAddress, "0x"),
+            )
                 .to.be.revertedWithCustomError(ttmAccount, "ERC1967InvalidImplementation")
                 .withArgs(newImplementationAddress);
         });
@@ -96,7 +106,9 @@ describe("TTMAccount", function () {
             const oldImplementationAddress = await ttmAccountManager.getAccountImplementation();
 
             // Upgrade the account
-            await expect(ttmAccount.connect(signers.ttmAccountUpgrader).upgradeToAndCall(oldImplementationAddress, "0x"))
+            await expect(
+                ttmAccount.connect(signers.ttmAccountUpgrader).upgradeToAndCall(oldImplementationAddress, "0x"),
+            )
                 .to.be.revertedWithCustomError(ttmAccount, "TTMAccountNoUpgradeNeeded")
                 .withArgs(oldImplementationAddress, oldImplementationAddress);
         });
@@ -172,7 +184,10 @@ describe("TTMAccount", function () {
 
             // Withdraw
             const withdrawTx = ttmAccount.connect(withdrawer).withdraw(withdrawer.address, withdrawAmount);
-            await expect(withdrawTx).to.changeEtherBalances([ttmAccount, withdrawer], [-withdrawAmount, withdrawAmount]);
+            await expect(withdrawTx).to.changeEtherBalances(
+                [ttmAccount, withdrawer],
+                [-withdrawAmount, withdrawAmount],
+            );
             await expect(withdrawTx).to.emit(ttmAccount, "Withdraw").withArgs(withdrawer.address, withdrawAmount);
         });
 
@@ -204,7 +219,10 @@ describe("TTMAccount", function () {
             await expect(withdrawTx).to.be.not.reverted;
 
             // Check balances
-            await expect(withdrawTx).to.changeEtherBalances([ttmAccount, withdrawer], [-withdrawAmount, withdrawAmount]);
+            await expect(withdrawTx).to.changeEtherBalances(
+                [ttmAccount, withdrawer],
+                [-withdrawAmount, withdrawAmount],
+            );
 
             // Update @2025-08-28: We have removed checkPrefund check, so we can withdraw all amount
 
@@ -523,7 +541,9 @@ describe("TTMAccount", function () {
             const unauthorizedCaller = signers.otherAccount1;
 
             // Try to counter cancellation with unauthorized caller
-            await expect(ttmAccount.connect(unauthorizedCaller).counterCancellation(0n, ethers.parseEther("0.03"), 1, 1))
+            await expect(
+                ttmAccount.connect(unauthorizedCaller).counterCancellation(0n, ethers.parseEther("0.03"), 1, 1),
+            )
                 .to.be.revertedWithCustomError(ttmAccount, "AccessControlUnauthorizedAccount")
                 .withArgs(unauthorizedCaller.address, BOOKING_OPERATOR_ROLE);
         });

@@ -531,7 +531,9 @@ describe("BookingToken", function () {
             const buyTx = distributorTTMAccount.connect(signers.btAdmin).buyBookingToken(0n, price, ethers.ZeroAddress);
 
             // Check emitted events
-            await expect(buyTx).to.be.emit(bookingToken, "TokenBought").withArgs(0n, distributorTTMAccount.getAddress());
+            await expect(buyTx)
+                .to.be.emit(bookingToken, "TokenBought")
+                .withArgs(0n, distributorTTMAccount.getAddress());
 
             // Check balances
             await expect(buyTx).to.changeEtherBalances([supplierTTMAccount, distributorTTMAccount], [price, -price]);
@@ -612,7 +614,9 @@ describe("BookingToken", function () {
             const buyTx = distributorTTMAccount.connect(signers.btAdmin).buyBookingToken(0n, price, ethers.ZeroAddress);
 
             // Check emitted events
-            await expect(buyTx).to.be.emit(bookingToken, "TokenBought").withArgs(0n, distributorTTMAccount.getAddress());
+            await expect(buyTx)
+                .to.be.emit(bookingToken, "TokenBought")
+                .withArgs(0n, distributorTTMAccount.getAddress());
 
             // Check balances
             await expect(buyTx).to.changeEtherBalances([supplierTTMAccount, distributorTTMAccount], [price, -price]);
@@ -693,7 +697,9 @@ describe("BookingToken", function () {
             const buyTx = distributorTTMAccount.connect(signers.btAdmin).buyBookingToken(0n, price, OneAddress);
 
             // Check emitted events
-            await expect(buyTx).to.be.emit(bookingToken, "TokenBought").withArgs(0n, distributorTTMAccount.getAddress());
+            await expect(buyTx)
+                .to.be.emit(bookingToken, "TokenBought")
+                .withArgs(0n, distributorTTMAccount.getAddress());
 
             // Check balances, balances should not change as it is off-chain payment
             await expect(buyTx).to.changeEtherBalances([supplierTTMAccount, distributorTTMAccount], [0n, 0n]);
@@ -774,7 +780,9 @@ describe("BookingToken", function () {
             const buyTx = distributorTTMAccount.connect(signers.btAdmin).buyBookingToken(0n, price, OneAddress);
 
             // Check emitted events
-            await expect(buyTx).to.be.emit(bookingToken, "TokenBought").withArgs(0n, distributorTTMAccount.getAddress());
+            await expect(buyTx)
+                .to.be.emit(bookingToken, "TokenBought")
+                .withArgs(0n, distributorTTMAccount.getAddress());
 
             // Check balances, balances should not change as it is off-chain payment
             await expect(buyTx).to.changeEtherBalances([supplierTTMAccount, distributorTTMAccount], [0n, 0n]);
@@ -930,7 +938,9 @@ describe("BookingToken", function () {
                 .buyBookingToken(0n, price, await nullUSD.getAddress());
 
             // Check emitted events
-            await expect(buyTx).to.be.emit(bookingToken, "TokenBought").withArgs(0n, distributorTTMAccount.getAddress());
+            await expect(buyTx)
+                .to.be.emit(bookingToken, "TokenBought")
+                .withArgs(0n, distributorTTMAccount.getAddress());
 
             // Check balances
             // CAM
@@ -1086,7 +1096,9 @@ describe("BookingToken", function () {
                 .buyBookingToken(0n, price, await nullUSD.getAddress());
 
             // Check emitted events
-            await expect(buyTx).to.be.emit(bookingToken, "TokenBought").withArgs(0n, distributorTTMAccount.getAddress());
+            await expect(buyTx)
+                .to.be.emit(bookingToken, "TokenBought")
+                .withArgs(0n, distributorTTMAccount.getAddress());
 
             // Check balances
             // CAM
@@ -1370,7 +1382,9 @@ describe("BookingToken", function () {
             const buyTx = distributorTTMAccount.connect(signers.btAdmin).buyBookingToken(0n, price, ethers.ZeroAddress);
 
             // Check emitted events
-            await expect(buyTx).to.be.emit(bookingToken, "TokenBought").withArgs(0n, distributorTTMAccount.getAddress());
+            await expect(buyTx)
+                .to.be.emit(bookingToken, "TokenBought")
+                .withArgs(0n, distributorTTMAccount.getAddress());
 
             // Check token ownership
             expect(await bookingToken.ownerOf(0n)).to.equal(await distributorTTMAccount.getAddress());
@@ -1804,7 +1818,9 @@ describe("BookingToken", function () {
             const buyTx = distributorTTMAccount.connect(signers.btAdmin).buyBookingToken(0n, price, ethers.ZeroAddress);
 
             // Check emitted events
-            await expect(buyTx).to.be.emit(bookingToken, "TokenBought").withArgs(0n, distributorTTMAccount.getAddress());
+            await expect(buyTx)
+                .to.be.emit(bookingToken, "TokenBought")
+                .withArgs(0n, distributorTTMAccount.getAddress());
 
             // Check token ownership
             expect(await bookingToken.ownerOf(0n)).to.equal(await distributorTTMAccount.getAddress());

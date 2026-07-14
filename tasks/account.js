@@ -25,13 +25,7 @@ function bold(text) {
 function getAddressesForNetwork(hre) {
     let addresses;
 
-    if (hre.network.name === "columbus") {
-        console.log("Running on columbus");
-        addresses = require("../ignition/deployments/chain-501/deployed_addresses.json");
-    } else if (hre.network.name === "camino") {
-        console.log("Running on camino");
-        addresses = require("../ignition/deployments/chain-500/deployed_addresses.json");
-    } else if (hre.network.name === "localhost") {
+    if (hre.network.name === "localhost") {
         console.log("Running on localhost");
         addresses = require("../ignition/deployments/chain-31337/deployed_addresses.json");
     } else if (hre.network.name === "base_sepolia") {
@@ -112,7 +106,11 @@ async function getImplementationAddressForProxy(proxyAddress) {
 }
 
 ACCOUNT_SCOPE.task("role:grant", "Grant role")
-    .addOptionalParam("privateKey", "Private key to use, default: TTMACCOUNT_PK env variable", process.env.TTMACCOUNT_PK)
+    .addOptionalParam(
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
     .addParam("role", "Role to grant. Ex: SERVICE_ADMIN_ROLE")
     .addParam("address", "Address to grant role to")
     .addOptionalParam(
@@ -125,7 +123,11 @@ ACCOUNT_SCOPE.task("role:grant", "Grant role")
     });
 
 ACCOUNT_SCOPE.task("role:revoke", "Revoke role")
-    .addOptionalParam("privateKey", "Private key to use, default: TTMACCOUNT_PK env variable", process.env.TTMACCOUNT_PK)
+    .addOptionalParam(
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
     .addParam("role", "Role to grant. Ex: SERVICE_ADMIN_ROLE")
     .addParam("address", "Address to revoke role to")
     .addOptionalParam(
@@ -206,7 +208,11 @@ ACCOUNT_SCOPE.task("role:all", "List all roles and their members")
     });
 
 ACCOUNT_SCOPE.task("create", "Create TTMAccount")
-    .addOptionalParam("privateKey", "Private key to use, default: TTMACCOUNT_PK env variable", process.env.TTMACCOUNT_PK)
+    .addOptionalParam(
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
     .addOptionalParam("camAmount", "Amount of CAM to send to TTMAccount", "0")
     .setAction(async (taskArgs, hre) => {
         const manager = await getManager(hre);
@@ -246,7 +252,11 @@ ACCOUNT_SCOPE.task("create", "Create TTMAccount")
     });
 
 ACCOUNT_SCOPE.task("withdraw", "Withdraw funds from TTMAccount")
-    .addOptionalParam("privateKey", "Private key to use, default: TTMACCOUNT_PK env variable", process.env.TTMACCOUNT_PK)
+    .addOptionalParam(
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
     .addOptionalParam(
         "ttmAccount",
         "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
@@ -303,7 +313,11 @@ ACCOUNT_SCOPE.task("withdraw", "Withdraw funds from TTMAccount")
     });
 
 ACCOUNT_SCOPE.task("bot:add", "Add bot to the TTMAccount")
-    .addOptionalParam("privateKey", "Private key to use, default: TTMACCOUNT_PK env variable", process.env.TTMACCOUNT_PK)
+    .addOptionalParam(
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
     .addOptionalParam(
         "ttmAccount",
         "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
@@ -342,7 +356,11 @@ ACCOUNT_SCOPE.task("bot:add", "Add bot to the TTMAccount")
     });
 
 ACCOUNT_SCOPE.task("bot:remove", "Remove bot from the TTMAccount")
-    .addOptionalParam("privateKey", "Private key to use, default: TTMACCOUNT_PK env variable", process.env.TTMACCOUNT_PK)
+    .addOptionalParam(
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
     .addOptionalParam(
         "ttmAccount",
         "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
@@ -368,7 +386,11 @@ ACCOUNT_SCOPE.task("bot:remove", "Remove bot from the TTMAccount")
     });
 
 ACCOUNT_SCOPE.task("payment-token:add", "Add payment token to TTMAccount")
-    .addOptionalParam("privateKey", "Private key to use, default: TTMACCOUNT_PK env variable", process.env.TTMACCOUNT_PK)
+    .addOptionalParam(
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
     .addOptionalParam(
         "ttmAccount",
         "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
@@ -394,7 +416,11 @@ ACCOUNT_SCOPE.task("payment-token:add", "Add payment token to TTMAccount")
     });
 
 ACCOUNT_SCOPE.task("payment-token:remove", "Remove payment token from TTMAccount")
-    .addOptionalParam("privateKey", "Private key to use, default: TTMACCOUNT_PK env variable", process.env.TTMACCOUNT_PK)
+    .addOptionalParam(
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
     .addOptionalParam(
         "ttmAccount",
         "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
@@ -478,7 +504,11 @@ ACCOUNT_SCOPE.task("bot:list", "List all bots from TTMAccount")
     });
 
 ACCOUNT_SCOPE.task("wanted:add", "Add wanted service to TTMAccount")
-    .addOptionalParam("privateKey", "Private key to use, default: TTMACCOUNT_PK env variable", process.env.TTMACCOUNT_PK)
+    .addOptionalParam(
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
     .addOptionalParam(
         "ttmAccount",
         "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
@@ -505,7 +535,11 @@ ACCOUNT_SCOPE.task("wanted:add", "Add wanted service to TTMAccount")
     });
 
 ACCOUNT_SCOPE.task("wanted:remove", "Remove wanted service from TTMAccount")
-    .addOptionalParam("privateKey", "Private key to use, default: TTMACCOUNT_PK env variable", process.env.TTMACCOUNT_PK)
+    .addOptionalParam(
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
     .addOptionalParam(
         "ttmAccount",
         "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
@@ -553,7 +587,11 @@ ACCOUNT_SCOPE.task("wanted:list", "List all wanted service from TTMAccount")
     });
 
 ACCOUNT_SCOPE.task("service:add", "Add supported service to TTMAccount")
-    .addOptionalParam("privateKey", "Private key to use, default: TTMACCOUNT_PK env variable", process.env.TTMACCOUNT_PK)
+    .addOptionalParam(
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
     .addOptionalParam(
         "ttmAccount",
         "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
@@ -588,7 +626,11 @@ ACCOUNT_SCOPE.task("service:add", "Add supported service to TTMAccount")
     });
 
 ACCOUNT_SCOPE.task("service:remove", "Remove wanted service from TTMAccount")
-    .addOptionalParam("privateKey", "Private key to use, default: TTMACCOUNT_PK env variable", process.env.TTMACCOUNT_PK)
+    .addOptionalParam(
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
     .addOptionalParam(
         "ttmAccount",
         "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
@@ -657,7 +699,11 @@ ACCOUNT_SCOPE.task("service:list", "List supported services from TTMAccount")
     });
 
 ACCOUNT_SCOPE.task("upgrade", "Upgrade TTMAccount to latest implementation")
-    .addOptionalParam("privateKey", "Private key to use, default: TTMACCOUNT_PK env variable", process.env.TTMACCOUNT_PK)
+    .addOptionalParam(
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
     .addOptionalParam(
         "ttmAccount",
         "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
@@ -802,7 +848,11 @@ ACCOUNT_SCOPE.task("find", "Scan all TTM Accounts for roles of a given address")
     });
 
 ACCOUNT_SCOPE.task("withdraw:erc20", "Withdraw ERC20 tokens from TTMAccount")
-    .addOptionalParam("privateKey", "Private key to use, default: TTMACCOUNT_PK env variable", process.env.TTMACCOUNT_PK)
+    .addOptionalParam(
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
     .addOptionalParam(
         "ttmAccount",
         "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
@@ -836,7 +886,11 @@ ACCOUNT_SCOPE.task("withdraw:erc20", "Withdraw ERC20 tokens from TTMAccount")
     });
 
 ACCOUNT_SCOPE.task("withdraw:erc721", "Withdraw ERC721 tokens from TTMAccount")
-    .addOptionalParam("privateKey", "Private key to use, default: TTMACCOUNT_PK env variable", process.env.TTMACCOUNT_PK)
+    .addOptionalParam(
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
     .addOptionalParam(
         "ttmAccount",
         "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
@@ -890,7 +944,11 @@ ACCOUNT_SCOPE.task("bot:withdraw-gas", "Withdraw gas money for a bot from TTMAcc
     });
 
 ACCOUNT_SCOPE.task("bot:set-gas-limit", "Set gas money withdrawal limit and period for bots")
-    .addOptionalParam("privateKey", "Private key to use, default: TTMACCOUNT_PK env variable", process.env.TTMACCOUNT_PK)
+    .addOptionalParam(
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
     .addOptionalParam(
         "ttmAccount",
         "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
@@ -917,7 +975,11 @@ ACCOUNT_SCOPE.task("bot:set-gas-limit", "Set gas money withdrawal limit and peri
     });
 
 ACCOUNT_SCOPE.task("pubkey:add", "Add public key with address for off-chain encryption")
-    .addOptionalParam("privateKey", "Private key to use, default: TTMACCOUNT_PK env variable", process.env.TTMACCOUNT_PK)
+    .addOptionalParam(
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
     .addOptionalParam(
         "ttmAccount",
         "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
@@ -941,7 +1003,11 @@ ACCOUNT_SCOPE.task("pubkey:add", "Add public key with address for off-chain encr
     });
 
 ACCOUNT_SCOPE.task("pubkey:remove", "Remove public key by address")
-    .addOptionalParam("privateKey", "Private key to use, default: TTMACCOUNT_PK env variable", process.env.TTMACCOUNT_PK)
+    .addOptionalParam(
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
     .addOptionalParam(
         "ttmAccount",
         "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
@@ -990,7 +1056,11 @@ ACCOUNT_SCOPE.task("pubkey:list", "List all public keys registered on TTMAccount
     });
 
 ACCOUNT_SCOPE.task("payment:set-offchain", "Set if off-chain payment is supported by TTMAccount")
-    .addOptionalParam("privateKey", "Private key to use, default: TTMACCOUNT_PK env variable", process.env.TTMACCOUNT_PK)
+    .addOptionalParam(
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
     .addOptionalParam(
         "ttmAccount",
         "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
@@ -1013,7 +1083,11 @@ ACCOUNT_SCOPE.task("payment:set-offchain", "Set if off-chain payment is supporte
     });
 
 ACCOUNT_SCOPE.task("service:remove-all", "Remove all supported services from TTMAccount")
-    .addOptionalParam("privateKey", "Private key to use, default: TTMACCOUNT_PK env variable", process.env.TTMACCOUNT_PK)
+    .addOptionalParam(
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
     .addOptionalParam(
         "ttmAccount",
         "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
@@ -1037,7 +1111,11 @@ ACCOUNT_SCOPE.task("service:remove-all", "Remove all supported services from TTM
 // service:set-fee task removed as service fees are deprecated
 
 ACCOUNT_SCOPE.task("service:set-restricted-rate", "Set the restricted rate property of a supported service")
-    .addOptionalParam("privateKey", "Private key to use, default: TTMACCOUNT_PK env variable", process.env.TTMACCOUNT_PK)
+    .addOptionalParam(
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
     .addOptionalParam(
         "ttmAccount",
         "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
@@ -1063,7 +1141,11 @@ ACCOUNT_SCOPE.task("service:set-restricted-rate", "Set the restricted rate prope
     });
 
 ACCOUNT_SCOPE.task("service:set-capabilities", "Set all capabilities of a supported service")
-    .addOptionalParam("privateKey", "Private key to use, default: TTMACCOUNT_PK env variable", process.env.TTMACCOUNT_PK)
+    .addOptionalParam(
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
     .addOptionalParam(
         "ttmAccount",
         "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",

@@ -23,13 +23,7 @@ function bold(text) {
 function getAddressesForNetwork(hre) {
     let addresses;
 
-    if (hre.network.name === "columbus") {
-        console.log("Running on columbus");
-        addresses = require("../ignition/deployments/chain-501/deployed_addresses.json");
-    } else if (hre.network.name === "camino") {
-        console.log("Running on camino");
-        addresses = require("../ignition/deployments/chain-500/deployed_addresses.json");
-    } else if (hre.network.name === "localhost") {
+    if (hre.network.name === "localhost") {
         console.log("Running on localhost");
         addresses = require("../ignition/deployments/chain-31337/deployed_addresses.json");
     } else if (hre.network.name === "base_sepolia") {
@@ -142,7 +136,10 @@ MANAGER_SCOPE.task("status", "Print status of deployed contracts").setAction(asy
         addresses["TravelTokenMessengerModule#TTMAccountManager"],
     );
 
-    const manager = await ethers.getContractAt("TTMAccountManager", addresses["TravelTokenMessengerModule#ManagerProxy"]);
+    const manager = await ethers.getContractAt(
+        "TTMAccountManager",
+        addresses["TravelTokenMessengerModule#ManagerProxy"],
+    );
 
     const ttmAccount = await ethers.getContractAt("TTMAccount", addresses["TravelTokenMessengerModule#TTMAccount"]);
 
@@ -190,7 +187,10 @@ MANAGER_SCOPE.task("services:unregister", "Unregister services")
 
 MANAGER_SCOPE.task("services:list", "List registered services").setAction(async (taskArgs, hre) => {
     const addresses = getAddressesForNetwork(hre);
-    const manager = await ethers.getContractAt("TTMAccountManager", addresses["TravelTokenMessengerModule#ManagerProxy"]);
+    const manager = await ethers.getContractAt(
+        "TTMAccountManager",
+        addresses["TravelTokenMessengerModule#ManagerProxy"],
+    );
     console.log("Getting all registered services...");
     const services = await manager.getAllRegisteredServiceNames();
     console.log(services);

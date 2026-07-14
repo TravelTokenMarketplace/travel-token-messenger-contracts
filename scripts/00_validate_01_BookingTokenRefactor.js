@@ -15,13 +15,7 @@ const { ethers, upgrades } = require("hardhat");
 function getAddressesForNetwork(hre) {
     let addresses;
 
-    if (hre.network.name === "columbus") {
-        console.log("Running on columbus");
-        addresses = require("../ignition/deployments/chain-501/deployed_addresses.json");
-    } else if (hre.network.name === "camino") {
-        console.log("Running on camino");
-        addresses = require("../ignition/deployments/chain-500/deployed_addresses.json");
-    } else if (hre.network.name === "localhost") {
+    if (hre.network.name === "localhost") {
         console.log("Running on localhost");
         addresses = require("../ignition/deployments/chain-31337/deployed_addresses.json");
     } else if (hre.network.name === "base_sepolia") {

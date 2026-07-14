@@ -43,7 +43,9 @@ describe("PartnerConfiguration", function () {
 
             // Grant SERVICE_ADMIN_ROLE
             await expect(
-                ttmAccount.connect(signers.ttmAccountAdmin).grantRole(SERVICE_ADMIN_ROLE, signers.otherAccount1.address),
+                ttmAccount
+                    .connect(signers.ttmAccountAdmin)
+                    .grantRole(SERVICE_ADMIN_ROLE, signers.otherAccount1.address),
             )
                 .to.emit(ttmAccount, "RoleGranted")
                 .withArgs(SERVICE_ADMIN_ROLE, signers.otherAccount1.address, signers.ttmAccountAdmin.address);
@@ -51,12 +53,16 @@ describe("PartnerConfiguration", function () {
             const restrictedRate = false;
             const capabilities = [];
 
-            await expect(ttmAccount.connect(signers.otherAccount1).addService(serviceName, restrictedRate, capabilities))
+            await expect(
+                ttmAccount.connect(signers.otherAccount1).addService(serviceName, restrictedRate, capabilities),
+            )
                 .to.emit(ttmAccount, "ServiceAdded")
                 .withArgs(serviceName);
 
             // Should revert if the same service is added again
-            await expect(ttmAccount.connect(signers.otherAccount1).addService(serviceName, restrictedRate, capabilities))
+            await expect(
+                ttmAccount.connect(signers.otherAccount1).addService(serviceName, restrictedRate, capabilities),
+            )
                 .to.be.revertedWithCustomError(ttmAccount, "ServiceAlreadyExists")
                 .withArgs(serviceHash);
         });
@@ -87,7 +93,9 @@ describe("PartnerConfiguration", function () {
 
             // Grant SERVICE_ADMIN_ROLE
             await expect(
-                ttmAccount.connect(signers.ttmAccountAdmin).grantRole(SERVICE_ADMIN_ROLE, signers.otherAccount1.address),
+                ttmAccount
+                    .connect(signers.ttmAccountAdmin)
+                    .grantRole(SERVICE_ADMIN_ROLE, signers.otherAccount1.address),
             )
                 .to.emit(ttmAccount, "RoleGranted")
                 .withArgs(SERVICE_ADMIN_ROLE, signers.otherAccount1.address, signers.ttmAccountAdmin.address);
@@ -95,7 +103,9 @@ describe("PartnerConfiguration", function () {
             const restrictedRate = false;
             const capabilities = [];
 
-            await expect(ttmAccount.connect(signers.otherAccount1).addService(serviceName, restrictedRate, capabilities))
+            await expect(
+                ttmAccount.connect(signers.otherAccount1).addService(serviceName, restrictedRate, capabilities),
+            )
                 .to.emit(ttmAccount, "ServiceAdded")
                 .withArgs(serviceName);
 
@@ -152,7 +162,9 @@ describe("PartnerConfiguration", function () {
 
             // Grant SERVICE_ADMIN_ROLE
             await expect(
-                ttmAccount.connect(signers.ttmAccountAdmin).grantRole(SERVICE_ADMIN_ROLE, signers.otherAccount1.address),
+                ttmAccount
+                    .connect(signers.ttmAccountAdmin)
+                    .grantRole(SERVICE_ADMIN_ROLE, signers.otherAccount1.address),
             )
                 .to.emit(ttmAccount, "RoleGranted")
                 .withArgs(SERVICE_ADMIN_ROLE, signers.otherAccount1.address, signers.ttmAccountAdmin.address);
@@ -235,7 +247,9 @@ describe("PartnerConfiguration", function () {
 
             // Grant SERVICE_ADMIN_ROLE to otherAccount1
             await expect(
-                ttmAccount.connect(signers.ttmAccountAdmin).grantRole(SERVICE_ADMIN_ROLE, signers.otherAccount1.address),
+                ttmAccount
+                    .connect(signers.ttmAccountAdmin)
+                    .grantRole(SERVICE_ADMIN_ROLE, signers.otherAccount1.address),
             )
                 .to.emit(ttmAccount, "RoleGranted")
                 .withArgs(SERVICE_ADMIN_ROLE, signers.otherAccount1.address, signers.ttmAccountAdmin.address);
@@ -244,7 +258,9 @@ describe("PartnerConfiguration", function () {
             const capabilities = [];
 
             // Try to add a service with otherAccount2
-            await expect(ttmAccount.connect(signers.otherAccount2).addService(serviceName, restrictedRate, capabilities))
+            await expect(
+                ttmAccount.connect(signers.otherAccount2).addService(serviceName, restrictedRate, capabilities),
+            )
                 .to.be.revertedWithCustomError(ttmAccount, "AccessControlUnauthorizedAccount")
                 .withArgs(signers.otherAccount2.address, SERVICE_ADMIN_ROLE);
         });
@@ -512,7 +528,9 @@ describe("PartnerConfiguration", function () {
 
             // Grant SERVICE_ADMIN_ROLE
             await expect(
-                ttmAccount.connect(signers.ttmAccountAdmin).grantRole(SERVICE_ADMIN_ROLE, signers.otherAccount1.address),
+                ttmAccount
+                    .connect(signers.ttmAccountAdmin)
+                    .grantRole(SERVICE_ADMIN_ROLE, signers.otherAccount1.address),
             )
                 .to.emit(ttmAccount, "RoleGranted")
                 .withArgs(SERVICE_ADMIN_ROLE, signers.otherAccount1.address, signers.ttmAccountAdmin.address);
@@ -520,7 +538,9 @@ describe("PartnerConfiguration", function () {
             const restrictedRate = false;
             const capabilities = [];
 
-            await expect(ttmAccount.connect(signers.otherAccount1).addService(serviceName, restrictedRate, capabilities))
+            await expect(
+                ttmAccount.connect(signers.otherAccount1).addService(serviceName, restrictedRate, capabilities),
+            )
                 .to.emit(ttmAccount, "ServiceAdded")
                 .withArgs(serviceName);
 
@@ -561,7 +581,9 @@ describe("PartnerConfiguration", function () {
 
             // Grant SERVICE_ADMIN_ROLE
             await expect(
-                ttmAccount.connect(signers.ttmAccountAdmin).grantRole(SERVICE_ADMIN_ROLE, signers.otherAccount1.address),
+                ttmAccount
+                    .connect(signers.ttmAccountAdmin)
+                    .grantRole(SERVICE_ADMIN_ROLE, signers.otherAccount1.address),
             )
                 .to.emit(ttmAccount, "RoleGranted")
                 .withArgs(SERVICE_ADMIN_ROLE, signers.otherAccount1.address, signers.ttmAccountAdmin.address);
@@ -569,7 +591,9 @@ describe("PartnerConfiguration", function () {
             const restrictedRate = false;
             const capabilities = [];
 
-            await expect(ttmAccount.connect(signers.otherAccount1).addService(serviceName, restrictedRate, capabilities))
+            await expect(
+                ttmAccount.connect(signers.otherAccount1).addService(serviceName, restrictedRate, capabilities),
+            )
                 .to.emit(ttmAccount, "ServiceAdded")
                 .withArgs(serviceName);
 
@@ -609,7 +633,9 @@ describe("PartnerConfiguration", function () {
 
             // Grant SERVICE_ADMIN_ROLE
             await expect(
-                ttmAccount.connect(signers.ttmAccountAdmin).grantRole(SERVICE_ADMIN_ROLE, signers.otherAccount1.address),
+                ttmAccount
+                    .connect(signers.ttmAccountAdmin)
+                    .grantRole(SERVICE_ADMIN_ROLE, signers.otherAccount1.address),
             )
                 .to.emit(ttmAccount, "RoleGranted")
                 .withArgs(SERVICE_ADMIN_ROLE, signers.otherAccount1.address, signers.ttmAccountAdmin.address);

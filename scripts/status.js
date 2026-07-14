@@ -10,7 +10,10 @@ async function main() {
         addresses["TravelTokenMessengerModule#TTMAccountManager"],
     );
 
-    const manager = await ethers.getContractAt("TTMAccountManager", addresses["TravelTokenMessengerModule#ManagerProxy"]);
+    const manager = await ethers.getContractAt(
+        "TTMAccountManager",
+        addresses["TravelTokenMessengerModule#ManagerProxy"],
+    );
 
     const ttmAccount = await ethers.getContractAt("TTMAccount", addresses["TravelTokenMessengerModule#TTMAccount"]);
 

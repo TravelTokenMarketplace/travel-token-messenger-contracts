@@ -1,8 +1,8 @@
 {
-    "name": "messenger-contracts",
+    "name": "travel-token-messenger-contracts",
     "version": "1.0.0",
-    "description": "Camino Messenger Contracts",
-    "repository": "git@github.com:TravelTokenMarketplace/camino-messenger-contracts.git",
+    "description": "Travel Token Messenger Contracts",
+    "repository": "git@github.com:TravelTokenMarketplace/travel-token-messenger-contracts.git",
     "author": "\"Ekrem Seren\" <ekrem.seren@gmail.com>",
     "license": "LGPL-3.0-or-later",
     "scripts": {

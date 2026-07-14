@@ -455,7 +455,9 @@ async function deployCancellationSupportFixture() {
     await txResponse.wait();
 
     // Distributor
-    await otherTTMAccount.connect(signers.ttmAccountAdmin).grantRole(BOOKING_OPERATOR_ROLE, otherBookingOperator.address);
+    await otherTTMAccount
+        .connect(signers.ttmAccountAdmin)
+        .grantRole(BOOKING_OPERATOR_ROLE, otherBookingOperator.address);
 
     return {
         supplierTTMAccount,

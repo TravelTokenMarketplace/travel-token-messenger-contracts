@@ -80,7 +80,10 @@ describe("GasMoneyManager", function () {
             const withdrawAmount = ethers.parseEther("1");
 
             const withdrawTx = ttmAccount.connect(withdrawer).withdrawGasMoney(withdrawAmount);
-            await expect(withdrawTx).to.changeEtherBalances([ttmAccount, withdrawer], [-withdrawAmount, withdrawAmount]);
+            await expect(withdrawTx).to.changeEtherBalances(
+                [ttmAccount, withdrawer],
+                [-withdrawAmount, withdrawAmount],
+            );
             await expect(withdrawTx)
                 .to.emit(ttmAccount, "GasMoneyWithdrawal")
                 .withArgs(withdrawer.address, withdrawAmount);

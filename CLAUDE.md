@@ -1,12 +1,12 @@
-# Camino Messenger Contracts
+# Travel Token Messenger Contracts
 
-Solidity smart contracts for the Camino Messenger ecosystem, built with Hardhat. A wallet-connected management UI lives in `ui/` (see `ui/CLAUDE.md`).
+Solidity smart contracts for the Travel Token Messenger ecosystem, built with Hardhat. A wallet-connected management UI lives in `ui/` (see `ui/CLAUDE.md`).
 
 ## Layout
 
 - `contracts/` — Solidity sources (Solidity 0.8.24, optimizer `runs: 1`, `evmVersion: paris`)
-    - `manager/` — `CMAccountManager` (factory + registry + roles), `ICMAccountManager`
-    - `account/` — `CMAccount` (per-partner account: bots, tokens, services, pubkeys, withdrawals), `GasMoneyManager`, `ICMAccount`
+    - `manager/` — `TTMAccountManager` (factory + registry + roles), `ITTMAccountManager`
+    - `account/` — `TTMAccount` (per-partner account: bots, tokens, services, pubkeys, withdrawals), `GasMoneyManager`, `ITTMAccount`
     - `booking-token/` — `BookingToken` (ERC-721) + cancellable/operator extensions
     - `partner/` — shared base contracts: `PartnerConfiguration`, `ServiceRegistry`
     - `test/` — mocks/helpers used by tests
@@ -19,9 +19,9 @@ Solidity smart contracts for the Camino Messenger ecosystem, built with Hardhat.
 
 ## Architecture notes
 
-- Contracts are **UUPS upgradeable** (OpenZeppelin upgradeable + `@openzeppelin/hardhat-upgrades`). `CMAccountManager.createCMAccount` deploys an `ERC1967Proxy` per account and grants it `CMACCOUNT_ROLE`.
+- Contracts are **UUPS upgradeable** (OpenZeppelin upgradeable + `@openzeppelin/hardhat-upgrades`). `TTMAccountManager.createTTMAccount` deploys an `ERC1967Proxy` per account and grants it `TTMACCOUNT_ROLE`.
 - **Access control** is role-based (`AccessControlEnumerable`). `DEFAULT_ADMIN_ROLE` is `0x00…`; other roles are `keccak256(name)`. A "messenger bot" is an address granted three roles at once: `MESSENGER_BOT_ROLE`, `BOOKING_OPERATOR_ROLE`, `GAS_WITHDRAWER_ROLE`.
-- Services are referenced by name (`cmp.services.<package>.<version>.<Name>`) and must be registered in the manager's `ServiceRegistry` before an account can support/want them.
+- Services are referenced by name (`ttm.services.<package>.<version>.<Name>`) and must be registered in the manager's `ServiceRegistry` before an account can support/want them.
 
 ## Commands
 
@@ -34,7 +34,7 @@ Solidity smart contracts for the Camino Messenger ecosystem, built with Hardhat.
 
 ## Networks
 
-Defined in `hardhat.config.js`: `camino` (500), `columbus` (501, deprecated), `base` (8453), `base_sepolia` (84532), plus `localhost`. RPC URLs and deployer keys come from Hardhat **configuration variables** (`vars.get(...)`), e.g. `CAMINO_DEPLOYER_PRIVATE_KEY`, `BASE_SEPOLIA_URL`, `BASESCAN_API_KEY` — set them with `yarn hardhat vars set <NAME>`.
+Defined in `hardhat.config.js`: `base` (8453), `base_sepolia` (84532), plus `localhost`. RPC URLs and deployer keys come from Hardhat **configuration variables** (`vars.get(...)`), e.g. `BASE_SEPOLIA_DEPLOYER_PRIVATE_KEY`, `BASE_SEPOLIA_URL`, `BASESCAN_API_KEY` — set them with `yarn hardhat vars set <NAME>`.
 
 ## ABIs (important)
 
