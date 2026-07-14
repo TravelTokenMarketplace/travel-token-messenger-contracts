@@ -10,8 +10,8 @@ import { useActiveContracts } from "../../hooks/useActiveContracts";
 import { useHasRole } from "../../hooks/useHasRole";
 
 export function WithdrawalsTab({ account }: { account: Address }) {
-  const { cmAccountAbi } = useActiveContracts();
-  const abi = cmAccountAbi as Abi;
+  const { ttmAccountAbi } = useActiveContracts();
+  const abi = ttmAccountAbi as Abi;
   const { writeContractAsync } = useWriteContract();
   const { hasRole } = useHasRole(account, abi, "WITHDRAWER_ROLE");
   const [recipient, setRecipient] = useState("");

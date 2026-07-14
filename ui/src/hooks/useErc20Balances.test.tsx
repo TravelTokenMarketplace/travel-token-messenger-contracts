@@ -13,7 +13,7 @@ vi.mock("wagmi", () => ({
   useReadContracts: () => mockBalances,
 }));
 vi.mock("./useTokenMetadata", () => ({ useTokenMetadata: () => ({ meta: mockMeta, isLoading: false }) }));
-vi.mock("./useActiveContracts", () => ({ useActiveContracts: () => ({ chainId: 84532, cmAccountAbi: [] }) }));
+vi.mock("./useActiveContracts", () => ({ useActiveContracts: () => ({ chainId: 84532, ttmAccountAbi: [] }) }));
 vi.mock("../config/tokens", () => ({ EXTRA_TOKENS: { 84532: ["0xAAaA000000000000000000000000000000000001"] } }));
 
 import { useErc20Balances } from "./useErc20Balances";

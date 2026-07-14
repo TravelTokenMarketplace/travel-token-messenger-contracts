@@ -20,9 +20,9 @@ function render(source: Parameters<typeof lookupEntry>[0], name: string, args: R
 
 describe("catalog rendering", () => {
   it("renders manager account + service events", () => {
-    expect(render("manager", "CMAccountCreated", { account: ACC })).toBe("CM Account 0xaAaA…0001 created");
-    expect(render("manager", "ServiceRegistered", { serviceName: "cmp.x.v1.Foo" })).toBe(
-      'Service "cmp.x.v1.Foo" registered',
+    expect(render("manager", "TTMAccountCreated", { account: ACC })).toBe("TTM Account 0xaAaA…0001 created");
+    expect(render("manager", "ServiceRegistered", { serviceName: "ttm.x.v1.Foo" })).toBe(
+      'Service "ttm.x.v1.Foo" registered',
     );
   });
 
@@ -56,23 +56,23 @@ describe("catalog rendering", () => {
   });
 
   it("uses the resolved service name when injected via serviceLabel", () => {
-    expect(renderSentence("account", "ServiceAdded", { serviceName: "0xabcd…", serviceLabel: "cmp.x.v1.Foo" })).toBe(
-      'Supported service "cmp.x.v1.Foo" added',
+    expect(renderSentence("account", "ServiceAdded", { serviceName: "0xabcd…", serviceLabel: "ttm.x.v1.Foo" })).toBe(
+      'Supported service "ttm.x.v1.Foo" added',
     );
     expect(
       renderSentence("account", "ServiceCapabilityAdded", {
         serviceName: "0xabcd…",
-        serviceLabel: "cmp.x.v1.Foo",
+        serviceLabel: "ttm.x.v1.Foo",
         capability: "luggage",
       }),
-    ).toBe('Service "cmp.x.v1.Foo" capability "luggage" added');
+    ).toBe('Service "ttm.x.v1.Foo" capability "luggage" added');
   });
 
   it("renders detail for gas-money and upgrade config events", () => {
     expect(render("account", "GasMoneyWithdrawalUpdated", { limit: 2_000000000000000000n, period: 86400n })).toBe(
       "Gas money limit updated to 2 per 86400s",
     );
-    expect(render("account", "CMAccountUpgraded", { oldImplementation: ACC, newImplementation: BUYER })).toBe(
+    expect(render("account", "TTMAccountUpgraded", { oldImplementation: ACC, newImplementation: BUYER })).toBe(
       "Account upgraded to implementation 0xbBbB…0002",
     );
   });

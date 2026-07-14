@@ -8,8 +8,8 @@ import { useHasRole } from "../../hooks/useHasRole";
 import { useTokenMetadata } from "../../hooks/useTokenMetadata";
 
 export function PaymentTokensTab({ account }: { account: Address }) {
-  const { cmAccountAbi } = useActiveContracts();
-  const abi = cmAccountAbi as Abi;
+  const { ttmAccountAbi } = useActiveContracts();
+  const abi = ttmAccountAbi as Abi;
   const { writeContractAsync } = useWriteContract();
   const { items, isLoading, refetch } = useContractList(account, abi, "getSupportedTokens");
   const { hasRole, isLoading: roleLoading } = useHasRole(account, abi, "SERVICE_ADMIN_ROLE");

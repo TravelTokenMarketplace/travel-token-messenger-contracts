@@ -21,7 +21,7 @@ const STATE = {
 function StatusFlap({ state }: { state: TxState }) {
   const tone =
     state === "confirmed"
-      ? "border-camino-300 bg-camino-50 text-camino-700 dark:border-camino-800 dark:bg-camino-950 dark:text-camino-300"
+      ? "border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-800 dark:bg-brand-950 dark:text-brand-300"
       : state === "failed"
         ? "border-signal/40 bg-signal/10 text-signal-fg dark:text-signal-dark"
         : "border-departure-300 bg-departure-50 text-departure-700 dark:border-departure-800 dark:bg-departure-900/40 dark:text-departure-300";
@@ -48,7 +48,7 @@ export function TxPanel() {
   return (
     <aside className="board rounded-md">
       <div className="flex items-center gap-2 border-b border-tarmac-200/80 px-4 py-2.5 dark:border-tarmac-800">
-        <span className="h-1.5 w-1.5 rounded-full bg-camino-500" aria-hidden />
+        <span className="h-1.5 w-1.5 rounded-full bg-brand-500" aria-hidden />
         <h2 className="eyebrow">Transactions</h2>
       </div>
       <ul className="divide-y divide-tarmac-200/60 dark:divide-tarmac-800/80">
@@ -64,7 +64,7 @@ export function TxPanel() {
                 <span className="block text-xs text-tarmac-400">{STATE[t.state].note}</span>
                 {chain && (
                   <a
-                    className="mt-0.5 inline-flex items-center gap-1 font-mono text-xs text-camino-600 hover:underline dark:text-camino-400"
+                    className="mt-0.5 inline-flex items-center gap-1 font-mono text-xs text-brand-600 hover:underline dark:text-brand-400"
                     href={explorerTxUrl(chain.explorerUrl, t.hash)}
                     target="_blank"
                     rel="noreferrer"

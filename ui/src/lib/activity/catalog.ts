@@ -12,7 +12,7 @@ import {
   UserPlus,
   XCircle,
 } from "lucide-react";
-import { BOOKINGTOKEN_ABI, CMACCOUNT_ABI, MANAGER_ABI } from "../../contracts";
+import { BOOKINGTOKEN_ABI, TTMACCOUNT_ABI, MANAGER_ABI } from "../../contracts";
 import { shortAddress } from "../format";
 import { type ActivityEvent, type ActivitySource, type CatalogEntry } from "./types";
 
@@ -42,7 +42,7 @@ function serviceLabel(args: Record<string, unknown>): string {
 const ABI_BY_SOURCE: Record<ActivitySource, Abi> = {
   manager: MANAGER_ABI as Abi,
   bookingToken: BOOKINGTOKEN_ABI as Abi,
-  account: CMACCOUNT_ABI as Abi,
+  account: TTMACCOUNT_ABI as Abi,
 };
 
 function abiEvent(source: ActivitySource, eventName: string): AbiEvent {
@@ -70,7 +70,7 @@ function entry(
  */
 export const CATALOG: CatalogEntry[] = [
   // ── Manager (ecosystem, contract-level) ──────────────────────────────────
-  entry("manager", "CMAccountCreated", "Accounts", UserPlus, (a) => `CM Account ${addr(a.account)} created`),
+  entry("manager", "TTMAccountCreated", "Accounts", UserPlus, (a) => `TTM Account ${addr(a.account)} created`),
   entry("manager", "ServiceRegistered", "Services", Server, (a) => `Service "${str(a.serviceName)}" registered`),
   entry("manager", "ServiceUnregistered", "Services", Server, (a) => `Service "${str(a.serviceName)}" unregistered`),
 
@@ -125,7 +125,7 @@ export const CATALOG: CatalogEntry[] = [
     (a) => `Cancellation rejected for booking token ${id(a.tokenId)}`,
   ),
 
-  // ── CM Account (account detail tab — everything) ─────────────────────────
+  // ── TTM Account (account detail tab — everything) ─────────────────────────
   entry("account", "MessengerBotAdded", "Bots", Bot, (a) => `Messenger bot ${addr(a.bot)} added`),
   entry("account", "MessengerBotRemoved", "Bots", Bot, (a) => `Messenger bot ${addr(a.bot)} removed`),
   entry("account", "ServiceAdded", "Services", Server, (a) => `Supported service ${serviceLabel(a)} added`),
@@ -195,7 +195,7 @@ export const CATALOG: CatalogEntry[] = [
   ),
   entry(
     "account",
-    "CMAccountUpgraded",
+    "TTMAccountUpgraded",
     "Config",
     ShieldCheck,
     (a) => `Account upgraded to implementation ${addr(a.newImplementation)}`,

@@ -15,7 +15,7 @@ export function ConnectButton() {
   if (!isConnected || !address)
     return (
       <button
-        className="inline-flex items-center gap-1.5 rounded-md bg-camino-600 px-3 py-1.5 text-white transition-colors hover:bg-camino-700"
+        className="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-white transition-colors hover:bg-brand-700"
         onClick={() => connect({ connector: connectors[0] })}
       >
         <Wallet className="h-4 w-4" /> Connect Wallet

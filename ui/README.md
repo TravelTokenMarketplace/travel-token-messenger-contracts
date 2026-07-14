@@ -1,7 +1,7 @@
-# Camino Messenger Contracts — Management UI
+# Travel Token Messenger Contracts — Management UI
 
-A wallet-connected, client-side web app for creating and managing Camino
-Messenger CM Accounts. It is a graphical equivalent of the Hardhat CLI tasks in
+A wallet-connected, client-side web app for creating and managing Travel Token
+Messenger TTM Accounts. It is a graphical equivalent of the Hardhat CLI tasks in
 `../tasks/`, and is deployed as a static site to GitHub Pages.
 
 ## Quick start
@@ -29,12 +29,10 @@ redeployed.
 
 ## Networks
 
-| Network      | Chain ID | Status in UI                            |
-| ------------ | -------- | --------------------------------------- |
-| Camino       | 500      | Enabled                                 |
-| Base         | 8453     | Enabled once its address file exists    |
-| Base Sepolia | 84532    | Enabled                                 |
-| Columbus     | 501      | Defined but disabled (being phased out) |
+| Network      | Chain ID | Status in UI                         |
+| ------------ | -------- | ------------------------------------ |
+| Base         | 8453     | Enabled once its address file exists |
+| Base Sepolia | 84532    | Enabled                              |
 
 A network is only selectable if it is enabled **and** has deployed contracts in
 `../ignition/deployments/chain-<id>/deployed_addresses.json`.
@@ -53,7 +51,7 @@ A network is only selectable if it is enabled **and** has deployed contracts in
 
 > **Note on public RPCs:** the default RPC endpoints are public and may
 > rate-limit. The "Created accounts" list relies on `eth_getLogs` over the
-> manager's `CMAccountCreated` events; if a public endpoint caps log ranges,
+> manager's `TTMAccountCreated` events; if a public endpoint caps log ranges,
 > point `src/config/chains.ts` at a private RPC (QuickNode, Ankr, Alchemy, …).
 
 ## Deployment (GitHub Pages)
@@ -65,5 +63,5 @@ Pages on every push to `dev` that touches `ui/**`, `abi/**`, or
 One-time setup: in the repository settings, set **Pages → Build and deployment →
 Source** to **GitHub Actions**.
 
-The Vite `base` is `/camino-messenger-contracts/` (project Pages URL). If a
+The Vite `base` is `/travel-token-messenger-contracts/` (project Pages URL). If a
 custom domain is configured, change `base` to `/` in `vite.config.ts`.

@@ -12,7 +12,7 @@ import { findCreatedAccount } from "../lib/receipt";
 
 export function CreateAccount() {
   const { address } = useAccount();
-  const { manager, managerAbi, cmAccountAbi, supported, chainId } = useActiveContracts();
+  const { manager, managerAbi, ttmAccountAbi, supported, chainId } = useActiveContracts();
   const { writeContractAsync } = useWriteContract();
   const navigate = useNavigate();
   const [admin, setAdmin] = useState("");
@@ -41,21 +41,21 @@ export function CreateAccount() {
     return writeContractAsync({
       address: manager!,
       abi: managerAbi as Abi,
-      functionName: "createCMAccount",
+      functionName: "createTTMAccount",
       args: [adminVal, upgraderVal],
       value,
     });
   }
 
   function onConfirmed(receipt: TransactionReceipt) {
-    const created = findCreatedAccount(receipt.logs, cmAccountAbi as Abi);
+    const created = findCreatedAccount(receipt.logs, ttmAccountAbi as Abi);
     if (created) navigate(`/account/${created}`);
   }
 
-  if (!supported) return <Card title="Create CM Account">Connect to a supported network.</Card>;
+  if (!supported) return <Card title="Create TTM Account">Connect to a supported network.</Card>;
 
   return (
-    <Card title="Create CM Account">
+    <Card title="Create TTM Account">
       <div className="grid max-w-md gap-3">
         <label className="text-sm">
           Admin address

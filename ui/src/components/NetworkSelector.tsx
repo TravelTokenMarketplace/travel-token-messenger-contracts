@@ -25,7 +25,7 @@ export function NetworkSelector() {
           {walletUnsupported ? (
             <AlertTriangle className="h-4 w-4 text-red-500" />
           ) : (
-            <span className="h-2 w-2 rounded-full bg-camino-500" aria-hidden />
+            <span className="h-2 w-2 rounded-full bg-brand-500" aria-hidden />
           )}
           <span>{walletUnsupported ? "Unsupported network" : (active?.name ?? "Network")}</span>
           <ChevronsUpDown className="h-4 w-4 text-tarmac-400" />
@@ -47,7 +47,7 @@ export function NetworkSelector() {
               className="flex cursor-pointer items-center justify-between gap-2 px-3 py-1.5 text-tarmac-700 data-[focus]:bg-tarmac-100 dark:text-tarmac-200 dark:data-[focus]:bg-tarmac-700"
             >
               <span>{c.name}</span>
-              {c.id === activeChainId && <Check className="h-4 w-4 text-camino-500" />}
+              {c.id === activeChainId && <Check className="h-4 w-4 text-brand-500" />}
             </ListboxOption>
           ))}
         </ListboxOptions>

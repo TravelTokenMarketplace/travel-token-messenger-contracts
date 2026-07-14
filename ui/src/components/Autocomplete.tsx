@@ -15,7 +15,7 @@ interface AutocompleteProps {
 }
 
 const inputClass =
-  "w-full rounded-md border border-tarmac-300 bg-paper-raised py-1.5 pl-3 pr-16 text-sm text-tarmac-900 placeholder-tarmac-400 transition-colors focus:border-camino-500 focus:outline-none focus:ring-1 focus:ring-camino-500 dark:border-tarmac-600 dark:bg-tarmac-900 dark:text-tarmac-100 dark:placeholder-tarmac-500";
+  "w-full rounded-md border border-tarmac-300 bg-paper-raised py-1.5 pl-3 pr-16 text-sm text-tarmac-900 placeholder-tarmac-400 transition-colors focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-tarmac-600 dark:bg-tarmac-900 dark:text-tarmac-100 dark:placeholder-tarmac-500";
 
 /**
  * Styled, fuzzy-searchable combobox. Opens on focus to reveal the available
@@ -74,7 +74,7 @@ export function Autocomplete({
               <ComboboxOption
                 key={opt}
                 value={opt}
-                className="flex cursor-pointer items-center justify-between gap-2 px-3 py-1.5 text-tarmac-700 data-[focus]:bg-camino-600 data-[focus]:text-white dark:text-tarmac-200"
+                className="flex cursor-pointer items-center justify-between gap-2 px-3 py-1.5 text-tarmac-700 data-[focus]:bg-brand-600 data-[focus]:text-white dark:text-tarmac-200"
               >
                 <span className="truncate font-mono">{opt}</span>
                 <Check className="h-4 w-4 shrink-0 opacity-0 group-data-[selected]:opacity-100 data-[selected]:opacity-100" />

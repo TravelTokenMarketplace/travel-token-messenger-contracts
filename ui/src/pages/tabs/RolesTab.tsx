@@ -5,13 +5,13 @@ import { useActiveContracts } from "../../hooks/useActiveContracts";
 import { ACCOUNT_ROLES } from "../../lib/roles";
 
 export function RolesTab({ account }: { account: Address }) {
-  const { cmAccountAbi } = useActiveContracts();
+  const { ttmAccountAbi } = useActiveContracts();
   return (
     <Card title="Roles">
       <p className="mb-3 text-xs text-tarmac-500 dark:text-tarmac-400">
         Expand a role to see its members and grant or revoke it. Only one role is open at a time.
       </p>
-      <RolesPanel address={account} abi={cmAccountAbi as Abi} roles={ACCOUNT_ROLES} enumerable />
+      <RolesPanel address={account} abi={ttmAccountAbi as Abi} roles={ACCOUNT_ROLES} enumerable />
     </Card>
   );
 }

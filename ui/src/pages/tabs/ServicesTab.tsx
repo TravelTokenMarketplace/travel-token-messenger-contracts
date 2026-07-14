@@ -18,8 +18,8 @@ import { useTx } from "../../tx/TxProvider";
 
 // Deterministic accent colour per package, for quick visual grouping.
 const PKG_DOTS = [
-  "bg-camino-500",
-  "bg-camino-500",
+  "bg-brand-500",
+  "bg-brand-500",
   "bg-amber-500",
   "bg-sky-500",
   "bg-rose-500",
@@ -48,7 +48,7 @@ function ServiceLabel({ parsed }: { parsed: ParsedService }) {
   return (
     <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
       {parsed.version && (
-        <span className="rounded bg-camino-50 px-1.5 py-0.5 font-mono text-xs font-medium text-camino-700 dark:bg-camino-950 dark:text-camino-300">
+        <span className="rounded bg-brand-50 px-1.5 py-0.5 font-mono text-xs font-medium text-brand-700 dark:bg-brand-950 dark:text-brand-300">
           {parsed.version}
         </span>
       )}
@@ -59,7 +59,7 @@ function ServiceLabel({ parsed }: { parsed: ParsedService }) {
   );
 }
 
-// Explicit single-overload fragments: the CMAccount ABI overloads these by
+// Explicit single-overload fragments: the TTMAccount ABI overloads these by
 // (string) and (bytes32), which makes viem's overload resolution ambiguous.
 const RESTRICTED_RATE_ABI = [
   {
@@ -88,7 +88,7 @@ interface ServiceInfo {
 }
 
 const inputClass =
-  "rounded border border-tarmac-300 bg-paper-raised px-2 py-1.5 text-sm focus:border-camino-500 focus:outline-none dark:border-tarmac-600 dark:bg-tarmac-900 dark:text-tarmac-100";
+  "rounded border border-tarmac-300 bg-paper-raised px-2 py-1.5 text-sm focus:border-brand-500 focus:outline-none dark:border-tarmac-600 dark:bg-tarmac-900 dark:text-tarmac-100";
 
 function SupportedServiceRow({
   account,
@@ -557,8 +557,8 @@ function WantedServices({
 }
 
 export function ServicesTab({ account }: { account: Address }) {
-  const { cmAccountAbi, manager, managerAbi, chainId } = useActiveContracts();
-  const abi = cmAccountAbi as Abi;
+  const { ttmAccountAbi, manager, managerAbi, chainId } = useActiveContracts();
+  const abi = ttmAccountAbi as Abi;
   const { hasRole } = useHasRole(account, abi, "SERVICE_ADMIN_ROLE");
   // Services can only reference names registered in the manager — surface them
   // as autocomplete suggestions so users don't have to know the exact string.

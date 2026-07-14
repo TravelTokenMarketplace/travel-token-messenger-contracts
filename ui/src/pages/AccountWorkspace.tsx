@@ -44,7 +44,7 @@ export function AccountWorkspace() {
               to={`?tab=${t.id}`}
               className={`-mb-px inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 pb-2 ${
                 active === t.id
-                  ? "border-camino-600 dark:border-camino-400 font-medium text-tarmac-900 dark:text-tarmac-100"
+                  ? "border-brand-600 dark:border-brand-400 font-medium text-tarmac-900 dark:text-tarmac-100"
                   : "border-transparent text-tarmac-500 dark:text-tarmac-400"
               }`}
             >

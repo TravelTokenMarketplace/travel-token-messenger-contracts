@@ -13,8 +13,8 @@ import { useContractList } from "../../hooks/useContractList";
 import { useHasRole } from "../../hooks/useHasRole";
 
 export function PubkeysTab({ account }: { account: Address }) {
-  const { cmAccountAbi } = useActiveContracts();
-  const abi = cmAccountAbi as Abi;
+  const { ttmAccountAbi } = useActiveContracts();
+  const abi = ttmAccountAbi as Abi;
   const { writeContractAsync } = useWriteContract();
   const { items, isLoading, refetch } = useContractList(account, abi, "getPublicKeysAddresses");
   const { hasRole } = useHasRole(account, abi, "SERVICE_ADMIN_ROLE");

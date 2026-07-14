@@ -39,7 +39,7 @@ function Stat({ value, icon: Icon, label, to }: { value?: number; icon: typeof L
     <Link to={to} {...stopRow} aria-label={`${label}: ${value ?? 0}`} className="hidden justify-end rounded-sm sm:flex">
       <Tooltip content={label}>
         <span
-          className={`inline-flex items-center gap-1 font-mono text-xs tabular-nums transition-colors hover:text-camino-600 dark:hover:text-camino-400 ${
+          className={`inline-flex items-center gap-1 font-mono text-xs tabular-nums transition-colors hover:text-brand-600 dark:hover:text-brand-400 ${
             dim ? "text-tarmac-300 dark:text-tarmac-600" : "text-tarmac-600 dark:text-tarmac-300"
           }`}
         >
@@ -62,7 +62,7 @@ function RolesIndicator({ roles, to }: { roles: string[]; to: string }) {
           <ul className="flex flex-col gap-1">
             {roles.map((r) => (
               <li key={r} className="flex items-center gap-1.5 whitespace-nowrap text-xs text-white">
-                <span className="h-1.5 w-1.5 rounded-full bg-camino-400" aria-hidden />
+                <span className="h-1.5 w-1.5 rounded-full bg-brand-400" aria-hidden />
                 {shortRoleName(r)}
               </li>
             ))}
@@ -74,7 +74,7 @@ function RolesIndicator({ roles, to }: { roles: string[]; to: string }) {
         to={to}
         {...stopRow}
         aria-label={`You hold ${roles.length} role${roles.length === 1 ? "" : "s"}`}
-        className="inline-flex items-center gap-1 rounded-[3px] border border-camino-300 bg-camino-50 px-1.5 py-0.5 font-mono text-[0.625rem] font-medium tabular-nums text-camino-700 transition-colors hover:border-camino-400 hover:bg-camino-100 dark:border-camino-800 dark:bg-camino-950 dark:text-camino-300 dark:hover:bg-camino-900"
+        className="inline-flex items-center gap-1 rounded-[3px] border border-brand-300 bg-brand-50 px-1.5 py-0.5 font-mono text-[0.625rem] font-medium tabular-nums text-brand-700 transition-colors hover:border-brand-400 hover:bg-brand-100 dark:border-brand-800 dark:bg-brand-950 dark:text-brand-300 dark:hover:bg-brand-900"
       >
         <ShieldCheck className="h-3 w-3" aria-hidden />
         {roles.length}
@@ -116,7 +116,7 @@ function AccountRow({
       <div className="flex justify-end">
         <RolesIndicator roles={roles} to={`/account/${account}?tab=roles`} />
       </div>
-      <ChevronRight className="h-4 w-4 justify-self-end text-tarmac-300 transition-colors group-hover:text-camino-500 dark:text-tarmac-600 dark:group-hover:text-camino-400" />
+      <ChevronRight className="h-4 w-4 justify-self-end text-tarmac-300 transition-colors group-hover:text-brand-500 dark:text-tarmac-600 dark:group-hover:text-brand-400" />
     </li>
   );
 }
@@ -184,13 +184,13 @@ function Manifest({
             paused === undefined
               ? "border-tarmac-200 text-tarmac-400 dark:border-tarmac-700"
               : active
-                ? "border-camino-300 bg-camino-50 text-camino-700 dark:border-camino-800 dark:bg-camino-950 dark:text-camino-300"
+                ? "border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-800 dark:bg-brand-950 dark:text-brand-300"
                 : "border-departure-300 bg-departure-50 text-departure-700 dark:border-departure-800 dark:bg-departure-900/40 dark:text-departure-300"
           }`}
         >
           <span
             className={`h-1.5 w-1.5 rounded-full ${
-              paused === undefined ? "bg-tarmac-300" : active ? "bg-camino-500" : "bg-departure-500 animate-lamp"
+              paused === undefined ? "bg-tarmac-300" : active ? "bg-brand-500" : "bg-departure-500 animate-lamp"
             }`}
             aria-hidden
           />
@@ -223,7 +223,7 @@ function RecentActivityCard({ chainId }: { chainId: number }) {
       actions={
         <Link
           to="/activity"
-          className="font-mono text-xs uppercase tracking-[0.1em] text-camino-600 transition-colors hover:text-camino-700 dark:text-camino-400 dark:hover:text-camino-300"
+          className="font-mono text-xs uppercase tracking-[0.1em] text-brand-600 transition-colors hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
         >
           View all →
         </Link>
@@ -265,7 +265,7 @@ export function Dashboard() {
       <div className="grid gap-6 lg:grid-cols-5">
         <div className="grid gap-6 lg:col-span-3">
           <Card
-            title="CM Accounts"
+            title="TTM Accounts"
             actions={
               <Switch
                 checked={onlyMine}
