@@ -40,18 +40,6 @@ function calculateDomainSeparatorForChain(_chainId) {
     return calculateDomainSeparator(domainName, domainVersion, chainId);
 }
 
-function calculateDomainSeparatorCamino() {
-    return calculateDomainSeparatorForChain(500);
-}
-
-function calculateDomainSeparatorColumbus() {
-    return calculateDomainSeparatorForChain(501);
-}
-
-function calculateDomainSeparatorKopernikus() {
-    return calculateDomainSeparatorForChain(502);
-}
-
 function calculateTypedDataHash(cheque, domainSeparator) {
     const chequeHash = calculateMessengerChequeHash(cheque);
     return ethers.keccak256(ethers.concat([ethers.toUtf8Bytes("\x19\x01"), domainSeparator, chequeHash]));
@@ -165,9 +153,6 @@ module.exports = {
     calculateMessengerChequeHash,
     calculateDomainTypeHash,
     calculateDomainSeparator,
-    calculateDomainSeparatorCamino,
-    calculateDomainSeparatorColumbus,
-    calculateDomainSeparatorKopernikus,
     calculateDomainSeparatorForChain,
     signMessengerCheque,
     signInvalidMessengerCheque,
