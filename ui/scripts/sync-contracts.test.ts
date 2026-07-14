@@ -18,7 +18,7 @@ describe("resolveAddresses", () => {
     });
   });
 
-  it("ignores non-canonical historical modules (Columbus mess)", () => {
+  it("ignores non-canonical historical modules", () => {
     const out = resolveAddresses({
       501: {
         "TravelTokenMessengerModule#ManagerProxy": "0xGOOD",
