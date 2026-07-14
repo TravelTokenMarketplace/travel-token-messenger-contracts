@@ -1,29 +1,165 @@
 # Solidity API
 
-## CMAccount
+## GasMoneyManager
 
-A CM Account manages funds, minting/buying of booking tokens, provided
+GasMoneyManager manages gas money withdrawals for a {TTMAccount}.
+
+Gas money withdrawals are restricted to a withdrawal limit and period.
+
+### GasMoneyStorage
+
+```solidity
+struct GasMoneyStorage {
+  mapping(address => uint256) _withdrawalPeriodStart;
+  mapping(address => uint256) _withdrawnAmount;
+  uint256 _withdrawalLimit;
+  uint256 _withdrawalPeriod;
+}
+```
+
+### GasMoneyWithdrawal
+
+```solidity
+event GasMoneyWithdrawal(address withdrawer, uint256 amount)
+```
+
+Gas money withdrawal event
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| withdrawer | address | the address of the withdrawer |
+| amount | uint256 | the amount withdrawn |
+
+### GasMoneyWithdrawalUpdated
+
+```solidity
+event GasMoneyWithdrawalUpdated(uint256 limit, uint256 period)
+```
+
+Gas money withdrawal limit and period updated event
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| limit | uint256 | the withdrawal limit for the period |
+| period | uint256 | the withdrawal period in seconds |
+
+### WithdrawalLimitExceeded
+
+```solidity
+error WithdrawalLimitExceeded(uint256 limit, uint256 amount)
+```
+
+### WithdrawalLimitExceededForPeriod
+
+```solidity
+error WithdrawalLimitExceededForPeriod(uint256 limit, uint256 amount)
+```
+
+### __GasMoneyManager_init
+
+```solidity
+function __GasMoneyManager_init(uint256 withdrawalLimit, uint256 withdrawalPeriod) internal
+```
+
+### _withdrawGasMoney
+
+```solidity
+function _withdrawGasMoney(uint256 amount) internal
+```
+
+Withdraws gas money.
+
+This functions is intended to be called by the bot to withdraw gas money.
+Inheriting contract should restrict who can call this with a public
+function.
+
+### _setGasMoneyWithdrawal
+
+```solidity
+function _setGasMoneyWithdrawal(uint256 limit, uint256 period) internal
+```
+
+Sets the gas money withdrawal limit and period.
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| limit | uint256 | the withdrawal limit for the period |
+| period | uint256 | the withdrawal period in seconds |
+
+### getGasMoneyWithdrawal
+
+```solidity
+function getGasMoneyWithdrawal() public view returns (uint256 withdrawalLimit, uint256 withdrawalPeriod)
+```
+
+Returns the gas money withdrawal restrictions.
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| withdrawalLimit | uint256 |  |
+| withdrawalPeriod | uint256 |  |
+
+### getGasMoneyWithdrawalForAccount
+
+```solidity
+function getGasMoneyWithdrawalForAccount(address account) public view returns (uint256 periodStart, uint256 withdrawnAmount)
+```
+
+Returns the gas money withdrawal details for an account.
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| account | address | address of the account |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| periodStart | uint256 | timestamp of the withdrawal period start |
+| withdrawnAmount | uint256 | amount withdrawn within the period |
+
+## ITTMAccount
+
+### initialize
+
+```solidity
+function initialize(address manager, address bookingToken, address owner, address upgrader) external
+```
+
+## TTMAccount
+
+A TTM Account manages funds, minting/buying of booking tokens, provided
 or wanted services, and multiple bots for distributors and suppliers on
-Camino Messenger ecosystem.
+Travel Token Messenger ecosystem.
 
 Registering bots is done by role based access control. Bot's with
-`MESSENGER_BOT_ROLE` are authorized to represent the CMAccount.
+`MESSENGER_BOT_ROLE` are authorized to represent the TTMAccount.
 Bot can also have `GAS_WITHDRAWER_ROLE` and `BOOKING_OPERATOR_ROLE`.
 
-`GAS_WITHDRAWER_ROLE` enables a bot to withdraw native coins (CAM) from the
+`GAS_WITHDRAWER_ROLE` enables a bot to withdraw native coins (ETH) from the
 contract to be used as gas money. This restricted with a `limit`
-(wei/aCAM) and `period` (seconds) by the `BOT_ADMIN_ROLE`. Default starting
-values are 10 CAM per 24 hours.
+(wei) and `period` (seconds) by the `BOT_ADMIN_ROLE`. Default starting
+values are 10 ETH per 24 hours.
 
 `BOOKING_OPERATOR_ROLE` enables a bot to mint and buy Booking Tokens by
 calling the corresponding functions on the {BookingToken} contract. The buy
 operation pays the price of the Booking Token with the funds on the
-{CMAccount} contract.
+{TTMAccount} contract.
 
 _This contract uses UUPS style upgradeability. The authorization function
 `_authorizeUpgrade(address)` can be called by the `UPGRADER_ROLE` and is
 restricted to only upgrade to the implementation address registered on the
-{CMAccountManager} contract._
+{TTMAccountManager} contract._
 
 ### UPGRADER_ROLE
 
@@ -48,7 +184,7 @@ parameters.
 bytes32 MESSENGER_BOT_ROLE
 ```
 
-Messenger bot role can interact on behalf of this CMAccount
+Messenger bot role can interact on behalf of this TTMAccount
 contract.
 
 ### GAS_WITHDRAWER_ROLE
@@ -87,23 +223,23 @@ bytes32 SERVICE_ADMIN_ROLE
 
 Service admin role can add & remove supported & wanted services.
 
-### CMAccountStorage
+### TTMAccountStorage
 
 ```solidity
-struct CMAccountStorage {
-    address _manager;
-    address _bookingToken;
-    uint256 _unused;
+struct TTMAccountStorage {
+  address _manager;
+  address _bookingToken;
+  uint256 _unused;
 }
 ```
 
-### CMAccountUpgraded
+### TTMAccountUpgraded
 
 ```solidity
-event CMAccountUpgraded(address oldImplementation, address newImplementation)
+event TTMAccountUpgraded(address oldImplementation, address newImplementation)
 ```
 
-CMAccount upgrade event. Emitted when the CMAccount implementation is upgraded.
+TTMAccount upgrade event. Emitted when the TTMAccount implementation is upgraded.
 
 ### Deposit
 
@@ -185,18 +321,18 @@ event ServiceCapabilityAdded(string serviceName, string capability)
 event ServiceCapabilityRemoved(string serviceName, string capability)
 ```
 
-### CMAccountImplementationMismatch
+### TTMAccountImplementationMismatch
 
 ```solidity
-error CMAccountImplementationMismatch(address latestImplementation, address newImplementation)
+error TTMAccountImplementationMismatch(address latestImplementation, address newImplementation)
 ```
 
-CMAccount implementation address does not match the one in the manager
+TTMAccount implementation address does not match the one in the manager
 
-### CMAccountNoUpgradeNeeded
+### TTMAccountNoUpgradeNeeded
 
 ```solidity
-error CMAccountNoUpgradeNeeded(address oldImplementation, address newImplementation)
+error TTMAccountNoUpgradeNeeded(address oldImplementation, address newImplementation)
 ```
 
 New implementation is the same as the current implementation, no update needed
@@ -241,13 +377,13 @@ receive() external payable
 function getManagerAddress() public view returns (address)
 ```
 
-Returns the CMAccountManager address.
+Returns the TTMAccountManager address.
 
 #### Return Values
 
-| Name | Type    | Description              |
-| ---- | ------- | ------------------------ |
-| [0]  | address | CMAccountManager address |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| [0] | address | TTMAccountManager address |
 
 ### getBookingTokenAddress
 
@@ -259,29 +395,29 @@ Returns the booking token address.
 
 #### Return Values
 
-| Name | Type    | Description          |
-| ---- | ------- | -------------------- |
-| [0]  | address | BookingToken address |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| [0] | address | BookingToken address |
 
-### \_authorizeUpgrade
+### _authorizeUpgrade
 
 ```solidity
 function _authorizeUpgrade(address newImplementation) internal
 ```
 
-Authorizes the upgrade of the CMAccount.
+Authorizes the upgrade of the TTMAccount.
 
 Reverts if the new implementation is the same as the old one.
 
 Reverts if the new implementation does not match the implementation address
 in the manager. Only implementations registered at the manager are allowed.
 
-_Emits a {CMAccountUpgraded} event._
+_Emits a {TTMAccountUpgraded} event._
 
 #### Parameters
 
-| Name              | Type    | Description                    |
-| ----------------- | ------- | ------------------------------ |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | newImplementation | address | The new implementation address |
 
 ### isBotAllowed
@@ -294,9 +430,9 @@ Returns true if an address is an authorized messenger bot
 
 #### Parameters
 
-| Name | Type    | Description       |
-| ---- | ------- | ----------------- |
-| bot  | address | The bot's address |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| bot | address | The bot's address |
 
 ### withdraw
 
@@ -304,14 +440,14 @@ Returns true if an address is an authorized messenger bot
 function withdraw(address payable recipient, uint256 amount) external
 ```
 
-Withdraw CAM from the CMAccount
+Withdraw ETH from the TTMAccount
 
 #### Parameters
 
-| Name      | Type            | Description                     |
-| --------- | --------------- | ------------------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | recipient | address payable | The recipient of the withdrawal |
-| amount    | uint256         | The amount to withdraw          |
+| amount | uint256 | The amount to withdraw |
 
 ### mintBookingToken
 
@@ -323,15 +459,15 @@ Mints booking token.
 
 #### Parameters
 
-| Name                    | Type            | Description                                  |
-| ----------------------- | --------------- | -------------------------------------------- |
-| reservedFor             | address         | The account to reserve the token for         |
-| uri                     | string          | The URI of the token                         |
-| expirationTimestamp     | uint256         | The expiration timestamp                     |
-| price                   | uint256         | The price of the token                       |
-| paymentToken            | contract IERC20 | The payment token, if address(0) then native |
-| offchainPaymentCurrency | uint256         | The offchain payment currency                |
-| cancellable             | bool            | If the token is cancellable                  |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| reservedFor | address | The account to reserve the token for |
+| uri | string | The URI of the token |
+| expirationTimestamp | uint256 | The expiration timestamp |
+| price | uint256 | The price of the token |
+| paymentToken | contract IERC20 | The payment token, if address(0) then native |
+| offchainPaymentCurrency | uint256 | The offchain payment currency |
+| cancellable | bool | If the token is cancellable |
 
 ### buyBookingToken
 
@@ -343,11 +479,11 @@ Buys booking token.
 
 #### Parameters
 
-| Name                 | Type            | Description  |
-| -------------------- | --------------- | ------------ |
-| tokenId              | uint256         | The token id |
-| expectedPrice        | uint256         |              |
-| expectedPaymentToken | contract IERC20 |              |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| tokenId | uint256 | The token id |
+| expectedPrice | uint256 |  |
+| expectedPaymentToken | contract IERC20 |  |
 
 ### recordExpiration
 
@@ -379,11 +515,11 @@ This function reverts if `to` is the zero address.
 
 #### Parameters
 
-| Name   | Type            | Description                           |
-| ------ | --------------- | ------------------------------------- |
-| token  | contract IERC20 | The ERC20 token                       |
-| to     | address         | The address to transfer the tokens to |
-| amount | uint256         | The amount of tokens to transfer      |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| token | contract IERC20 | The ERC20 token |
+| to | address | The address to transfer the tokens to |
+| amount | uint256 | The amount of tokens to transfer |
 
 ### transferERC721
 
@@ -397,11 +533,11 @@ This function reverts if `to` is the zero address.
 
 #### Parameters
 
-| Name    | Type             | Description                           |
-| ------- | ---------------- | ------------------------------------- |
-| token   | contract IERC721 | The ERC721 token                      |
-| to      | address          | The address to transfer the tokens to |
-| tokenId | uint256          | The token id of the token             |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| token | contract IERC721 | The ERC721 token |
+| to | address | The address to transfer the tokens to |
+| tokenId | uint256 | The token id of the token |
 
 ### addService
 
@@ -415,19 +551,19 @@ Adds a service to the account as a supported service.
 
 ```text
  ┌────────────── pkg ─────────────┐ ┌───── service name ─────┐
-"cmp.services.accommodation.v1alpha.AccommodationSearchService")
+"ttm.services.accommodation.v1alpha.AccommodationSearchService")
 ```
 
-_These services are coming from the Camino Messenger Protocol's protobuf
+_These services are coming from the Travel Token Messenger Protocol's protobuf
 definitions._
 
 #### Parameters
 
-| Name           | Type     | Description                                               |
-| -------------- | -------- | --------------------------------------------------------- |
-| serviceName    | string   | Service name to add to the account as a supported service |
-| restrictedRate | bool     |                                                           |
-| capabilities   | string[] | Capabilities of the service (if any, optional)            |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| serviceName | string | Service name to add to the account as a supported service |
+| restrictedRate | bool |  |
+| capabilities | string[] | Capabilities of the service (if any, optional) |
 
 ### removeService
 
@@ -496,8 +632,8 @@ Check if a service is registered and supported.
 
 #### Parameters
 
-| Name        | Type   | Description           |
-| ----------- | ------ | --------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | serviceName | string | Service name to check |
 
 ### getServiceRestrictedRate
@@ -526,8 +662,8 @@ Adds wanted services.
 
 #### Parameters
 
-| Name         | Type     | Description           |
-| ------------ | -------- | --------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | serviceNames | string[] | List of service names |
 
 ### removeWantedServices
@@ -540,8 +676,8 @@ Removes wanted services.
 
 #### Parameters
 
-| Name         | Type     | Description           |
-| ------------ | -------- | --------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | serviceNames | string[] | List of service names |
 
 ### getWantedServices
@@ -554,8 +690,8 @@ Get all wanted services.
 
 #### Return Values
 
-| Name         | Type     | Description           |
-| ------------ | -------- | --------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | serviceNames | string[] | List of service names |
 
 ### setOffChainPaymentSupported
@@ -568,9 +704,9 @@ Sets if off-chain payment is supported.
 
 #### Parameters
 
-| Name          | Type | Description                            |
-| ------------- | ---- | -------------------------------------- |
-| \_isSupported | bool | true if off-chain payment is supported |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _isSupported | bool | true if off-chain payment is supported |
 
 ### addSupportedToken
 
@@ -582,9 +718,9 @@ Adds a supported payment token.
 
 #### Parameters
 
-| Name             | Type    | Description          |
-| ---------------- | ------- | -------------------- |
-| \_supportedToken | address | address of the token |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _supportedToken | address | address of the token |
 
 ### removeSupportedToken
 
@@ -596,9 +732,9 @@ Removes a supported payment token.
 
 #### Parameters
 
-| Name             | Type    | Description          |
-| ---------------- | ------- | -------------------- |
-| \_supportedToken | address | address of the token |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _supportedToken | address | address of the token |
 
 ### addPublicKey
 
@@ -612,10 +748,10 @@ These public keys are intended to be used with for off-chain encryption of priva
 
 #### Parameters
 
-| Name          | Type    | Description               |
-| ------------- | ------- | ------------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | pubKeyAddress | address | address of the public key |
-| data          | bytes   | public key data           |
+| data | bytes | public key data |
 
 ### removePublicKey
 
@@ -652,9 +788,9 @@ Withdraw gas money. Requires the `GAS_WITHDRAWER_ROLE`.
 
 #### Parameters
 
-| Name   | Type    | Description                          |
-| ------ | ------- | ------------------------------------ |
-| amount | uint256 | The amount to withdraw in aCAM (wei) |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| amount | uint256 | The amount to withdraw in wei |
 
 ### setGasMoneyWithdrawal
 
@@ -666,10 +802,10 @@ Set gas money withdrawal parameters. Requires the `BOT_ADMIN_ROLE`.
 
 #### Parameters
 
-| Name   | Type    | Description                                       |
-| ------ | ------- | ------------------------------------------------- |
-| limit  | uint256 | Amount of gas money to withdraw in wei per period |
-| period | uint256 | Duration of the withdrawal period in seconds      |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| limit | uint256 | Amount of gas money to withdraw in wei per period |
+| period | uint256 | Duration of the withdrawal period in seconds |
 
 ### initiateCancellation
 
@@ -705,11 +841,11 @@ Withdraws an active cancellation proposal. Only the initiator can withdraw.
 
 #### Parameters
 
-| Name          | Type    | Description                                       |
-| ------------- | ------- | ------------------------------------------------- |
-| tokenId       | uint256 | The token id for which to withdraw the proposal   |
-| reason        | uint16  | The reason for withdrawing the proposal           |
-| reasonVersion | uint16  | The version of the withdrawal reason from the CMP |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| tokenId | uint256 | The token id for which to withdraw the proposal |
+| reason | uint16 | The reason for withdrawing the proposal |
+| reasonVersion | uint16 | The version of the withdrawal reason from the Travel Token Messenger Protocol |
 
 ### finalizeCancellation
 
@@ -721,150 +857,14 @@ Finalizes a cancellation proposal. Only the supplier of the token can finalize.
 
 #### Parameters
 
-| Name         | Type    | Description                                                          |
-| ------------ | ------- | -------------------------------------------------------------------- |
-| tokenId      | uint256 | The token id for which to finalize the proposal                      |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| tokenId | uint256 | The token id for which to finalize the proposal |
 | refundAmount | uint256 | The refund amount to check, this is to prevent front-running attacks |
-
-## GasMoneyManager
-
-GasMoneyManager manages gas money withdrawals for a {CMAccount}.
-
-Gas money withdrawals are restricted to a withdrawal limit and period.
-
-### GasMoneyStorage
-
-```solidity
-struct GasMoneyStorage {
-    mapping(address => uint256) _withdrawalPeriodStart;
-    mapping(address => uint256) _withdrawnAmount;
-    uint256 _withdrawalLimit;
-    uint256 _withdrawalPeriod;
-}
-```
-
-### GasMoneyWithdrawal
-
-```solidity
-event GasMoneyWithdrawal(address withdrawer, uint256 amount)
-```
-
-Gas money withdrawal event
-
-#### Parameters
-
-| Name       | Type    | Description                   |
-| ---------- | ------- | ----------------------------- |
-| withdrawer | address | the address of the withdrawer |
-| amount     | uint256 | the amount withdrawn          |
-
-### GasMoneyWithdrawalUpdated
-
-```solidity
-event GasMoneyWithdrawalUpdated(uint256 limit, uint256 period)
-```
-
-Gas money withdrawal limit and period updated event
-
-#### Parameters
-
-| Name   | Type    | Description                         |
-| ------ | ------- | ----------------------------------- |
-| limit  | uint256 | the withdrawal limit for the period |
-| period | uint256 | the withdrawal period in seconds    |
-
-### WithdrawalLimitExceeded
-
-```solidity
-error WithdrawalLimitExceeded(uint256 limit, uint256 amount)
-```
-
-### WithdrawalLimitExceededForPeriod
-
-```solidity
-error WithdrawalLimitExceededForPeriod(uint256 limit, uint256 amount)
-```
-
-### \_\_GasMoneyManager_init
-
-```solidity
-function __GasMoneyManager_init(uint256 withdrawalLimit, uint256 withdrawalPeriod) internal
-```
-
-### \_withdrawGasMoney
-
-```solidity
-function _withdrawGasMoney(uint256 amount) internal
-```
-
-Withdraws gas money.
-
-This functions is intended to be called by the bot to withdraw gas money.
-Inheriting contract should restrict who can call this with a public
-function.
-
-### \_setGasMoneyWithdrawal
-
-```solidity
-function _setGasMoneyWithdrawal(uint256 limit, uint256 period) internal
-```
-
-Sets the gas money withdrawal limit and period.
-
-#### Parameters
-
-| Name   | Type    | Description                         |
-| ------ | ------- | ----------------------------------- |
-| limit  | uint256 | the withdrawal limit for the period |
-| period | uint256 | the withdrawal period in seconds    |
-
-### getGasMoneyWithdrawal
-
-```solidity
-function getGasMoneyWithdrawal() public view returns (uint256 withdrawalLimit, uint256 withdrawalPeriod)
-```
-
-Returns the gas money withdrawal restrictions.
-
-#### Return Values
-
-| Name             | Type    | Description |
-| ---------------- | ------- | ----------- |
-| withdrawalLimit  | uint256 |             |
-| withdrawalPeriod | uint256 |             |
-
-### getGasMoneyWithdrawalForAccount
-
-```solidity
-function getGasMoneyWithdrawalForAccount(address account) public view returns (uint256 periodStart, uint256 withdrawnAmount)
-```
-
-Returns the gas money withdrawal details for an account.
-
-#### Parameters
-
-| Name    | Type    | Description            |
-| ------- | ------- | ---------------------- |
-| account | address | address of the account |
-
-#### Return Values
-
-| Name            | Type    | Description                              |
-| --------------- | ------- | ---------------------------------------- |
-| periodStart     | uint256 | timestamp of the withdrawal period start |
-| withdrawnAmount | uint256 | amount withdrawn within the period       |
-
-## ICMAccount
-
-### initialize
-
-```solidity
-function initialize(address manager, address bookingToken, address owner, address upgrader) external
-```
 
 ## BookingToken
 
-Booking Token contract represents a booking done on the Camino Messenger.
+Booking Token contract represents a booking done on the Travel Token Messenger.
 
 Suppliers can mint Booking Tokens and reserve them for a distributor address to
 buy.
@@ -906,11 +906,11 @@ Returns the semantic version of the contract.
 
 #### Return Values
 
-| Name  | Type   | Description                                   |
-| ----- | ------ | --------------------------------------------- |
-| major | uint16 | Major version (breaking changes)              |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| major | uint16 | Major version (breaking changes) |
 | minor | uint16 | Minor version (backwards-compatible features) |
-| patch | uint16 | Patch version (backwards-compatible fixes)    |
+| patch | uint16 | Patch version (backwards-compatible fixes) |
 
 ### UPGRADER_ROLE
 
@@ -947,18 +947,18 @@ address OFFCHAIN_PAYMENT
 A third-party service is used to handle payments.
 
 _Special address for offchain payments. The enum for this
-is defined in the Camino Messenger Protocol's
-cmp.types.<version>.IsoCurrency enum (currency.proto file)._
+is defined in the Travel Token Messenger Protocol's
+ttm.types.<version>.IsoCurrency enum (currency.proto file)._
 
 ### BookingStatus
 
 ```solidity
 enum BookingStatus {
-    UNSPECIFIED,
-    RESERVED,
-    RESERVATION_EXPIRED,
-    BOUGHT,
-    CANCELLED
+  UNSPECIFIED,
+  RESERVED,
+  RESERVATION_EXPIRED,
+  BOUGHT,
+  CANCELLED
 }
 ```
 
@@ -988,7 +988,7 @@ struct BookingTokenStorage {
 }
 ```
 
-### \_getBookingTokenStorage
+### _getBookingTokenStorage
 
 ```solidity
 function _getBookingTokenStorage() internal pure returns (struct BookingToken.BookingTokenStorage $)
@@ -1004,16 +1004,16 @@ Event emitted when a token is reserved.
 
 #### Parameters
 
-| Name                    | Type            | Description           |
-| ----------------------- | --------------- | --------------------- |
-| tokenId                 | uint256         | token id              |
-| reservedFor             | address         | reserved for address  |
-| supplier                | address         | supplier address      |
-| expirationTimestamp     | uint256         | expiration timestamp  |
-| price                   | uint256         | price of the token    |
-| paymentToken            | contract IERC20 | payment token address |
-| offchainPaymentCurrency | uint256         |                       |
-| cancellable             | bool            |                       |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| tokenId | uint256 | token id |
+| reservedFor | address | reserved for address |
+| supplier | address | supplier address |
+| expirationTimestamp | uint256 | expiration timestamp |
+| price | uint256 | price of the token |
+| paymentToken | contract IERC20 | payment token address |
+| offchainPaymentCurrency | uint256 |  |
+| cancellable | bool |  |
 
 ### TokenBought
 
@@ -1025,10 +1025,10 @@ Event emitted when a token is bought.
 
 #### Parameters
 
-| Name    | Type    | Description   |
-| ------- | ------- | ------------- |
-| tokenId | uint256 | token id      |
-| buyer   | address | buyer address |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| tokenId | uint256 | token id |
+| buyer | address | buyer address |
 
 ### TokenReservationExpired
 
@@ -1040,9 +1040,9 @@ Event emitted when a token is expired.
 
 #### Parameters
 
-| Name    | Type    | Description |
-| ------- | ------- | ----------- |
-| tokenId | uint256 | token id    |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| tokenId | uint256 | token id |
 
 ### ExpirationTimestampTooSoon
 
@@ -1053,18 +1053,18 @@ error ExpirationTimestampTooSoon(uint256 expirationTimestamp, uint256 minExpirat
 Error for expiration timestamp too soon. It must be at least
 `_minExpirationTimestampDiff` seconds in the future.
 
-### NotCMAccount
+### NotTTMAccount
 
 ```solidity
-error NotCMAccount(address account)
+error NotTTMAccount(address account)
 ```
 
-Address is not a CM Account.
+Address is not a TTM Account.
 
 #### Parameters
 
-| Name    | Type    | Description     |
-| ------- | ------- | --------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | account | address | account address |
 
 ### ReservationMismatch
@@ -1077,10 +1077,10 @@ ReservedFor and buyer mismatch.
 
 #### Parameters
 
-| Name        | Type    | Description          |
-| ----------- | ------- | -------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | reservedFor | address | reserved for address |
-| buyer       | address | buyer address        |
+| buyer | address | buyer address |
 
 ### ReservationExpired
 
@@ -1092,9 +1092,9 @@ Reservation expired.
 
 #### Parameters
 
-| Name                | Type    | Description          |
-| ------------------- | ------- | -------------------- |
-| tokenId             | uint256 | token id             |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| tokenId | uint256 | token id |
 | expirationTimestamp | uint256 | expiration timestamp |
 
 ### IncorrectPrice
@@ -1107,10 +1107,10 @@ Incorrect price.
 
 #### Parameters
 
-| Name             | Type    | Description        |
-| ---------------- | ------- | ------------------ |
-| price            | uint256 | price of the token |
-| reservationPrice | uint256 | reservation price  |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| price | uint256 | price of the token |
+| reservationPrice | uint256 | reservation price |
 
 ### SupplierIsNotOwner
 
@@ -1122,9 +1122,9 @@ Supplier is not the owner.
 
 #### Parameters
 
-| Name     | Type    | Description      |
-| -------- | ------- | ---------------- |
-| tokenId  | uint256 | token id         |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| tokenId | uint256 | token id |
 | supplier | address | supplier address |
 
 ### TokenIsReserved
@@ -1137,9 +1137,9 @@ Token is reserved and can not be transferred.
 
 #### Parameters
 
-| Name        | Type    | Description          |
-| ----------- | ------- | -------------------- |
-| tokenId     | uint256 | token id             |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| tokenId | uint256 | token id |
 | reservedFor | address | reserved for address |
 
 ### InsufficientAllowance
@@ -1152,12 +1152,12 @@ Insufficient allowance to transfer the ERC20 token to the supplier.
 
 #### Parameters
 
-| Name         | Type            | Description           |
-| ------------ | --------------- | --------------------- |
-| sender       | address         | msg.sender            |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| sender | address | msg.sender |
 | paymentToken | contract IERC20 | payment token address |
-| price        | uint256         | price of the token    |
-| allowance    | uint256         | allowance amount      |
+| price | uint256 | price of the token |
+| allowance | uint256 | allowance amount |
 
 ### InvalidTokenStatus
 
@@ -1169,10 +1169,10 @@ Invalid token status.
 
 #### Parameters
 
-| Name    | Type                            | Description |
-| ------- | ------------------------------- | ----------- |
-| tokenId | uint256                         | token id    |
-| status  | enum BookingToken.BookingStatus | status      |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| tokenId | uint256 | token id |
+| status | enum BookingToken.BookingStatus | status |
 
 ### UnexpectedOffchainPaymentCurrency
 
@@ -1185,8 +1185,8 @@ but payment token is not address(1).
 
 #### Parameters
 
-| Name                    | Type    | Description               |
-| ----------------------- | ------- | ------------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | offchainPaymentCurrency | uint256 | offchain payment currency |
 
 ### UnexpectedNativePayment
@@ -1199,17 +1199,17 @@ Error for when there is unexpected native payment.
 
 #### Parameters
 
-| Name   | Type    | Description           |
-| ------ | ------- | --------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | amount | uint256 | The unexpected amount |
 
-### onlyCMAccount
+### onlyTTMAccount
 
 ```solidity
-modifier onlyCMAccount(address account)
+modifier onlyTTMAccount(address account)
 ```
 
-Only CMAccount modifier.
+Only TTMAccount modifier.
 
 ### initialize
 
@@ -1229,12 +1229,12 @@ _Only callable by DEFAULT_ADMIN_ROLE_
 
 #### Parameters
 
-| Name      | Type   | Description      |
-| --------- | ------ | ---------------- |
-| newName   | string | New token name   |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| newName | string | New token name |
 | newSymbol | string | New token symbol |
 
-### \_authorizeUpgrade
+### _authorizeUpgrade
 
 ```solidity
 function _authorizeUpgrade(address newImplementation) internal virtual
@@ -1252,17 +1252,17 @@ Mints a new token with a reservation for a specific address.
 
 #### Parameters
 
-| Name                    | Type            | Description                                                           |
-| ----------------------- | --------------- | --------------------------------------------------------------------- |
-| reservedFor             | address         | The CM Account address that can buy the token                         |
-| uri                     | string          | The URI of the token                                                  |
-| expirationTimestamp     | uint256         | The expiration timestamp                                              |
-| price                   | uint256         | The price of the token                                                |
-| paymentToken            | contract IERC20 | The token used to pay for the reservation. If address(0) then native. |
-| offchainPaymentCurrency | uint256         | The offchain payment currency                                         |
-| cancellable             | bool            | The flag that represents whether the booking is cancellable           |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| reservedFor | address | The TTM Account address that can buy the token |
+| uri | string | The URI of the token |
+| expirationTimestamp | uint256 | The expiration timestamp |
+| price | uint256 | The price of the token |
+| paymentToken | contract IERC20 | The token used to pay for the reservation. If address(0) then native. |
+| offchainPaymentCurrency | uint256 | The offchain payment currency |
+| cancellable | bool | The flag that represents whether the booking is cancellable |
 
-### \_reserve
+### _reserve
 
 ```solidity
 function _reserve(uint256 tokenId, address reservedFor, address supplier, uint256 expirationTimestamp, uint256 price, contract IERC20 paymentToken, uint256 offchainPaymentCurrency, bool cancellable) internal virtual
@@ -1283,12 +1283,12 @@ contract to at least the reservation price. (only for ERC20 tokens)
 
 For native coin, the message sender should send the exact amount.
 
-Only CM Accounts can call this function
+Only TTM Accounts can call this function
 
 #### Parameters
 
-| Name    | Type    | Description  |
-| ------- | ------- | ------------ |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | tokenId | uint256 | The token id |
 
 ### processPayment
@@ -1307,15 +1307,15 @@ Return booking status
 
 #### Parameters
 
-| Name    | Type    | Description  |
-| ------- | ------- | ------------ |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | tokenId | uint256 | The token id |
 
 #### Return Values
 
-| Name | Type                            | Description        |
-| ---- | ------------------------------- | ------------------ |
-| [0]  | enum BookingToken.BookingStatus | The booking status |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| [0] | enum BookingToken.BookingStatus | The booking status |
 
 ### getReservationPrice
 
@@ -1327,8 +1327,8 @@ Returns the token reservation price for a specific token.
 
 #### Parameters
 
-| Name    | Type    | Description  |
-| ------- | ------- | ------------ |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | tokenId | uint256 | The token id |
 
 ### getReservationPaymentToken
@@ -1341,14 +1341,14 @@ Retrieves the payment token for a given token.
 
 #### Parameters
 
-| Name    | Type    | Description                                    |
-| ------- | ------- | ---------------------------------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | tokenId | uint256 | The token id to retrieve the payment token for |
 
 #### Return Values
 
-| Name         | Type            | Description       |
-| ------------ | --------------- | ----------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | paymentToken | contract IERC20 | The payment token |
 
 ### isCancellable
@@ -1361,8 +1361,8 @@ Returns if the token is cancellable
 
 #### Parameters
 
-| Name    | Type    | Description  |
-| ------- | ------- | ------------ |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | tokenId | uint256 | The token id |
 
 ### checkTransferable
@@ -1383,42 +1383,42 @@ Record expiration status if the token is expired
 
 #### Parameters
 
-| Name    | Type    | Description  |
-| ------- | ------- | ------------ |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | tokenId | uint256 | The token id |
 
-### isCMAccount
+### isTTMAccount
 
 ```solidity
-function isCMAccount(address account) public view virtual returns (bool)
+function isTTMAccount(address account) public view virtual returns (bool)
 ```
 
-Checks if an address is a CM Account.
+Checks if an address is a TTM Account.
 
 #### Parameters
 
-| Name    | Type    | Description          |
-| ------- | ------- | -------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | account | address | The address to check |
 
 #### Return Values
 
-| Name | Type | Description                         |
-| ---- | ---- | ----------------------------------- |
-| [0]  | bool | true if the address is a CM Account |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| [0] | bool | true if the address is a TTM Account |
 
-### requireCMAccount
+### requireTTMAccount
 
 ```solidity
-function requireCMAccount(address account) internal view virtual
+function requireTTMAccount(address account) internal view virtual
 ```
 
-Checks if the address is a CM Account and reverts if not.
+Checks if the address is a TTM Account and reverts if not.
 
 #### Parameters
 
-| Name    | Type    | Description          |
-| ------- | ------- | -------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | account | address | The address to check |
 
 ### setManagerAddress
@@ -1431,8 +1431,8 @@ Sets for the manager address.
 
 #### Parameters
 
-| Name    | Type    | Description                |
-| ------- | ------- | -------------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | manager | address | The address of the manager |
 
 ### getManagerAddress
@@ -1453,8 +1453,8 @@ Sets minimum expiration timestamp difference in seconds.
 
 #### Parameters
 
-| Name                       | Type    | Description                                        |
-| -------------------------- | ------- | -------------------------------------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | minExpirationTimestampDiff | uint256 | Minimum expiration timestamp difference in seconds |
 
 ### getMinExpirationTimestampDiff
@@ -1510,13 +1510,13 @@ function transferFrom(address from, address to, uint256 tokenId) public virtual
 Override transferFrom to check if token is reserved. It reverts if
 the token is reserved.
 
-### \_update
+### _update
 
 ```solidity
 function _update(address to, uint256 tokenId, address auth) internal returns (address)
 ```
 
-### \_increaseBalance
+### _increaseBalance
 
 ```solidity
 function _increaseBalance(address account, uint128 value) internal
@@ -1538,11 +1538,11 @@ function supportsInterface(bytes4 interfaceId) public view returns (bool)
 
 ```solidity
 enum CancellationProposalStatus {
-    NO_PROPOSAL,
-    PENDING,
-    REJECTED,
-    WITHDRAWN,
-    FINALIZED
+  NO_PROPOSAL,
+  PENDING,
+  REJECTED,
+  WITHDRAWN,
+  FINALIZED
 }
 ```
 
@@ -1669,7 +1669,7 @@ function requireOwnerOrSupplier(address owner, address supplier) internal view
 modifier onlyOwnerOrSupplier(address owner, address supplier)
 ```
 
-### \_getCancellationProposalStatusAndCurrentProposer
+### _getCancellationProposalStatusAndCurrentProposer
 
 ```solidity
 function _getCancellationProposalStatusAndCurrentProposer(uint256 tokenId) internal view returns (enum CancellationProposalStatus status, address currentProposer)
@@ -1687,13 +1687,13 @@ function getCancellationProposal(uint256 tokenId) external view returns (enum Ca
 function getCancellationReasons(uint256 tokenId) external view returns (uint16 cancellationReason, uint16 cancellationVersion, uint16 rejectionReason, uint16 rejectionVersion, uint16 counterReason, uint16 counterVersion, uint16 withdrawalReason, uint16 withdrawalVersion)
 ```
 
-### \_initiateCancellation
+### _initiateCancellation
 
 ```solidity
 function _initiateCancellation(address owner, address supplier, uint256 tokenId, uint256 refundAmount, uint16 cancellationReason, uint16 cancellationReasonVersion) internal virtual
 ```
 
-### \_acceptCancellation
+### _acceptCancellation
 
 ```solidity
 function _acceptCancellation(address owner, address supplier, uint256 tokenId, uint256 checkRefundAmount) internal virtual
@@ -1704,32 +1704,32 @@ is initiated or countered by the other party
 
 #### Parameters
 
-| Name              | Type    | Description                                              |
-| ----------------- | ------- | -------------------------------------------------------- |
-| owner             | address | Owner of the token                                       |
-| supplier          | address | Supplier of the token                                    |
-| tokenId           | uint256 | Token ID                                                 |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| owner | address | Owner of the token |
+| supplier | address | Supplier of the token |
+| tokenId | uint256 | Token ID |
 | checkRefundAmount | uint256 | Refund amount to check against, to prevent front-running |
 
-### \_counterCancellation
+### _counterCancellation
 
 ```solidity
 function _counterCancellation(address owner, address supplier, uint256 tokenId, uint256 refundAmount, uint16 counterReason, uint16 counterVersion) internal virtual
 ```
 
-### \_withdrawCancellation
+### _withdrawCancellation
 
 ```solidity
 function _withdrawCancellation(address owner, address supplier, uint256 tokenId, uint16 withdrawalReason, uint16 withdrawalVersion) internal virtual
 ```
 
-### \_rejectCancellation
+### _rejectCancellation
 
 ```solidity
 function _rejectCancellation(address owner, address supplier, uint256 tokenId, uint16 rejectionReason, uint16 rejectionReasonVersion) internal virtual
 ```
 
-### \_finalizeCancellation
+### _finalizeCancellation
 
 ```solidity
 function _finalizeCancellation(address supplier, uint256 tokenId, uint256 checkRefundAmount) internal virtual returns (uint256 refundAmount)
@@ -1737,10 +1737,10 @@ function _finalizeCancellation(address supplier, uint256 tokenId, uint256 checkR
 
 ## BookingTokenOperator
 
-Booking token operator contract is used by the {CMAccount} contract to mint
+Booking token operator contract is used by the {TTMAccount} contract to mint
 and buy booking tokens.
 
-We made this a library so that we can use it in the {CMAccount} contract without
+We made this a library so that we can use it in the {TTMAccount} contract without
 increasing the size of the contract.
 
 ### NATIVE_PAYMENT
@@ -1785,16 +1785,16 @@ _Mints a booking token with offchain payment currency and cancellable support._
 
 #### Parameters
 
-| Name                    | Type            | Description                                                                  |
-| ----------------------- | --------------- | ---------------------------------------------------------------------------- |
-| bookingToken            | address         | booking token contract address                                               |
-| reservedFor             | address         | address of the CM Account that can buy the token (generally the distributor) |
-| uri                     | string          | URI of the token                                                             |
-| expirationTimestamp     | uint256         | expiration timestamp of the token in seconds                                 |
-| price                   | uint256         | price of the token                                                           |
-| paymentToken            | contract IERC20 | payment token address                                                        |
-| offchainPaymentCurrency | uint256         | payment token address                                                        |
-| cancellable             | bool            | cancellable flag                                                             |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| bookingToken | address | booking token contract address |
+| reservedFor | address | address of the TTM Account that can buy the token (generally the distributor) |
+| uri | string | URI of the token |
+| expirationTimestamp | uint256 | expiration timestamp of the token in seconds |
+| price | uint256 | price of the token |
+| paymentToken | contract IERC20 | payment token address |
+| offchainPaymentCurrency | uint256 | payment token address |
+| cancellable | bool | cancellable flag |
 
 ### buyBookingToken
 
@@ -1807,12 +1807,12 @@ reservation._
 
 #### Parameters
 
-| Name                 | Type            | Description                    |
-| -------------------- | --------------- | ------------------------------ |
-| bookingToken         | address         | booking token contract address |
-| tokenId              | uint256         | token id                       |
-| expectedPrice        | uint256         |                                |
-| expectedPaymentToken | contract IERC20 |                                |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| bookingToken | address | booking token contract address |
+| tokenId | uint256 | token id |
+| expectedPrice | uint256 |  |
+| expectedPaymentToken | contract IERC20 |  |
 
 ### recordExpiration
 
@@ -1824,10 +1824,10 @@ Record the expiration of a booking token.
 
 #### Parameters
 
-| Name         | Type    | Description                    |
-| ------------ | ------- | ------------------------------ |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | bookingToken | address | booking token contract address |
-| tokenId      | uint256 | token id                       |
+| tokenId | uint256 | token id |
 
 ### initiateCancellation
 
@@ -1839,13 +1839,13 @@ Initiates a cancellation proposal for a bought token.
 
 #### Parameters
 
-| Name                      | Type    | Description                    |
-| ------------------------- | ------- | ------------------------------ |
-| bookingToken              | address | booking token contract address |
-| tokenId                   | uint256 | token id                       |
-| refundAmount              | uint256 | proposed refund amount         |
-| cancellationReason        | uint16  | cancellation reason            |
-| cancellationReasonVersion | uint16  | cancellation reason version    |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| bookingToken | address | booking token contract address |
+| tokenId | uint256 | token id |
+| refundAmount | uint256 | proposed refund amount |
+| cancellationReason | uint16 | cancellation reason |
+| cancellationReasonVersion | uint16 | cancellation reason version |
 
 ### acceptCancellation
 
@@ -1857,10 +1857,10 @@ Sets accepted by the owner or supplier flag for a cancellation proposal for a bo
 
 #### Parameters
 
-| Name         | Type    | Description                                                          |
-| ------------ | ------- | -------------------------------------------------------------------- |
-| bookingToken | address |                                                                      |
-| tokenId      | uint256 | The token id to accept the cancellation for                          |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| bookingToken | address |  |
+| tokenId | uint256 | The token id to accept the cancellation for |
 | refundAmount | uint256 | The refund amount to check, this is to prevent front-running attacks |
 
 ### counterCancellation
@@ -1873,13 +1873,13 @@ Counters a cancellation proposal.
 
 #### Parameters
 
-| Name                 | Type    | Description                    |
-| -------------------- | ------- | ------------------------------ |
-| bookingToken         | address | booking token contract address |
-| tokenId              | uint256 | token id                       |
-| refundAmount         | uint256 | proposed refund amount         |
-| counterReason        | uint16  |                                |
-| counterReasonVersion | uint16  |                                |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| bookingToken | address | booking token contract address |
+| tokenId | uint256 | token id |
+| refundAmount | uint256 | proposed refund amount |
+| counterReason | uint16 |  |
+| counterReasonVersion | uint16 |  |
 
 ### withdrawCancellation
 
@@ -1891,12 +1891,12 @@ Withdraws a cancellation proposal.
 
 #### Parameters
 
-| Name          | Type    | Description                                       |
-| ------------- | ------- | ------------------------------------------------- |
-| bookingToken  | address | booking token contract address                    |
-| tokenId       | uint256 | token id for which to withdraw the proposal       |
-| reason        | uint16  | The reason for withdrawing the proposal           |
-| reasonVersion | uint16  | The version of the withdrawal reason from the CMP |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| bookingToken | address | booking token contract address |
+| tokenId | uint256 | token id for which to withdraw the proposal |
+| reason | uint16 | The reason for withdrawing the proposal |
+| reasonVersion | uint16 | The version of the withdrawal reason from the Travel Token Messenger Protocol |
 
 ### rejectCancellation
 
@@ -1908,12 +1908,12 @@ Reject a cancellation proposal for a bought token.
 
 #### Parameters
 
-| Name                   | Type    | Description                                       |
-| ---------------------- | ------- | ------------------------------------------------- |
-| bookingToken           | address | booking token contract address                    |
-| tokenId                | uint256 | The token id to reject the cancellation for       |
-| rejectionReason        | uint16  | The reason for rejecting the cancellation         |
-| rejectionReasonVersion | uint16  | Version of the rejection reason enum from the CMP |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| bookingToken | address | booking token contract address |
+| tokenId | uint256 | The token id to reject the cancellation for |
+| rejectionReason | uint16 | The reason for rejecting the cancellation |
+| rejectionReasonVersion | uint16 | Version of the rejection reason enum from the Travel Token Messenger Protocol |
 
 ### finalizeCancellation
 
@@ -1926,10 +1926,10 @@ to the Booking Token contract.
 
 #### Parameters
 
-| Name         | Type    | Description                                                          |
-| ------------ | ------- | -------------------------------------------------------------------- |
-| bookingToken | address | BookingToken contract address                                        |
-| tokenId      | uint256 | The token id for which to finalize the proposal                      |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| bookingToken | address | BookingToken contract address |
+| tokenId | uint256 | The token id for which to finalize the proposal |
 | refundAmount | uint256 | The refund amount to check, this is to prevent front-running attacks |
 
 ## IBookingToken
@@ -1968,8 +1968,8 @@ Record expiration status if the token is expired
 
 #### Parameters
 
-| Name    | Type    | Description                       |
-| ------- | ------- | --------------------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | tokenId | uint256 | The token id to record as expired |
 
 ### initiateCancellation
@@ -1982,12 +1982,12 @@ Initiates a cancellation for a bought token.
 
 #### Parameters
 
-| Name                      | Type    | Description                                   |
-| ------------------------- | ------- | --------------------------------------------- |
-| tokenId                   | uint256 | The token id to initiate the cancellation for |
-| refundAmount              | uint256 | The proposed refund amount in wei             |
-| cancellationReason        | uint16  | The reason for cancellation                   |
-| cancellationReasonVersion | uint16  | The version of the cancellation reason        |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| tokenId | uint256 | The token id to initiate the cancellation for |
+| refundAmount | uint256 | The proposed refund amount in wei |
+| cancellationReason | uint16 | The reason for cancellation |
+| cancellationReasonVersion | uint16 | The version of the cancellation reason |
 
 ### acceptCancellation
 
@@ -1999,9 +1999,9 @@ Sets accepted by the owner or supplier flag for a cancellation proposal for a bo
 
 #### Parameters
 
-| Name         | Type    | Description                                                          |
-| ------------ | ------- | -------------------------------------------------------------------- |
-| tokenId      | uint256 | The token id to accept the cancellation for                          |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| tokenId | uint256 | The token id to accept the cancellation for |
 | refundAmount | uint256 | The refund amount to check, this is to prevent front-running attacks |
 
 ### rejectCancellation
@@ -2014,11 +2014,11 @@ Reject a cancellation proposal for a bought token.
 
 #### Parameters
 
-| Name                   | Type    | Description                                 |
-| ---------------------- | ------- | ------------------------------------------- |
-| tokenId                | uint256 | The token id to reject the cancellation for |
-| rejectionReason        | uint16  | The reason for rejection                    |
-| rejectionReasonVersion | uint16  | The version of the rejection reason         |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| tokenId | uint256 | The token id to reject the cancellation for |
+| rejectionReason | uint16 | The reason for rejection |
+| rejectionReasonVersion | uint16 | The version of the rejection reason |
 
 ### counterCancellation
 
@@ -2030,12 +2030,12 @@ Counters a cancellation proposal with a new proposal.
 
 #### Parameters
 
-| Name                 | Type    | Description                                                          |
-| -------------------- | ------- | -------------------------------------------------------------------- |
-| tokenId              | uint256 | The token id to counter the cancellation for                         |
-| refundAmount         | uint256 | The refund amount to check, this is to prevent front-running attacks |
-| counterReason        | uint16  | The reason for the counter                                           |
-| counterReasonVersion | uint16  | The version of the counter reason                                    |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| tokenId | uint256 | The token id to counter the cancellation for |
+| refundAmount | uint256 | The refund amount to check, this is to prevent front-running attacks |
+| counterReason | uint16 | The reason for the counter |
+| counterReasonVersion | uint16 | The version of the counter reason |
 
 ### withdrawCancellation
 
@@ -2047,11 +2047,11 @@ Withdraws an active cancellation proposal. Only the current proposer of the prop
 
 #### Parameters
 
-| Name                    | Type    | Description                                     |
-| ----------------------- | ------- | ----------------------------------------------- |
-| tokenId                 | uint256 | The token id for which to withdraw the proposal |
-| withdrawalReason        | uint16  | The reason for withdrawing the proposal         |
-| withdrawalReasonVersion | uint16  | The version of the withdrawal reason            |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| tokenId | uint256 | The token id for which to withdraw the proposal |
+| withdrawalReason | uint16 | The reason for withdrawing the proposal |
+| withdrawalReasonVersion | uint16 | The version of the withdrawal reason |
 
 ### finalizeCancellation
 
@@ -2063,360 +2063,12 @@ Finalizes a cancellation proposal. Only the supplier of the token can finalize.
 
 #### Parameters
 
-| Name         | Type    | Description                                                          |
-| ------------ | ------- | -------------------------------------------------------------------- |
-| tokenId      | uint256 | The token id for which to finalize the proposal                      |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| tokenId | uint256 | The token id for which to finalize the proposal |
 | refundAmount | uint256 | The refund amount to check, this is to prevent front-running attacks |
 
-## CMAccountManager
-
-This contract manages the creation of the Camino Messenger accounts by
-deploying {ERC1967Proxy} proxies that point to the{CMAccount} implementation
-address.
-
-Create CM Account: Users who want to create an account should call
-`createCMAccount(address admin, address upgrader)` function with addresses of
-the accounts admin and upgrader roles and they also need to approve the service
-fee token with the amount of prefund.
-
-When the manager contract is paused, account creation is stopped.
-
-Developer Fee: This contracts also keeps the info about the developer wallet
-and fee basis points. Which are used during the cheque cash in to pay for the
-developer fee.
-
-Service Registry: {CMAccountManager} also acts as a registry for the services
-that {CMAccount} contracts add as a supported or wanted service. Registry
-works by hashing (keccak256) the service name (string) and creating a mapping
-as keccak256(serviceName) => serviceName. And provides functions that
-{CMAccount} function uses to register services. The {CMAccount} only keeps
-the hashes (byte32) of the registered services.
-
-### PAUSER_ROLE
-
-```solidity
-bytes32 PAUSER_ROLE
-```
-
-Pauser role can pause the contract. Currently this only affects the
-creation of CM Accounts. When paused, account creation is stopped.
-
-### UPGRADER_ROLE
-
-```solidity
-bytes32 UPGRADER_ROLE
-```
-
-Upgrader role can upgrade the contract to a new implementation.
-
-### VERSIONER_ROLE
-
-```solidity
-bytes32 VERSIONER_ROLE
-```
-
-Versioner role can set new {CMAccount} implementation address. When a
-new implementation address is set, it is used for the new {CMAccount}
-creations.
-
-The old {CMAccount} contracts are not affected by this. Owners of those
-should do the upgrade manually by calling the `upgradeToAndCall(address)`
-function on the account.
-
-### SERVICE_REGISTRY_ADMIN_ROLE
-
-```solidity
-bytes32 SERVICE_REGISTRY_ADMIN_ROLE
-```
-
-Service registry admin role can add and remove services to the service
-registry mapping. Implemented by {ServiceRegistry} contract.
-
-### CMACCOUNT_ROLE
-
-```solidity
-bytes32 CMACCOUNT_ROLE
-```
-
-This role is granted to the created CM Accounts. It is used to keep
-an enumerable list of CM Accounts.
-
-### CMAccountInfo
-
-CMAccount info struct, to keep track of created CM Accounts and their
-creators.
-
-```solidity
-struct CMAccountInfo {
-    bool isCMAccount;
-    address creator;
-}
-```
-
-### CMAccountManagerStorage
-
-```solidity
-struct CMAccountManagerStorage {
-  address _latestAccountImplementation;
-  address _bookingToken;
-  mapping(address => struct CMAccountManager.CMAccountInfo) _cmAccountInfo;
-}
-```
-
-### CMAccountCreated
-
-```solidity
-event CMAccountCreated(address account)
-```
-
-CM Account created event.
-
-#### Parameters
-
-| Name    | Type    | Description                      |
-| ------- | ------- | -------------------------------- |
-| account | address | The address of the new CMAccount |
-
-### CMAccountImplementationUpdated
-
-```solidity
-event CMAccountImplementationUpdated(address oldImplementation, address newImplementation)
-```
-
-CM Account implementation address updated event.
-
-#### Parameters
-
-| Name              | Type    | Description                    |
-| ----------------- | ------- | ------------------------------ |
-| oldImplementation | address | The old implementation address |
-| newImplementation | address | The new implementation address |
-
-### BookingTokenAddressUpdated
-
-```solidity
-event BookingTokenAddressUpdated(address oldBookingToken, address newBookingToken)
-```
-
-Booking token address updated event.
-
-#### Parameters
-
-| Name            | Type    | Description                   |
-| --------------- | ------- | ----------------------------- |
-| oldBookingToken | address | The old booking token address |
-| newBookingToken | address | The new booking token address |
-
-### CMAccountInvalidImplementation
-
-```solidity
-error CMAccountInvalidImplementation(address implementation)
-```
-
-The implementation of the CMAccount is invalid.
-
-#### Parameters
-
-| Name           | Type    | Description                                 |
-| -------------- | ------- | ------------------------------------------- |
-| implementation | address | The implementation address of the CMAccount |
-
-### CMAccountInvalidAdmin
-
-```solidity
-error CMAccountInvalidAdmin(address admin)
-```
-
-The admin address is invalid.
-
-#### Parameters
-
-| Name  | Type    | Description       |
-| ----- | ------- | ----------------- |
-| admin | address | The admin address |
-
-### InvalidBookingTokenAddress
-
-```solidity
-error InvalidBookingTokenAddress(address bookingToken)
-```
-
-Invalid booking token address.
-
-#### Parameters
-
-| Name         | Type    | Description               |
-| ------------ | ------- | ------------------------- |
-| bookingToken | address | The booking token address |
-
-### constructor
-
-```solidity
-constructor() public
-```
-
-### initialize
-
-```solidity
-function initialize(address defaultAdmin, address pauser, address upgrader, address versioner) public
-```
-
-### pause
-
-```solidity
-function pause() public
-```
-
-Pauses the CMAccountManager contract. Currently this only affects the
-creation of CMAccount. When paused, account creation is stopped.
-
-### unpause
-
-```solidity
-function unpause() public
-```
-
-Unpauses the CMAccountManager contract.
-
-### \_authorizeUpgrade
-
-```solidity
-function _authorizeUpgrade(address newImplementation) internal
-```
-
-Authorization for the CMAccountManager contract upgrade.
-
-### createCMAccount
-
-```solidity
-function createCMAccount(address admin, address upgrader) external payable returns (address)
-```
-
-Creates CMAccount by deploying a ERC1967Proxy with the CMAccount
-implementation from the manager.
-
-Because this function is deploying a contract, it reverts if the caller is
-not KYC or KYB verified. (For EOAs only)
-
-Caller must approve the pre-fund amount before calling this function.
-
-_Emits a {CMAccountCreated} event._
-
-### \_setCMAccountInfo
-
-```solidity
-function _setCMAccountInfo(address account, struct CMAccountManager.CMAccountInfo info) internal
-```
-
-### getCMAccountCreator
-
-```solidity
-function getCMAccountCreator(address account) public view returns (address)
-```
-
-Returns the given account's creator.
-
-#### Parameters
-
-| Name    | Type    | Description         |
-| ------- | ------- | ------------------- |
-| account | address | The account address |
-
-### isCMAccount
-
-```solidity
-function isCMAccount(address account) public view returns (bool)
-```
-
-Check if an address is CMAccount created by the manager.
-
-#### Parameters
-
-| Name    | Type    | Description                  |
-| ------- | ------- | ---------------------------- |
-| account | address | The account address to check |
-
-### getAccountImplementation
-
-```solidity
-function getAccountImplementation() public view returns (address)
-```
-
-Returns the CMAccount implementation address.
-
-### setAccountImplementation
-
-```solidity
-function setAccountImplementation(address newImplementation) public
-```
-
-Set a new CMAccount implementation address.
-
-#### Parameters
-
-| Name              | Type    | Description                    |
-| ----------------- | ------- | ------------------------------ |
-| newImplementation | address | The new implementation address |
-
-### \_setAccountImplementation
-
-```solidity
-function _setAccountImplementation(address newImplementation) internal
-```
-
-### getBookingTokenAddress
-
-```solidity
-function getBookingTokenAddress() public view returns (address)
-```
-
-Returns the booking token address.
-
-### setBookingTokenAddress
-
-```solidity
-function setBookingTokenAddress(address token) public
-```
-
-Sets booking token address.
-
-### \_setBookingTokenAddress
-
-```solidity
-function _setBookingTokenAddress(address token) internal
-```
-
-### registerService
-
-```solidity
-function registerService(string serviceName) public
-```
-
-Registers a given service name. CM Accounts can only register services
-if they are also registered in the service registry on the manager contract.
-
-#### Parameters
-
-| Name        | Type   | Description         |
-| ----------- | ------ | ------------------- |
-| serviceName | string | Name of the service |
-
-### unregisterService
-
-```solidity
-function unregisterService(string serviceName) public
-```
-
-Unregisters a given service name. CM Accounts will not be able to register
-the service anymore.
-
-#### Parameters
-
-| Name        | Type   | Description         |
-| ----------- | ------ | ------------------- |
-| serviceName | string | Name of the service |
-
-## ICMAccountManager
+## ITTMAccountManager
 
 ### getAccountImplementation
 
@@ -2424,10 +2076,10 @@ the service anymore.
 function getAccountImplementation() external view returns (address)
 ```
 
-### isCMAccount
+### isTTMAccount
 
 ```solidity
-function isCMAccount(address account) external view returns (bool)
+function isTTMAccount(address account) external view returns (bool)
 ```
 
 ### getRegisteredServiceHashByName
@@ -2454,7 +2106,355 @@ function getRegisteredServiceNameByHash(bytes32 serviceHash) external view retur
 function getServiceNameByHash(bytes32 serviceHash) external view returns (string serviceName)
 ```
 
-## CMAccountManagerTest
+## TTMAccountManager
+
+This contract manages the creation of the Travel Token Messenger accounts by
+deploying {ERC1967Proxy} proxies that point to the{TTMAccount} implementation
+address.
+
+Create TTM Account: Users who want to create an account should call
+`createTTMAccount(address admin, address upgrader)` function with addresses of
+the accounts admin and upgrader roles and they also need to approve the service
+fee token with the amount of prefund.
+
+When the manager contract is paused, account creation is stopped.
+
+Developer Fee: This contracts also keeps the info about the developer wallet
+and fee basis points. Which are used during the cheque cash in to pay for the
+developer fee.
+
+Service Registry: {TTMAccountManager} also acts as a registry for the services
+that {TTMAccount} contracts add as a supported or wanted service. Registry
+works by hashing (keccak256) the service name (string) and creating a mapping
+as keccak256(serviceName) => serviceName. And provides functions that
+{TTMAccount} function uses to register services. The {TTMAccount} only keeps
+the hashes (byte32) of the registered services.
+
+### PAUSER_ROLE
+
+```solidity
+bytes32 PAUSER_ROLE
+```
+
+Pauser role can pause the contract. Currently this only affects the
+creation of TTM Accounts. When paused, account creation is stopped.
+
+### UPGRADER_ROLE
+
+```solidity
+bytes32 UPGRADER_ROLE
+```
+
+Upgrader role can upgrade the contract to a new implementation.
+
+### VERSIONER_ROLE
+
+```solidity
+bytes32 VERSIONER_ROLE
+```
+
+Versioner role can set new {TTMAccount} implementation address. When a
+new implementation address is set, it is used for the new {TTMAccount}
+creations.
+
+The old {TTMAccount} contracts are not affected by this. Owners of those
+should do the upgrade manually by calling the `upgradeToAndCall(address)`
+function on the account.
+
+### SERVICE_REGISTRY_ADMIN_ROLE
+
+```solidity
+bytes32 SERVICE_REGISTRY_ADMIN_ROLE
+```
+
+Service registry admin role can add and remove services to the service
+registry mapping. Implemented by {ServiceRegistry} contract.
+
+### TTMACCOUNT_ROLE
+
+```solidity
+bytes32 TTMACCOUNT_ROLE
+```
+
+This role is granted to the created TTM Accounts. It is used to keep
+an enumerable list of TTM Accounts.
+
+### TTMAccountInfo
+
+TTMAccount info struct, to keep track of created TTM Accounts and their
+creators.
+
+```solidity
+struct TTMAccountInfo {
+  bool isTTMAccount;
+  address creator;
+}
+```
+
+### TTMAccountManagerStorage
+
+```solidity
+struct TTMAccountManagerStorage {
+  address _latestAccountImplementation;
+  address _bookingToken;
+  mapping(address => struct TTMAccountManager.TTMAccountInfo) _ttmAccountInfo;
+}
+```
+
+### TTMAccountCreated
+
+```solidity
+event TTMAccountCreated(address account)
+```
+
+TTM Account created event.
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| account | address | The address of the new TTMAccount |
+
+### TTMAccountImplementationUpdated
+
+```solidity
+event TTMAccountImplementationUpdated(address oldImplementation, address newImplementation)
+```
+
+TTM Account implementation address updated event.
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| oldImplementation | address | The old implementation address |
+| newImplementation | address | The new implementation address |
+
+### BookingTokenAddressUpdated
+
+```solidity
+event BookingTokenAddressUpdated(address oldBookingToken, address newBookingToken)
+```
+
+Booking token address updated event.
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| oldBookingToken | address | The old booking token address |
+| newBookingToken | address | The new booking token address |
+
+### TTMAccountInvalidImplementation
+
+```solidity
+error TTMAccountInvalidImplementation(address implementation)
+```
+
+The implementation of the TTMAccount is invalid.
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| implementation | address | The implementation address of the TTMAccount |
+
+### TTMAccountInvalidAdmin
+
+```solidity
+error TTMAccountInvalidAdmin(address admin)
+```
+
+The admin address is invalid.
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| admin | address | The admin address |
+
+### InvalidBookingTokenAddress
+
+```solidity
+error InvalidBookingTokenAddress(address bookingToken)
+```
+
+Invalid booking token address.
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| bookingToken | address | The booking token address |
+
+### constructor
+
+```solidity
+constructor() public
+```
+
+### initialize
+
+```solidity
+function initialize(address defaultAdmin, address pauser, address upgrader, address versioner) public
+```
+
+### pause
+
+```solidity
+function pause() public
+```
+
+Pauses the TTMAccountManager contract. Currently this only affects the
+creation of TTMAccount. When paused, account creation is stopped.
+
+### unpause
+
+```solidity
+function unpause() public
+```
+
+Unpauses the TTMAccountManager contract.
+
+### _authorizeUpgrade
+
+```solidity
+function _authorizeUpgrade(address newImplementation) internal
+```
+
+Authorization for the TTMAccountManager contract upgrade.
+
+### createTTMAccount
+
+```solidity
+function createTTMAccount(address admin, address upgrader) external payable returns (address)
+```
+
+Creates TTMAccount by deploying a ERC1967Proxy with the TTMAccount
+implementation from the manager.
+
+Because this function is deploying a contract, it reverts if the caller is
+not KYC or KYB verified. (For EOAs only)
+
+Caller must approve the pre-fund amount before calling this function.
+
+_Emits a {TTMAccountCreated} event._
+
+### _setTTMAccountInfo
+
+```solidity
+function _setTTMAccountInfo(address account, struct TTMAccountManager.TTMAccountInfo info) internal
+```
+
+### getTTMAccountCreator
+
+```solidity
+function getTTMAccountCreator(address account) public view returns (address)
+```
+
+Returns the given account's creator.
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| account | address | The account address |
+
+### isTTMAccount
+
+```solidity
+function isTTMAccount(address account) public view returns (bool)
+```
+
+Check if an address is TTMAccount created by the manager.
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| account | address | The account address to check |
+
+### getAccountImplementation
+
+```solidity
+function getAccountImplementation() public view returns (address)
+```
+
+Returns the TTMAccount implementation address.
+
+### setAccountImplementation
+
+```solidity
+function setAccountImplementation(address newImplementation) public
+```
+
+Set a new TTMAccount implementation address.
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| newImplementation | address | The new implementation address |
+
+### _setAccountImplementation
+
+```solidity
+function _setAccountImplementation(address newImplementation) internal
+```
+
+### getBookingTokenAddress
+
+```solidity
+function getBookingTokenAddress() public view returns (address)
+```
+
+Returns the booking token address.
+
+### setBookingTokenAddress
+
+```solidity
+function setBookingTokenAddress(address token) public
+```
+
+Sets booking token address.
+
+### _setBookingTokenAddress
+
+```solidity
+function _setBookingTokenAddress(address token) internal
+```
+
+### registerService
+
+```solidity
+function registerService(string serviceName) public
+```
+
+Registers a given service name. TTM Accounts can only register services
+if they are also registered in the service registry on the manager contract.
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| serviceName | string | Name of the service |
+
+### unregisterService
+
+```solidity
+function unregisterService(string serviceName) public
+```
+
+Unregisters a given service name. TTM Accounts will not be able to register
+the service anymore.
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| serviceName | string | Name of the service |
+
+## TTMAccountManagerTest
 
 ### getVersion
 
@@ -2464,7 +2464,7 @@ function getVersion() public pure returns (string)
 
 ## PartnerConfiguration
 
-Partner Configuration is used by the {CMAccount} contract to register
+Partner Configuration is used by the {TTMAccount} contract to register
 supported and wanted services by the partner.
 
 ### Service
@@ -2473,8 +2473,8 @@ Struct for storing supported service details for suppliers
 
 ```solidity
 struct Service {
-    bool _restrictedRate;
-    string[] _capabilities;
+  bool _restrictedRate;
+  string[] _capabilities;
 }
 ```
 
@@ -2584,19 +2584,19 @@ event PublicKeyAdded(address pubKeyAddress)
 event PublicKeyRemoved(address pubKeyAddress)
 ```
 
-### \_\_PartnerConfiguration_init
+### __PartnerConfiguration_init
 
 ```solidity
 function __PartnerConfiguration_init() internal
 ```
 
-### \_\_PartnerConfiguration_init_unchained
+### __PartnerConfiguration_init_unchained
 
 ```solidity
 function __PartnerConfiguration_init_unchained() internal
 ```
 
-### \_addService
+### _addService
 
 ```solidity
 function _addService(bytes32 serviceHash, string[] capabilities, bool restrictedRate) internal virtual
@@ -2606,13 +2606,13 @@ Adds a supported Service object for a given hash.
 
 #### Parameters
 
-| Name           | Type     | Description                                   |
-| -------------- | -------- | --------------------------------------------- |
-| serviceHash    | bytes32  | Hash of the service                           |
-| capabilities   | string[] | Capabilities for the service                  |
-| restrictedRate | bool     | If the service is restricted to pre-agreement |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| serviceHash | bytes32 | Hash of the service |
+| capabilities | string[] | Capabilities for the service |
+| restrictedRate | bool | If the service is restricted to pre-agreement |
 
-### \_removeService
+### _removeService
 
 ```solidity
 function _removeService(bytes32 serviceHash) internal virtual
@@ -2622,11 +2622,11 @@ Removes a supported Service object for a given hash.
 
 #### Parameters
 
-| Name        | Type    | Description         |
-| ----------- | ------- | ------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | serviceHash | bytes32 | Hash of the service |
 
-### \_setServiceRestrictedRate
+### _setServiceRestrictedRate
 
 ```solidity
 function _setServiceRestrictedRate(bytes32 serviceHash, bool restrictedRate) internal virtual
@@ -2636,12 +2636,12 @@ Sets the Service restricted rate for a given hash.
 
 #### Parameters
 
-| Name           | Type    | Description         |
-| -------------- | ------- | ------------------- |
-| serviceHash    | bytes32 | Hash of the service |
-| restrictedRate | bool    | Restricted rate     |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| serviceHash | bytes32 | Hash of the service |
+| restrictedRate | bool | Restricted rate |
 
-### \_setServiceCapabilities
+### _setServiceCapabilities
 
 ```solidity
 function _setServiceCapabilities(bytes32 serviceHash, string[] capabilities) internal virtual
@@ -2651,12 +2651,12 @@ Sets the Service capabilities for a given hash.
 
 #### Parameters
 
-| Name         | Type     | Description         |
-| ------------ | -------- | ------------------- |
-| serviceHash  | bytes32  | Hash of the service |
-| capabilities | string[] | Capabilities        |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| serviceHash | bytes32 | Hash of the service |
+| capabilities | string[] | Capabilities |
 
-### \_addServiceCapability
+### _addServiceCapability
 
 ```solidity
 function _addServiceCapability(bytes32 serviceHash, string capability) internal virtual
@@ -2666,12 +2666,12 @@ Adds a capability to the service.
 
 #### Parameters
 
-| Name        | Type    | Description         |
-| ----------- | ------- | ------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | serviceHash | bytes32 | Hash of the service |
-| capability  | string  | Capability          |
+| capability | string | Capability |
 
-### \_removeServiceCapability
+### _removeServiceCapability
 
 ```solidity
 function _removeServiceCapability(bytes32 serviceHash, string capability) internal virtual
@@ -2681,10 +2681,10 @@ Removes a capability from the service.
 
 #### Parameters
 
-| Name        | Type    | Description         |
-| ----------- | ------- | ------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | serviceHash | bytes32 | Hash of the service |
-| capability  | string  | Capability          |
+| capability | string | Capability |
 
 ### getAllServiceHashes
 
@@ -2706,19 +2706,19 @@ Returns the Service object for a given hash. Service object contains fee and cap
 
 ```text
            ┌────────────── pkg ─────────────┐ ┌───── service name ─────┐
-keccak256("cmp.services.accommodation.v1alpha.AccommodationSearchService")
+keccak256("ttm.services.accommodation.v1alpha.AccommodationSearchService")
 ```
 
-_These services are coming from the Camino Messenger Protocol's protobuf
+_These services are coming from the Travel Token Messenger Protocol's protobuf
 definitions._
 
 #### Parameters
 
-| Name        | Type    | Description         |
-| ----------- | ------- | ------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | serviceHash | bytes32 | Hash of the service |
 
-### \_isServiceSupported
+### _isServiceSupported
 
 ```solidity
 function _isServiceSupported(bytes32 serviceHash) internal view returns (bool)
@@ -2728,8 +2728,8 @@ Checks if the service is supported.
 
 #### Parameters
 
-| Name        | Type    | Description         |
-| ----------- | ------- | ------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | serviceHash | bytes32 | Hash of the service |
 
 ### getServiceRestrictedRate
@@ -2742,8 +2742,8 @@ Returns the restricted rate for a given service hash.
 
 #### Parameters
 
-| Name        | Type    | Description         |
-| ----------- | ------- | ------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | serviceHash | bytes32 | Hash of the service |
 
 ### getServiceCapabilities
@@ -2756,11 +2756,11 @@ Returns the capabilities for a given service hash.
 
 #### Parameters
 
-| Name        | Type    | Description         |
-| ----------- | ------- | ------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | serviceHash | bytes32 | Hash of the service |
 
-### \_addWantedService
+### _addWantedService
 
 ```solidity
 function _addWantedService(bytes32 serviceHash) internal virtual
@@ -2772,11 +2772,11 @@ Reverts if the service already exists.
 
 #### Parameters
 
-| Name        | Type    | Description         |
-| ----------- | ------- | ------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | serviceHash | bytes32 | Hash of the service |
 
-### \_removeWantedService
+### _removeWantedService
 
 ```solidity
 function _removeWantedService(bytes32 serviceHash) internal virtual
@@ -2788,8 +2788,8 @@ Reverts if the service does not exist.
 
 #### Parameters
 
-| Name        | Type    | Description         |
-| ----------- | ------- | ------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | serviceHash | bytes32 | Hash of the service |
 
 ### getWantedServiceHashes
@@ -2802,11 +2802,11 @@ Returns all wanted service hashes.
 
 #### Return Values
 
-| Name          | Type      | Description           |
-| ------------- | --------- | --------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | serviceHashes | bytes32[] | Wanted service hashes |
 
-### \_addSupportedToken
+### _addSupportedToken
 
 ```solidity
 function _addSupportedToken(address _token) internal virtual
@@ -2816,11 +2816,11 @@ Adds a supported payment token.
 
 #### Parameters
 
-| Name    | Type    | Description                       |
-| ------- | ------- | --------------------------------- |
-| \_token | address | Payment token address to be added |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _token | address | Payment token address to be added |
 
-### \_removeSupportedToken
+### _removeSupportedToken
 
 ```solidity
 function _removeSupportedToken(address _token) internal virtual
@@ -2830,9 +2830,9 @@ Removes a supported payment token.
 
 #### Parameters
 
-| Name    | Type    | Description                         |
-| ------- | ------- | ----------------------------------- |
-| \_token | address | Payment token address to be removed |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _token | address | Payment token address to be removed |
 
 ### getSupportedTokens
 
@@ -2844,11 +2844,11 @@ Returns supported token addresses.
 
 #### Return Values
 
-| Name   | Type      | Description               |
-| ------ | --------- | ------------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | tokens | address[] | Supported token addresses |
 
-### \_setOffChainPaymentSupported
+### _setOffChainPaymentSupported
 
 ```solidity
 function _setOffChainPaymentSupported(bool _supportsOffChainPayment) internal virtual
@@ -2864,7 +2864,7 @@ function offChainPaymentSupported() public view virtual returns (bool)
 
 Returns true if off-chain payment is supported for the given service.
 
-### \_addPublicKey
+### _addPublicKey
 
 ```solidity
 function _addPublicKey(address pubKeyAddress, bytes publicKeyData) internal virtual
@@ -2876,7 +2876,7 @@ exists.
 Beware: This functions does not check if the public key is actually for the
 given address.
 
-### \_removePublicKey
+### _removePublicKey
 
 ```solidity
 function _removePublicKey(address pubKeyAddress) internal virtual
@@ -2907,13 +2907,13 @@ Reverts if the public key does not exist
 
 #### Parameters
 
-| Name          | Type    | Description               |
-| ------------- | ------- | ------------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | pubKeyAddress | address | Address of the public key |
 
 ## ServiceRegistry
 
-Service registry is used by the {CMAccountManager} contract to register
+Service registry is used by the {TTMAccountManager} contract to register
 services by hashing (keccak256) the service name (string) and creating a mapping
 as keccak256(serviceName) => serviceName.
 
@@ -2951,19 +2951,19 @@ error ServiceAlreadyRegistered(string serviceName)
 error ServiceNotRegistered()
 ```
 
-### \_\_ServiceRegistry_init
+### __ServiceRegistry_init
 
 ```solidity
 function __ServiceRegistry_init() internal
 ```
 
-### \_\_ServiceRegistry_init_unchained
+### __ServiceRegistry_init_unchained
 
 ```solidity
 function __ServiceRegistry_init_unchained() internal
 ```
 
-### \_registerServiceName
+### _registerServiceName
 
 ```solidity
 function _registerServiceName(string serviceName) internal virtual
@@ -2976,19 +2976,19 @@ service name and adds it to the registry
 
 ```text
  ┌────────────── pkg ─────────────┐ ┌───── service name ─────┐
-"cmp.services.accommodation.v1alpha.AccommodationSearchService"
+"ttm.services.accommodation.v1alpha.AccommodationSearchService"
 ```
 
-_These services are coming from the Camino Messenger Protocol's protobuf
+_These services are coming from the Travel Token Messenger Protocol's protobuf
 definitions._
 
 #### Parameters
 
-| Name        | Type   | Description         |
-| ----------- | ------ | ------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | serviceName | string | Name of the service |
 
-### \_unregisterServiceName
+### _unregisterServiceName
 
 ```solidity
 function _unregisterServiceName(string serviceName) internal virtual
@@ -2999,8 +2999,8 @@ service name and removes it from the registry.
 
 #### Parameters
 
-| Name        | Type   | Description         |
-| ----------- | ------ | ------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | serviceName | string | Name of the service |
 
 ### getRegisteredServiceNameByHash
@@ -3013,8 +3013,8 @@ Returns the name of a registered service by its hash.
 
 #### Parameters
 
-| Name        | Type    | Description         |
-| ----------- | ------- | ------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | serviceHash | bytes32 | Hash of the service |
 
 ### getServiceNameByHash
@@ -3027,8 +3027,8 @@ Returns the name of a service by its hash. Even if the service is unregistered a
 
 #### Parameters
 
-| Name        | Type    | Description         |
-| ----------- | ------- | ------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | serviceHash | bytes32 | Hash of the service |
 
 ### getRegisteredServiceHashByName
@@ -3041,8 +3041,8 @@ Returns the hash of a service by its name.
 
 #### Parameters
 
-| Name        | Type   | Description         |
-| ----------- | ------ | ------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | serviceName | string | Name of the service |
 
 ### getServiceHashByName
@@ -3055,8 +3055,8 @@ Returns the hash of a service by its name. Even if the service is unregistered a
 
 #### Parameters
 
-| Name        | Type   | Description         |
-| ----------- | ------ | ------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | serviceName | string | Name of the service |
 
 ### getAllRegisteredServiceHashes
@@ -3069,8 +3069,8 @@ Returns all registered service **hashes**.
 
 #### Return Values
 
-| Name     | Type      | Description                   |
-| -------- | --------- | ----------------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | services | bytes32[] | All registered service hashes |
 
 ### getAllRegisteredServiceNames
@@ -3083,8 +3083,8 @@ Returns all registered service **names**.
 
 #### Return Values
 
-| Name     | Type     | Description                  |
-| -------- | -------- | ---------------------------- |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
 | services | string[] | All registered service names |
 
 ## Dummy
@@ -3130,3 +3130,4 @@ function decimals() public pure returns (uint8)
 ```solidity
 function mint(address, uint256) public
 ```
+

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 //
-// Camino Messenger Account Implementation
+// Travel Token Messenger Account Implementation
 
 pragma solidity 0.8.24;
 
@@ -16,38 +16,37 @@ import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import { IERC721Receiver } from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import { ERC1967Utils } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
 
-import { ICMAccountManager } from "../manager/ICMAccountManager.sol";
+import { ITTMAccountManager } from "../manager/ITTMAccountManager.sol";
 import { BookingTokenOperator } from "../booking-token/BookingTokenOperator.sol";
 import { PartnerConfiguration } from "../partner/PartnerConfiguration.sol";
 import { GasMoneyManager } from "./GasMoneyManager.sol";
 
 /**
- * @title Camino Messenger Account
- * @notice A CM Account manages funds, minting/buying of booking tokens, provided
+ * @title Travel Token Messenger Account
+ * @notice A TTM Account manages funds, minting/buying of booking tokens, provided
  * or wanted services, and multiple bots for distributors and suppliers on
- * Camino Messenger ecosystem.
+ * Travel Token Messenger ecosystem.
  *
  * Registering bots is done by role based access control. Bot's with
- * `MESSENGER_BOT_ROLE` are authorized to represent the CMAccount.
+ * `MESSENGER_BOT_ROLE` are authorized to represent the TTMAccount.
  * Bot can also have `GAS_WITHDRAWER_ROLE` and `BOOKING_OPERATOR_ROLE`.
  *
- * `GAS_WITHDRAWER_ROLE` enables a bot to withdraw native coins (CAM) from the
+ * `GAS_WITHDRAWER_ROLE` enables a bot to withdraw native coins (ETH) from the
  * contract to be used as gas money. This restricted with a `limit`
- * (wei/aCAM) and `period` (seconds) by the `BOT_ADMIN_ROLE`. Default starting
- * values are 10 CAM per 24 hours.
+ * (wei) and `period` (seconds) by the `BOT_ADMIN_ROLE`. Default starting
+ * values are 10 ETH per 24 hours.
  *
  * `BOOKING_OPERATOR_ROLE` enables a bot to mint and buy Booking Tokens by
  * calling the corresponding functions on the {BookingToken} contract. The buy
  * operation pays the price of the Booking Token with the funds on the
- * {CMAccount} contract.
+ * {TTMAccount} contract.
  *
  * @dev This contract uses UUPS style upgradeability. The authorization function
  * `_authorizeUpgrade(address)` can be called by the `UPGRADER_ROLE` and is
  * restricted to only upgrade to the implementation address registered on the
- * {CMAccountManager} contract.
- * @custom:security-contact https://r.xyz/program/camino-network
+ * {TTMAccountManager} contract.
  */
-contract CMAccount is
+contract TTMAccount is
     Initializable,
     AccessControlEnumerableUpgradeable,
     UUPSUpgradeable,
@@ -75,7 +74,7 @@ contract CMAccount is
     bytes32 public constant BOT_ADMIN_ROLE = keccak256("BOT_ADMIN_ROLE");
 
     /**
-     * @notice Messenger bot role can interact on behalf of this CMAccount
+     * @notice Messenger bot role can interact on behalf of this TTMAccount
      * contract.
      */
     bytes32 public constant MESSENGER_BOT_ROLE = keccak256("MESSENGER_BOT_ROLE");
@@ -108,10 +107,10 @@ contract CMAccount is
      *                   STORAGE                       *
      ***************************************************/
 
-    /// @custom:storage-location erc7201:camino.messenger.storage.CMAccount
-    struct CMAccountStorage {
+    /// @custom:storage-location erc7201:traveltoken.messenger.storage.TTMAccount
+    struct TTMAccountStorage {
         /**
-         * @dev Address of the CMAccountManager
+         * @dev Address of the TTMAccountManager
          */
         address _manager;
         /**
@@ -124,13 +123,13 @@ contract CMAccount is
         uint256 _unused; // Not used, but do not remove. Previously used to store the prefund amount.
     }
 
-    // keccak256(abi.encode(uint256(keccak256("camino.messenger.storage.CMAccount")) - 1)) & ~bytes32(uint256(0xff));
-    bytes32 private constant CMAccountStorageLocation =
-        0x0c7b73796c7cc89b9f849b9056a93200eba741881e57a1b03b9bedb2c0e07100;
+    // keccak256(abi.encode(uint256(keccak256("traveltoken.messenger.storage.TTMAccount")) - 1)) & ~bytes32(uint256(0xff));
+    bytes32 private constant TTMAccountStorageLocation =
+        0x17fbd8e22750b6dc617ceae09f600bf2810b53ccc1f790a9a4f78a3f7169b900;
 
-    function _getCMAccountStorage() private pure returns (CMAccountStorage storage $) {
+    function _getTTMAccountStorage() private pure returns (TTMAccountStorage storage $) {
         assembly {
-            $.slot := CMAccountStorageLocation
+            $.slot := TTMAccountStorageLocation
         }
     }
 
@@ -139,9 +138,9 @@ contract CMAccount is
      ***************************************************/
 
     /**
-     * @notice CMAccount upgrade event. Emitted when the CMAccount implementation is upgraded.
+     * @notice TTMAccount upgrade event. Emitted when the TTMAccount implementation is upgraded.
      */
-    event CMAccountUpgraded(address indexed oldImplementation, address indexed newImplementation);
+    event TTMAccountUpgraded(address indexed oldImplementation, address indexed newImplementation);
 
     /**
      * @notice Deposit event, emitted when there is a new deposit
@@ -182,14 +181,14 @@ contract CMAccount is
      ***************************************************/
 
     /**
-     * @notice CMAccount implementation address does not match the one in the manager
+     * @notice TTMAccount implementation address does not match the one in the manager
      */
-    error CMAccountImplementationMismatch(address latestImplementation, address newImplementation);
+    error TTMAccountImplementationMismatch(address latestImplementation, address newImplementation);
 
     /**
      * @notice New implementation is the same as the current implementation, no update needed
      */
-    error CMAccountNoUpgradeNeeded(address oldImplementation, address newImplementation);
+    error TTMAccountNoUpgradeNeeded(address oldImplementation, address newImplementation);
 
     /**
      * @notice Error to revert with if the prefund is not spent yet
@@ -226,13 +225,13 @@ contract CMAccount is
         _grantRole(BOT_ADMIN_ROLE, defaultAdmin);
         _grantRole(UPGRADER_ROLE, upgrader);
 
-        CMAccountStorage storage $ = _getCMAccountStorage();
+        TTMAccountStorage storage $ = _getTTMAccountStorage();
 
         $._manager = manager;
         $._bookingToken = bookingToken;
 
         // Initialize GasMoneyManager
-        uint256 withdrawalLimit = 10 ether; // 10 CAM
+        uint256 withdrawalLimit = 10 ether; // 10 ETH
         uint256 withdrawalPeriod = 24 hours; // per 24 hours
         __GasMoneyManager_init(withdrawalLimit, withdrawalPeriod);
     }
@@ -244,12 +243,12 @@ contract CMAccount is
      ***************************************************/
 
     /**
-     * @notice Returns the CMAccountManager address.
+     * @notice Returns the TTMAccountManager address.
      *
-     * @return CMAccountManager address
+     * @return TTMAccountManager address
      */
     function getManagerAddress() public view returns (address) {
-        CMAccountStorage storage $ = _getCMAccountStorage();
+        TTMAccountStorage storage $ = _getTTMAccountStorage();
         return $._manager;
     }
 
@@ -259,7 +258,7 @@ contract CMAccount is
      * @return BookingToken address
      */
     function getBookingTokenAddress() public view returns (address) {
-        CMAccountStorage storage $ = _getCMAccountStorage();
+        TTMAccountStorage storage $ = _getTTMAccountStorage();
         return $._bookingToken;
     }
 
@@ -268,33 +267,33 @@ contract CMAccount is
      ***************************************************/
 
     /**
-     * @notice Authorizes the upgrade of the CMAccount.
+     * @notice Authorizes the upgrade of the TTMAccount.
      *
      * Reverts if the new implementation is the same as the old one.
      *
      * Reverts if the new implementation does not match the implementation address
      * in the manager. Only implementations registered at the manager are allowed.
      *
-     * @dev Emits a {CMAccountUpgraded} event.
+     * @dev Emits a {TTMAccountUpgraded} event.
      *
      * @param newImplementation The new implementation address
      */
     function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) {
         // Get the implementation address from the manager
-        address managerImplementation = ICMAccountManager(getManagerAddress()).getAccountImplementation();
+        address managerImplementation = ITTMAccountManager(getManagerAddress()).getAccountImplementation();
         address oldImplementation = ERC1967Utils.getImplementation();
 
         // Revert if the new implementation is the same as the old one
         if (oldImplementation == newImplementation) {
-            revert CMAccountNoUpgradeNeeded(oldImplementation, newImplementation);
+            revert TTMAccountNoUpgradeNeeded(oldImplementation, newImplementation);
         }
 
         // Check if new implementation matches the implementation address in the manager
         if (newImplementation != managerImplementation) {
-            revert CMAccountImplementationMismatch(managerImplementation, newImplementation);
+            revert TTMAccountImplementationMismatch(managerImplementation, newImplementation);
         }
 
-        emit CMAccountUpgraded(oldImplementation, newImplementation);
+        emit TTMAccountUpgraded(oldImplementation, newImplementation);
     }
 
     /**
@@ -307,7 +306,7 @@ contract CMAccount is
     }
 
     /**
-     * @notice Withdraw CAM from the CMAccount
+     * @notice Withdraw ETH from the TTMAccount
      *
      * @param recipient The recipient of the withdrawal
      * @param amount The amount to withdraw
@@ -432,10 +431,10 @@ contract CMAccount is
      *
      * ```text
      *  ┌────────────── pkg ─────────────┐ ┌───── service name ─────┐
-     * "cmp.services.accommodation.v1alpha.AccommodationSearchService")
+     * "ttm.services.accommodation.v1alpha.AccommodationSearchService")
      * ```
      *
-     * @dev These services are coming from the Camino Messenger Protocol's protobuf
+     * @dev These services are coming from the Travel Token Messenger Protocol's protobuf
      * definitions.
      *
      * @param serviceName Service name to add to the account as a supported service
@@ -526,7 +525,7 @@ contract CMAccount is
      * registered service name from the account manager
      */
     function getRegisteredServiceHash(string memory serviceName) private view returns (bytes32 serviceHash) {
-        return ICMAccountManager(getManagerAddress()).getRegisteredServiceHashByName(serviceName);
+        return ITTMAccountManager(getManagerAddress()).getRegisteredServiceHashByName(serviceName);
     }
 
     /**
@@ -534,14 +533,14 @@ contract CMAccount is
      * from the account manager
      */
     function getServiceHash(string memory serviceName) private view returns (bytes32 serviceHash) {
-        return ICMAccountManager(getManagerAddress()).getServiceHashByName(serviceName);
+        return ITTMAccountManager(getManagerAddress()).getServiceHashByName(serviceName);
     }
 
     /**
      * @notice Get service name by hash. Returns the service name from the account manager
      */
     function getServiceName(bytes32 serviceHash) private view returns (string memory serviceName) {
-        return ICMAccountManager(getManagerAddress()).getServiceNameByHash(serviceHash);
+        return ITTMAccountManager(getManagerAddress()).getServiceNameByHash(serviceHash);
     }
 
     /***************************************************
@@ -730,7 +729,7 @@ contract CMAccount is
     /**
      * @notice Withdraw gas money. Requires the `GAS_WITHDRAWER_ROLE`.
      *
-     * @param amount The amount to withdraw in aCAM (wei)
+     * @param amount The amount to withdraw in wei
      */
     function withdrawGasMoney(uint256 amount) public nonReentrant onlyRole(GAS_WITHDRAWER_ROLE) {
         _withdrawGasMoney(amount);
@@ -802,7 +801,7 @@ contract CMAccount is
      *
      * @param tokenId The token id for which to withdraw the proposal
      * @param reason The reason for withdrawing the proposal
-     * @param reasonVersion The version of the withdrawal reason from the CMP
+     * @param reasonVersion The version of the withdrawal reason from the Travel Token Messenger Protocol
      */
     function withdrawCancellation(
         uint256 tokenId,

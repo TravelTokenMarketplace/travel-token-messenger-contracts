@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 //
-// Camino Messenger Gas Money Manager
+// Travel Token Messenger Gas Money Manager
 
 pragma solidity 0.8.24;
 
@@ -9,7 +9,7 @@ import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 
 /**
  * @title GasMoneyManager
- * @notice GasMoneyManager manages gas money withdrawals for a {CMAccount}.
+ * @notice GasMoneyManager manages gas money withdrawals for a {TTMAccount}.
  *
  * Gas money withdrawals are restricted to a withdrawal limit and period.
  */
@@ -20,7 +20,7 @@ abstract contract GasMoneyManager is Initializable {
      *                   STORAGE                       *
      ***************************************************/
 
-    /// @custom:storage-location erc7201:camino.messenger.storage.GasMoneyManager
+    /// @custom:storage-location erc7201:traveltoken.messenger.storage.GasMoneyManager
     struct GasMoneyStorage {
         mapping(address => uint256) _withdrawalPeriodStart;
         mapping(address => uint256) _withdrawnAmount;
@@ -28,9 +28,9 @@ abstract contract GasMoneyManager is Initializable {
         uint256 _withdrawalPeriod;
     }
 
-    // keccak256(abi.encode(uint256(keccak256("camino.messenger.storage.GasMoneyManager")) - 1)) & ~bytes32(uint256(0xff));
+    // keccak256(abi.encode(uint256(keccak256("traveltoken.messenger.storage.GasMoneyManager")) - 1)) & ~bytes32(uint256(0xff));
     bytes32 private constant GasMoneyStorageLocation =
-        0x99a652063088b6badaeb0c7f680676baf720654b4f86f50167944489af637d00;
+        0xc7ae2c65fdae475b1bb2dd4079b252a7d893d0822b91a40dd25c763e583f7700;
 
     function _getGasMoneyStorage() private pure returns (GasMoneyStorage storage $) {
         assembly {

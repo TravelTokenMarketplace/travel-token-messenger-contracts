@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 //
-// Camino Messenger Account Manager
+// Travel Token Messenger Account Manager
 
 pragma solidity 0.8.24;
 
@@ -14,8 +14,8 @@ import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/P
 import { AccessControlEnumerableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlEnumerableUpgradeable.sol";
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 
-// ABI of the CMAccount implementation contract
-import { ICMAccount } from "../account/ICMAccount.sol";
+// ABI of the TTMAccount implementation contract
+import { ITTMAccount } from "../account/ITTMAccount.sol";
 
 // Utils
 import { Address } from "@openzeppelin/contracts/utils/Address.sol";
@@ -24,13 +24,13 @@ import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 import { ServiceRegistry } from "../partner/ServiceRegistry.sol";
 
 /**
- * @title Camino Messenger Account Manager
- * @notice This contract manages the creation of the Camino Messenger accounts by
- * deploying {ERC1967Proxy} proxies that point to the{CMAccount} implementation
+ * @title Travel Token Messenger Account Manager
+ * @notice This contract manages the creation of the Travel Token Messenger accounts by
+ * deploying {ERC1967Proxy} proxies that point to the{TTMAccount} implementation
  * address.
  *
- * Create CM Account: Users who want to create an account should call
- * `createCMAccount(address admin, address upgrader)` function with addresses of
+ * Create TTM Account: Users who want to create an account should call
+ * `createTTMAccount(address admin, address upgrader)` function with addresses of
  * the accounts admin and upgrader roles and they also need to approve the service
  * fee token with the amount of prefund.
  *
@@ -40,15 +40,14 @@ import { ServiceRegistry } from "../partner/ServiceRegistry.sol";
  * and fee basis points. Which are used during the cheque cash in to pay for the
  * developer fee.
  *
- * Service Registry: {CMAccountManager} also acts as a registry for the services
- * that {CMAccount} contracts add as a supported or wanted service. Registry
+ * Service Registry: {TTMAccountManager} also acts as a registry for the services
+ * that {TTMAccount} contracts add as a supported or wanted service. Registry
  * works by hashing (keccak256) the service name (string) and creating a mapping
  * as keccak256(serviceName) => serviceName. And provides functions that
- * {CMAccount} function uses to register services. The {CMAccount} only keeps
+ * {TTMAccount} function uses to register services. The {TTMAccount} only keeps
  * the hashes (byte32) of the registered services.
- * @custom:security-contact https://r.xyz/program/camino-network
  */
-contract CMAccountManager is
+contract TTMAccountManager is
     Initializable,
     PausableUpgradeable,
     AccessControlEnumerableUpgradeable,
@@ -60,7 +59,7 @@ contract CMAccountManager is
 
     /**
      * @notice Pauser role can pause the contract. Currently this only affects the
-     * creation of CM Accounts. When paused, account creation is stopped.
+     * creation of TTM Accounts. When paused, account creation is stopped.
      */
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
@@ -70,11 +69,11 @@ contract CMAccountManager is
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
 
     /**
-     * @notice Versioner role can set new {CMAccount} implementation address. When a
-     * new implementation address is set, it is used for the new {CMAccount}
+     * @notice Versioner role can set new {TTMAccount} implementation address. When a
+     * new implementation address is set, it is used for the new {TTMAccount}
      * creations.
      *
-     * The old {CMAccount} contracts are not affected by this. Owners of those
+     * The old {TTMAccount} contracts are not affected by this. Owners of those
      * should do the upgrade manually by calling the `upgradeToAndCall(address)`
      * function on the account.
      */
@@ -87,28 +86,28 @@ contract CMAccountManager is
     bytes32 public constant SERVICE_REGISTRY_ADMIN_ROLE = keccak256("SERVICE_REGISTRY_ADMIN_ROLE");
 
     /**
-     * @notice This role is granted to the created CM Accounts. It is used to keep
-     * an enumerable list of CM Accounts.
+     * @notice This role is granted to the created TTM Accounts. It is used to keep
+     * an enumerable list of TTM Accounts.
      */
-    bytes32 public constant CMACCOUNT_ROLE = keccak256("CMACCOUNT_ROLE");
+    bytes32 public constant TTMACCOUNT_ROLE = keccak256("TTMACCOUNT_ROLE");
 
     /***************************************************
      *                   STORAGE                       *
      ***************************************************/
 
     /**
-     * @notice CMAccount info struct, to keep track of created CM Accounts and their
+     * @notice TTMAccount info struct, to keep track of created TTM Accounts and their
      * creators.
      */
-    struct CMAccountInfo {
-        bool isCMAccount;
+    struct TTMAccountInfo {
+        bool isTTMAccount;
         address creator;
     }
 
-    /// @custom:storage-location erc7201:camino.messenger.storage.CMAccountManager
-    struct CMAccountManagerStorage {
+    /// @custom:storage-location erc7201:traveltoken.messenger.storage.TTMAccountManager
+    struct TTMAccountManagerStorage {
         /**
-         * @dev CM Account implementation address to be used by the CMAccount contract to restrict
+         * @dev TTM Account implementation address to be used by the TTMAccount contract to restrict
          * the implementation address for the UUPS proxies.
          */
         address _latestAccountImplementation;
@@ -117,18 +116,18 @@ contract CMAccountManager is
          */
         address _bookingToken;
         /**
-         * @dev CMAccount info mapping to track if an address is a CMAccount and initial creators.
+         * @dev TTMAccount info mapping to track if an address is a TTMAccount and initial creators.
          */
-        mapping(address account => CMAccountInfo) _cmAccountInfo;
+        mapping(address account => TTMAccountInfo) _ttmAccountInfo;
     }
 
-    // keccak256(abi.encode(uint256(keccak256("camino.messenger.storage.CMAccountManager")) - 1)) & ~bytes32(uint256(0xff));
-    bytes32 private constant CMAccountManagerStorageLocation =
-        0x2b421af391835920c41e77b6810f6e715f5b713c17bc590f55de6a7d3912e800;
+    // keccak256(abi.encode(uint256(keccak256("traveltoken.messenger.storage.TTMAccountManager")) - 1)) & ~bytes32(uint256(0xff));
+    bytes32 private constant TTMAccountManagerStorageLocation =
+        0x82fd17ead72ea2acbf4028d3b6fb6ced2f61d2d2be6f5996ded313320918c700;
 
-    function _getCMAccountManagerStorage() private pure returns (CMAccountManagerStorage storage $) {
+    function _getTTMAccountManagerStorage() private pure returns (TTMAccountManagerStorage storage $) {
         assembly {
-            $.slot := CMAccountManagerStorageLocation
+            $.slot := TTMAccountManagerStorageLocation
         }
     }
 
@@ -137,17 +136,17 @@ contract CMAccountManager is
      ***************************************************/
 
     /**
-     * @notice CM Account created event.
-     * @param account The address of the new CMAccount
+     * @notice TTM Account created event.
+     * @param account The address of the new TTMAccount
      */
-    event CMAccountCreated(address indexed account);
+    event TTMAccountCreated(address indexed account);
 
     /**
-     * @notice CM Account implementation address updated event.
+     * @notice TTM Account implementation address updated event.
      * @param oldImplementation The old implementation address
      * @param newImplementation The new implementation address
      */
-    event CMAccountImplementationUpdated(address indexed oldImplementation, address indexed newImplementation);
+    event TTMAccountImplementationUpdated(address indexed oldImplementation, address indexed newImplementation);
 
     /**
      * @notice Booking token address updated event.
@@ -161,16 +160,16 @@ contract CMAccountManager is
      ***************************************************/
 
     /**
-     * @notice The implementation of the CMAccount is invalid.
-     * @param implementation The implementation address of the CMAccount
+     * @notice The implementation of the TTMAccount is invalid.
+     * @param implementation The implementation address of the TTMAccount
      */
-    error CMAccountInvalidImplementation(address implementation);
+    error TTMAccountInvalidImplementation(address implementation);
 
     /**
      * @notice The admin address is invalid.
      * @param admin The admin address
      */
-    error CMAccountInvalidAdmin(address admin);
+    error TTMAccountInvalidAdmin(address admin);
 
     /**
      * @notice Invalid booking token address.
@@ -191,7 +190,7 @@ contract CMAccountManager is
         address defaultAdmin, // can grant roles
         address pauser, // can pause the manager
         address upgrader, // can upgrade the manager (this contract)
-        address versioner // can set CMAccount implementation address
+        address versioner // can set TTMAccount implementation address
     ) public initializer {
         __Pausable_init();
         __AccessControl_init();
@@ -204,22 +203,22 @@ contract CMAccountManager is
     }
 
     /**
-     * @notice Pauses the CMAccountManager contract. Currently this only affects the
-     * creation of CMAccount. When paused, account creation is stopped.
+     * @notice Pauses the TTMAccountManager contract. Currently this only affects the
+     * creation of TTMAccount. When paused, account creation is stopped.
      */
     function pause() public onlyRole(PAUSER_ROLE) {
         _pause();
     }
 
     /**
-     * @notice Unpauses the CMAccountManager contract.
+     * @notice Unpauses the TTMAccountManager contract.
      */
     function unpause() public onlyRole(PAUSER_ROLE) {
         _unpause();
     }
 
     /**
-     * @notice Authorization for the CMAccountManager contract upgrade.
+     * @notice Authorization for the TTMAccountManager contract upgrade.
      */
     function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) {}
 
@@ -228,7 +227,7 @@ contract CMAccountManager is
      ***************************************************/
 
     /**
-     * @notice Creates CMAccount by deploying a ERC1967Proxy with the CMAccount
+     * @notice Creates TTMAccount by deploying a ERC1967Proxy with the TTMAccount
      * implementation from the manager.
      *
      * Because this function is deploying a contract, it reverts if the caller is
@@ -236,27 +235,27 @@ contract CMAccountManager is
      *
      * Caller must approve the pre-fund amount before calling this function.
      *
-     * @dev Emits a {CMAccountCreated} event.
+     * @dev Emits a {TTMAccountCreated} event.
      */
-    function createCMAccount(
+    function createTTMAccount(
         address admin,
         address upgrader
     ) external payable nonReentrant whenNotPaused returns (address) {
-        return _createCMAccount(admin, upgrader);
+        return _createTTMAccount(admin, upgrader);
     }
 
     /**
-     * @notice Private function to create a `CMAccount`.
+     * @notice Private function to create a `TTMAccount`.
      */
-    function _createCMAccount(address admin, address upgrader) private returns (address) {
+    function _createTTMAccount(address admin, address upgrader) private returns (address) {
         // Checks
         if (admin == address(0)) {
-            revert CMAccountInvalidAdmin(admin);
+            revert TTMAccountInvalidAdmin(admin);
         }
 
         address latestAccountImplementation = getAccountImplementation();
         if (latestAccountImplementation.code.length == 0) {
-            revert CMAccountInvalidImplementation(latestAccountImplementation);
+            revert TTMAccountInvalidImplementation(latestAccountImplementation);
         }
 
         address bookingToken = getBookingTokenAddress();
@@ -264,47 +263,47 @@ contract CMAccountManager is
             revert InvalidBookingTokenAddress(bookingToken);
         }
 
-        // Create CMAccount Proxy and set the implementation address
-        ERC1967Proxy cmAccountProxy = new ERC1967Proxy(latestAccountImplementation, "");
+        // Create TTMAccount Proxy and set the implementation address
+        ERC1967Proxy ttmAccountProxy = new ERC1967Proxy(latestAccountImplementation, "");
 
-        // Initialize the CMAccount
-        ICMAccount(address(cmAccountProxy)).initialize(address(this), bookingToken, admin, upgrader);
+        // Initialize the TTMAccount
+        ITTMAccount(address(ttmAccountProxy)).initialize(address(this), bookingToken, admin, upgrader);
 
-        // Set the isCMAccount and creator
-        _setCMAccountInfo(address(cmAccountProxy), CMAccountInfo({ isCMAccount: true, creator: msg.sender }));
+        // Set the isTTMAccount and creator
+        _setTTMAccountInfo(address(ttmAccountProxy), TTMAccountInfo({ isTTMAccount: true, creator: msg.sender }));
 
-        // Grant CMACCOUNT_ROLE
-        _grantRole(CMACCOUNT_ROLE, address(cmAccountProxy));
+        // Grant TTMACCOUNT_ROLE
+        _grantRole(TTMACCOUNT_ROLE, address(ttmAccountProxy));
 
-        // [CAM] Send the msg.value to the CMAccount
-        payable(cmAccountProxy).sendValue(msg.value);
+        // [ETH] Send the msg.value to the TTMAccount
+        payable(ttmAccountProxy).sendValue(msg.value);
 
-        emit CMAccountCreated(address(cmAccountProxy));
+        emit TTMAccountCreated(address(ttmAccountProxy));
 
-        return address(cmAccountProxy);
+        return address(ttmAccountProxy);
     }
 
-    function _setCMAccountInfo(address account, CMAccountInfo memory info) internal {
-        CMAccountManagerStorage storage $ = _getCMAccountManagerStorage();
-        $._cmAccountInfo[account] = info;
+    function _setTTMAccountInfo(address account, TTMAccountInfo memory info) internal {
+        TTMAccountManagerStorage storage $ = _getTTMAccountManagerStorage();
+        $._ttmAccountInfo[account] = info;
     }
 
     /**
      * @notice Returns the given account's creator.
      * @param account The account address
      */
-    function getCMAccountCreator(address account) public view returns (address) {
-        CMAccountManagerStorage storage $ = _getCMAccountManagerStorage();
-        return $._cmAccountInfo[account].creator;
+    function getTTMAccountCreator(address account) public view returns (address) {
+        TTMAccountManagerStorage storage $ = _getTTMAccountManagerStorage();
+        return $._ttmAccountInfo[account].creator;
     }
 
     /**
-     * @notice Check if an address is CMAccount created by the manager.
+     * @notice Check if an address is TTMAccount created by the manager.
      * @param account The account address to check
      */
-    function isCMAccount(address account) public view returns (bool) {
-        CMAccountManagerStorage storage $ = _getCMAccountManagerStorage();
-        return $._cmAccountInfo[account].isCMAccount;
+    function isTTMAccount(address account) public view returns (bool) {
+        TTMAccountManagerStorage storage $ = _getTTMAccountManagerStorage();
+        return $._ttmAccountInfo[account].isTTMAccount;
     }
 
     /***************************************************
@@ -312,29 +311,29 @@ contract CMAccountManager is
      ***************************************************/
 
     /**
-     * @notice Returns the CMAccount implementation address.
+     * @notice Returns the TTMAccount implementation address.
      */
     function getAccountImplementation() public view returns (address) {
-        CMAccountManagerStorage storage $ = _getCMAccountManagerStorage();
+        TTMAccountManagerStorage storage $ = _getTTMAccountManagerStorage();
         return $._latestAccountImplementation;
     }
 
     /**
-     * @notice Set a new CMAccount implementation address.
+     * @notice Set a new TTMAccount implementation address.
      * @param newImplementation The new implementation address
      */
     function setAccountImplementation(address newImplementation) public onlyRole(VERSIONER_ROLE) {
         if (newImplementation.code.length == 0) {
-            revert CMAccountInvalidImplementation(newImplementation);
+            revert TTMAccountInvalidImplementation(newImplementation);
         }
 
         address oldImplementation = getAccountImplementation();
         _setAccountImplementation(newImplementation);
-        emit CMAccountImplementationUpdated(oldImplementation, newImplementation);
+        emit TTMAccountImplementationUpdated(oldImplementation, newImplementation);
     }
 
     function _setAccountImplementation(address newImplementation) internal {
-        CMAccountManagerStorage storage $ = _getCMAccountManagerStorage();
+        TTMAccountManagerStorage storage $ = _getTTMAccountManagerStorage();
         $._latestAccountImplementation = newImplementation;
     }
 
@@ -346,7 +345,7 @@ contract CMAccountManager is
      * @notice Returns the booking token address.
      */
     function getBookingTokenAddress() public view returns (address) {
-        CMAccountManagerStorage storage $ = _getCMAccountManagerStorage();
+        TTMAccountManagerStorage storage $ = _getTTMAccountManagerStorage();
         return $._bookingToken;
     }
 
@@ -364,7 +363,7 @@ contract CMAccountManager is
     }
 
     function _setBookingTokenAddress(address token) internal {
-        CMAccountManagerStorage storage $ = _getCMAccountManagerStorage();
+        TTMAccountManagerStorage storage $ = _getTTMAccountManagerStorage();
         $._bookingToken = token;
     }
 
@@ -373,7 +372,7 @@ contract CMAccountManager is
      ***************************************************/
 
     /**
-     * @notice Registers a given service name. CM Accounts can only register services
+     * @notice Registers a given service name. TTM Accounts can only register services
      * if they are also registered in the service registry on the manager contract.
      *
      * @param serviceName Name of the service
@@ -383,7 +382,7 @@ contract CMAccountManager is
     }
 
     /**
-     * @notice Unregisters a given service name. CM Accounts will not be able to register
+     * @notice Unregisters a given service name. TTM Accounts will not be able to register
      * the service anymore.
      *
      * @param serviceName Name of the service

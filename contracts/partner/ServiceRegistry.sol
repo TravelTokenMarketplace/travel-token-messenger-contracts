@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 //
-// Camino Messenger Service Registry for Partner Configuration
+// Travel Token Messenger Service Registry for Partner Configuration
 
 pragma solidity 0.8.24;
 
@@ -9,7 +9,7 @@ import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableS
 
 /**
  * @title ServiceRegistry
- * @notice Service registry is used by the {CMAccountManager} contract to register
+ * @notice Service registry is used by the {TTMAccountManager} contract to register
  * services by hashing (keccak256) the service name (string) and creating a mapping
  * as keccak256(serviceName) => serviceName.
  */
@@ -20,16 +20,16 @@ abstract contract ServiceRegistry is Initializable {
 
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
-    /// @custom:storage-location erc7201:camino.messenger.storage.ServiceRegistry
+    /// @custom:storage-location erc7201:traveltoken.messenger.storage.ServiceRegistry
     struct ServiceRegistryStorage {
         EnumerableSet.Bytes32Set _servicesHashSet; // set of REGISTERED service hashes
         mapping(bytes32 serviceHash => string serviceName) _serviceNameByHash; // Mapping to resolve hash to name
         mapping(string serviceName => bytes32 serviceHash) _hashByServiceName; // Mapping to resolve name to hash
     }
 
-    // keccak256(abi.encode(uint256(keccak256("camino.messenger.storage.ServiceRegistry")) - 1)) & ~bytes32(uint256(0xff));
+    // keccak256(abi.encode(uint256(keccak256("traveltoken.messenger.storage.ServiceRegistry")) - 1)) & ~bytes32(uint256(0xff));
     bytes32 private constant ServiceRegistryStorageLocation =
-        0x563e037355fff0507705f481e4b362e4c3996a3b57d07307deabfca3d8168600;
+        0xfbffdc0c9e6d9fb390c0fd8b4c21854410f48ddb93440f164b71177338057e00;
 
     function _getServiceRegistryStorage() private pure returns (ServiceRegistryStorage storage $) {
         assembly {
@@ -71,9 +71,9 @@ abstract contract ServiceRegistry is Initializable {
      *
      * ```text
      *  ┌────────────── pkg ─────────────┐ ┌───── service name ─────┐
-     * "cmp.services.accommodation.v1alpha.AccommodationSearchService"
+     * "ttm.services.accommodation.v1alpha.AccommodationSearchService"
      * ```
-     * @dev These services are coming from the Camino Messenger Protocol's protobuf
+     * @dev These services are coming from the Travel Token Messenger Protocol's protobuf
      * definitions.
      *
      * @param serviceName Name of the service

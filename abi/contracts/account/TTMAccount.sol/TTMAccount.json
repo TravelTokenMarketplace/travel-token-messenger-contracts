@@ -40,38 +40,6 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "latestImplementation",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "newImplementation",
-        "type": "address"
-      }
-    ],
-    "name": "CMAccountImplementationMismatch",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "oldImplementation",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "newImplementation",
-        "type": "address"
-      }
-    ],
-    "name": "CMAccountNoUpgradeNeeded",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
         "name": "implementation",
         "type": "address"
       }
@@ -230,6 +198,38 @@
     "type": "error"
   },
   {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "latestImplementation",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "newImplementation",
+        "type": "address"
+      }
+    ],
+    "name": "TTMAccountImplementationMismatch",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "oldImplementation",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "newImplementation",
+        "type": "address"
+      }
+    ],
+    "name": "TTMAccountNoUpgradeNeeded",
+    "type": "error"
+  },
+  {
     "inputs": [],
     "name": "TransferToZeroAddress",
     "type": "error"
@@ -303,25 +303,6 @@
     ],
     "name": "WithdrawalLimitExceededForPeriod",
     "type": "error"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "oldImplementation",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "newImplementation",
-        "type": "address"
-      }
-    ],
-    "name": "CMAccountUpgraded",
-    "type": "event"
   },
   {
     "anonymous": false,
@@ -653,6 +634,25 @@
       }
     ],
     "name": "ServiceRestrictedRateUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "oldImplementation",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "newImplementation",
+        "type": "address"
+      }
+    ],
+    "name": "TTMAccountUpgraded",
     "type": "event"
   },
   {

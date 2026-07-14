@@ -9,10 +9,10 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 
 /**
  * @title BookingTokenOperator
- * @notice Booking token operator contract is used by the {CMAccount} contract to mint
+ * @notice Booking token operator contract is used by the {TTMAccount} contract to mint
  * and buy booking tokens.
  *
- * We made this a library so that we can use it in the {CMAccount} contract without
+ * We made this a library so that we can use it in the {TTMAccount} contract without
  * increasing the size of the contract.
  */
 library BookingTokenOperator {
@@ -50,7 +50,7 @@ library BookingTokenOperator {
      * @dev Mints a booking token with offchain payment currency and cancellable support.
      *
      * @param bookingToken booking token contract address
-     * @param reservedFor address of the CM Account that can buy the token
+     * @param reservedFor address of the TTM Account that can buy the token
      * (generally the distributor)
      * @param uri URI of the token
      * @param expirationTimestamp expiration timestamp of the token in seconds
@@ -195,7 +195,7 @@ library BookingTokenOperator {
      * @param bookingToken booking token contract address
      * @param tokenId token id for which to withdraw the proposal
      * @param reason The reason for withdrawing the proposal
-     * @param reasonVersion The version of the withdrawal reason from the CMP
+     * @param reasonVersion The version of the withdrawal reason from the Travel Token Messenger Protocol
      */
     function withdrawCancellation(address bookingToken, uint256 tokenId, uint16 reason, uint16 reasonVersion) public {
         IBookingToken(bookingToken).withdrawCancellation(tokenId, reason, reasonVersion);
@@ -207,7 +207,7 @@ library BookingTokenOperator {
      * @param bookingToken booking token contract address
      * @param tokenId The token id to reject the cancellation for
      * @param rejectionReason The reason for rejecting the cancellation
-     * @param rejectionReasonVersion Version of the rejection reason enum from the CMP
+     * @param rejectionReasonVersion Version of the rejection reason enum from the Travel Token Messenger Protocol
      */
     function rejectCancellation(
         address bookingToken,

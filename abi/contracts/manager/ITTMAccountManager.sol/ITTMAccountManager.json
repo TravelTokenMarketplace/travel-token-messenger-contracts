@@ -96,7 +96,7 @@
         "type": "address"
       }
     ],
-    "name": "isCMAccount",
+    "name": "isTTMAccount",
     "outputs": [
       {
         "internalType": "bool",
