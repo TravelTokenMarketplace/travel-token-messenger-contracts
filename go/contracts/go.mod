@@ -1,4 +1,4 @@
-module github.com/chain4travel/camino-messenger-contracts/go/contracts
+module github.com/TravelTokenMarketplace/travel-token-messenger-contracts/go/contracts
 
 go 1.25.10
 

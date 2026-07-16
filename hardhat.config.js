@@ -30,14 +30,6 @@ module.exports = {
         localhost: {
             url: "http://127.0.0.1:8545",
         },
-        columbus: {
-            url: vars.get("COLUMBUS_URL", "https://columbus.camino.network/ext/bc/C/rpc"),
-            accounts: vars.has("COLUMBUS_DEPLOYER_PRIVATE_KEY") ? [vars.get("COLUMBUS_DEPLOYER_PRIVATE_KEY")] : [],
-        },
-        camino: {
-            url: vars.get("CAMINO_URL", "https://api.camino.network/ext/bc/C/rpc"),
-            accounts: vars.has("CAMINO_DEPLOYER_PRIVATE_KEY") ? [vars.get("CAMINO_DEPLOYER_PRIVATE_KEY")] : [],
-        },
         base_sepolia: {
             url: vars.get("BASE_SEPOLIA_URL", "https://base-sepolia.drpc.org"),
             accounts: vars.has("BASE_SEPOLIA_DEPLOYER_PRIVATE_KEY")
@@ -51,28 +43,10 @@ module.exports = {
     },
     etherscan: {
         apiKey: {
-            columbus: "abc",
-            camino: "abc",
             base_sepolia: vars.get("BASESCAN_API_KEY", "abc"),
             base: vars.get("BASESCAN_API_KEY", "abc"),
         },
         customChains: [
-            {
-                network: "columbus",
-                chainId: 501,
-                urls: {
-                    apiURL: "https://columbus.caminoscan.com/api",
-                    browserURL: "https://columbus.caminoscan.com",
-                },
-            },
-            {
-                network: "camino",
-                chainId: 500,
-                urls: {
-                    apiURL: "https://caminoscan.com/api",
-                    browserURL: "https://caminoscan.com",
-                },
-            },
             {
                 network: "base_sepolia",
                 chainId: 84532,

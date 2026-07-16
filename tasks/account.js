@@ -1,7 +1,7 @@
 require("@nomicfoundation/hardhat-toolbox");
 const { types } = require("hardhat/config");
 
-const ACCOUNT_SCOPE = scope("account", "CM Account Tasks");
+const ACCOUNT_SCOPE = scope("account", "TTM Account Tasks");
 
 // TODO: Get private key from .env or hardhat vars
 
@@ -25,13 +25,7 @@ function bold(text) {
 function getAddressesForNetwork(hre) {
     let addresses;
 
-    if (hre.network.name === "columbus") {
-        console.log("Running on columbus");
-        addresses = require("../ignition/deployments/chain-501/deployed_addresses.json");
-    } else if (hre.network.name === "camino") {
-        console.log("Running on camino");
-        addresses = require("../ignition/deployments/chain-500/deployed_addresses.json");
-    } else if (hre.network.name === "localhost") {
+    if (hre.network.name === "localhost") {
         console.log("Running on localhost");
         addresses = require("../ignition/deployments/chain-31337/deployed_addresses.json");
     } else if (hre.network.name === "base_sepolia") {
@@ -49,18 +43,18 @@ function getAddressesForNetwork(hre) {
 
 async function getManager(hre) {
     const addresses = getAddressesForNetwork(hre);
-    return await ethers.getContractAt("CMAccountManager", addresses["CaminoMessengerModule#ManagerProxy"]);
+    return await ethers.getContractAt("TTMAccountManager", addresses["TravelTokenMessengerModule#ManagerProxy"]);
 }
 
-async function getCMAccount(cmAccountAddress) {
-    return await ethers.getContractAt("CMAccount", cmAccountAddress);
+async function getTTMAccount(ttmAccountAddress) {
+    return await ethers.getContractAt("TTMAccount", ttmAccountAddress);
 }
 
 // ServiceFeeToken helper removed as service fees are deprecated
 
 async function handleRoles(taskArgs, hre, action) {
-    const cmAccount = await getCMAccount(taskArgs.cmAccount);
-    console.log("CMAccount:", taskArgs.cmAccount);
+    const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
+    console.log("TTMAccount:", taskArgs.ttmAccount);
 
     try {
         const signer = new ethers.Wallet(taskArgs.privateKey, ethers.provider);
@@ -69,12 +63,12 @@ async function handleRoles(taskArgs, hre, action) {
             `${action === "grantRole" ? "Granting" : "Revoking"} role ${taskArgs.role} for address ${taskArgs.address}...`,
         );
 
-        const role = await cmAccount.connect(signer)[taskArgs.role]();
-        const tx = await cmAccount.connect(signer)[action](role, taskArgs.address);
+        const role = await ttmAccount.connect(signer)[taskArgs.role]();
+        const tx = await ttmAccount.connect(signer)[action](role, taskArgs.address);
         const txReceipt = await tx.wait();
         console.log("Tx:", txReceipt.hash);
     } catch (error) {
-        handleTransactionError(error, cmAccount);
+        handleTransactionError(error, ttmAccount);
     }
 }
 
@@ -88,7 +82,7 @@ function handleTransactionError(error, contract) {
         console.error("Message:", error.message);
         console.error(`Reason: ${decodedError?.name} (${decodedError?.args})`);
     } else if (error.message?.includes("[taskArgs.role] is not a function")) {
-        console.error("Reason: CMAccount does not have this role.");
+        console.error("Reason: TTMAccount does not have this role.");
     } else if (error.message) {
         console.error("Message:", error.message);
     } else {
@@ -112,26 +106,34 @@ async function getImplementationAddressForProxy(proxyAddress) {
 }
 
 ACCOUNT_SCOPE.task("role:grant", "Grant role")
-    .addOptionalParam("privateKey", "Private key to use, default: CMACCOUNT_PK env variable", process.env.CMACCOUNT_PK)
+    .addOptionalParam(
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
     .addParam("role", "Role to grant. Ex: SERVICE_ADMIN_ROLE")
     .addParam("address", "Address to grant role to")
     .addOptionalParam(
-        "cmAccount",
-        "CMAccount address, default: CMACCOUNT_ADDRESS env variable",
-        process.env.CMACCOUNT_ADDRESS,
+        "ttmAccount",
+        "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
+        process.env.TTMACCOUNT_ADDRESS,
     )
     .setAction(async (taskArgs, hre) => {
         await handleRoles(taskArgs, hre, "grantRole");
     });
 
 ACCOUNT_SCOPE.task("role:revoke", "Revoke role")
-    .addOptionalParam("privateKey", "Private key to use, default: CMACCOUNT_PK env variable", process.env.CMACCOUNT_PK)
+    .addOptionalParam(
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
     .addParam("role", "Role to grant. Ex: SERVICE_ADMIN_ROLE")
     .addParam("address", "Address to revoke role to")
     .addOptionalParam(
-        "cmAccount",
-        "CMAccount address, default: CMACCOUNT_ADDRESS env variable",
-        process.env.CMACCOUNT_ADDRESS,
+        "ttmAccount",
+        "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
+        process.env.TTMACCOUNT_ADDRESS,
     )
     .setAction(async (taskArgs, hre) => {
         await handleRoles(taskArgs, hre, "revokeRole");
@@ -141,73 +143,77 @@ ACCOUNT_SCOPE.task("role:has", "Check if address has role")
     .addParam("role", "Role to check. Ex: SERVICE_ADMIN_ROLE")
     .addParam("address", "Address to check")
     .addOptionalParam(
-        "cmAccount",
-        "CMAccount address, default: CMACCOUNT_ADDRESS env variable",
-        process.env.CMACCOUNT_ADDRESS,
+        "ttmAccount",
+        "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
+        process.env.TTMACCOUNT_ADDRESS,
     )
     .setAction(async (taskArgs, hre) => {
-        const cmAccount = await getCMAccount(taskArgs.cmAccount);
-        console.log("CMAccount:", taskArgs.cmAccount);
+        const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
+        console.log("TTMAccount:", taskArgs.ttmAccount);
 
         try {
             console.log("Running on", hre.network.name);
-            const role = await cmAccount[taskArgs.role]();
-            const hasRole = await cmAccount.hasRole(role, taskArgs.address);
+            const role = await ttmAccount[taskArgs.role]();
+            const hasRole = await ttmAccount.hasRole(role, taskArgs.address);
 
             console.log(`Address ${taskArgs.address} ${hasRole ? "has" : "does not have"} role ${taskArgs.role}`);
             console.log(`${hasRole ? "🟢" : "🔴"}`, hasRole);
         } catch (error) {
-            handleTransactionError(error, cmAccount);
+            handleTransactionError(error, ttmAccount);
         }
     });
 
 ACCOUNT_SCOPE.task("role:members", "List role members")
     .addParam("role", "Role to list. Ex: SERVICE_ADMIN_ROLE")
     .addOptionalParam(
-        "cmAccount",
-        "CMAccount address, default: CMACCOUNT_ADDRESS env variable",
-        process.env.CMACCOUNT_ADDRESS,
+        "ttmAccount",
+        "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
+        process.env.TTMACCOUNT_ADDRESS,
     )
     .setAction(async (taskArgs, hre) => {
-        const cmAccount = await getCMAccount(taskArgs.cmAccount);
-        console.log("CMAccount:", taskArgs.cmAccount);
+        const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
+        console.log("TTMAccount:", taskArgs.ttmAccount);
         console.log("Role:", taskArgs.role);
 
         try {
-            const role = await cmAccount[taskArgs.role]();
-            const count = await cmAccount.getRoleMemberCount(role);
+            const role = await ttmAccount[taskArgs.role]();
+            const count = await ttmAccount.getRoleMemberCount(role);
             console.log("Total Members:", count);
 
             // Iterate over the members of the role
             const members = [];
             for (let i = 0; i < count; i++) {
-                const member = await cmAccount.getRoleMember(role, i);
+                const member = await ttmAccount.getRoleMember(role, i);
                 members.push(member);
             }
             console.log(members);
         } catch (error) {
-            handleTransactionError(error, cmAccount);
+            handleTransactionError(error, ttmAccount);
         }
     });
 
 ACCOUNT_SCOPE.task("role:all", "List all roles and their members")
     .addOptionalParam(
-        "cmAccount",
-        "CMAccount address, default: CMACCOUNT_ADDRESS env variable",
-        process.env.CMACCOUNT_ADDRESS,
+        "ttmAccount",
+        "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
+        process.env.TTMACCOUNT_ADDRESS,
     )
     .setAction(async (taskArgs, hre) => {
         for (const role of ACC_ROLES) {
             console.log(`🛡️  ${bold(role)}`);
             console.log(`${bold("=".repeat(53))}`);
-            await hre.run({ scope: "account", task: "role:members" }, { role, cmAccount: taskArgs.cmAccount });
+            await hre.run({ scope: "account", task: "role:members" }, { role, ttmAccount: taskArgs.ttmAccount });
             console.log();
         }
     });
 
-ACCOUNT_SCOPE.task("create", "Create CMAccount")
-    .addOptionalParam("privateKey", "Private key to use, default: CMACCOUNT_PK env variable", process.env.CMACCOUNT_PK)
-    .addOptionalParam("camAmount", "Amount of CAM to send to CMAccount", "0")
+ACCOUNT_SCOPE.task("create", "Create TTMAccount")
+    .addOptionalParam(
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
+    .addOptionalParam("camAmount", "Amount of CAM to send to TTMAccount", "0")
     .setAction(async (taskArgs, hre) => {
         const manager = await getManager(hre);
 
@@ -216,48 +222,52 @@ ACCOUNT_SCOPE.task("create", "Create CMAccount")
             const signer = new ethers.Wallet(taskArgs.privateKey, ethers.provider);
             console.log("Signer:", signer.address);
 
-            // Create CMAccount
+            // Create TTMAccount
             const parsedCAM = ethers.parseEther(taskArgs.camAmount);
             const formattedCAM = ethers.formatEther(parsedCAM);
-            console.log(`Creating CMAccount... (Sending ${formattedCAM} CAM to the new CMAccount)`);
+            console.log(`Creating TTMAccount... (Sending ${formattedCAM} CAM to the new TTMAccount)`);
             const tx = await manager
                 .connect(signer)
-                .createCMAccount(signer.address, signer.address, { value: parsedCAM });
+                .createTTMAccount(signer.address, signer.address, { value: parsedCAM });
 
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
 
-            // Parse event to get the CMAccount address (this is the UUPS proxy address)
+            // Parse event to get the TTMAccount address (this is the UUPS proxy address)
             const event = receipt.logs.find((log) => {
                 try {
-                    return manager.interface.parseLog(log).name === "CMAccountCreated";
+                    return manager.interface.parseLog(log).name === "TTMAccountCreated";
                 } catch (e) {
                     return false;
                 }
             });
 
             const parsedEvent = manager.interface.parseLog(event);
-            const cmAccountAddress = parsedEvent.args.account;
+            const ttmAccountAddress = parsedEvent.args.account;
 
-            console.log("CMAccount Address:", cmAccountAddress);
+            console.log("TTMAccount Address:", ttmAccountAddress);
         } catch (error) {
             handleTransactionError(error, manager);
         }
     });
 
-ACCOUNT_SCOPE.task("withdraw", "Withdraw funds from CMAccount")
-    .addOptionalParam("privateKey", "Private key to use, default: CMACCOUNT_PK env variable", process.env.CMACCOUNT_PK)
+ACCOUNT_SCOPE.task("withdraw", "Withdraw funds from TTMAccount")
     .addOptionalParam(
-        "cmAccount",
-        "CMAccount address, default: CMACCOUNT_ADDRESS env variable",
-        process.env.CMACCOUNT_ADDRESS,
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
+    .addOptionalParam(
+        "ttmAccount",
+        "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
+        process.env.TTMACCOUNT_ADDRESS,
     )
     .addParam("recipient", "Recipient address")
     .addParam("amount", "Amount to withdraw")
     .addOptionalParam("unit", "Unit of amount (CAM/nCAM/aCAM)", "aCAM")
     .setAction(async (taskArgs, hre) => {
-        const cmAccount = await getCMAccount(taskArgs.cmAccount);
-        console.log("CMAccount:", taskArgs.cmAccount);
+        const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
+        console.log("TTMAccount:", taskArgs.ttmAccount);
 
         try {
             // Validate unit
@@ -288,283 +298,311 @@ ACCOUNT_SCOPE.task("withdraw", "Withdraw funds from CMAccount")
 
             console.log("Running on", hre.network.name);
             console.log("💸 Withdrawing funds...");
-            console.log("From         :", taskArgs.cmAccount);
+            console.log("From         :", taskArgs.ttmAccount);
             console.log("To           :", taskArgs.recipient);
             console.log("Amount       :", `${taskArgs.amount} ${hrUnit}`);
             console.log("Amount (aCAM):", amountInWei.toString());
 
             const signer = new ethers.Wallet(taskArgs.privateKey, ethers.provider);
-            const tx = await cmAccount.connect(signer).withdraw(taskArgs.recipient, amountInWei);
+            const tx = await ttmAccount.connect(signer).withdraw(taskArgs.recipient, amountInWei);
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
         } catch (error) {
-            handleTransactionError(error, cmAccount);
+            handleTransactionError(error, ttmAccount);
         }
     });
 
-ACCOUNT_SCOPE.task("bot:add", "Add bot to the CMAccount")
-    .addOptionalParam("privateKey", "Private key to use, default: CMACCOUNT_PK env variable", process.env.CMACCOUNT_PK)
+ACCOUNT_SCOPE.task("bot:add", "Add bot to the TTMAccount")
     .addOptionalParam(
-        "cmAccount",
-        "CMAccount address, default: CMACCOUNT_ADDRESS env variable",
-        process.env.CMACCOUNT_ADDRESS,
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
+    .addOptionalParam(
+        "ttmAccount",
+        "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
+        process.env.TTMACCOUNT_ADDRESS,
     )
     .addParam("bot", "Bot address")
     .addOptionalParam(
         "gasMoney",
-        "Gas money in CAM. This amount will be transferred from the CMAccount to the bot address (Ex: 1 or 0.1)",
+        "Gas money in CAM. This amount will be transferred from the TTMAccount to the bot address (Ex: 1 or 0.1)",
         "0",
         types.string,
     )
     .setAction(async (taskArgs, hre) => {
-        const cmAccount = await getCMAccount(taskArgs.cmAccount);
-        console.log("CMAccount:", taskArgs.cmAccount);
+        const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
+        console.log("TTMAccount:", taskArgs.ttmAccount);
         console.log("Bot:", taskArgs.bot);
         console.log(
             "Gas:",
             taskArgs.gasMoney,
-            "(This amount will be transferred from the CMAccount to the bot address)",
+            "(This amount will be transferred from the TTMAccount to the bot address)",
         );
 
         try {
             const signer = new ethers.Wallet(taskArgs.privateKey, ethers.provider);
-            console.log("Adding bot to CMAccount...");
+            console.log("Adding bot to TTMAccount...");
             console.log("Signer:", signer.address);
 
             const gasMoney = ethers.parseEther(taskArgs.gasMoney);
 
-            const tx = await cmAccount.connect(signer).addMessengerBot(taskArgs.bot, gasMoney);
+            const tx = await ttmAccount.connect(signer).addMessengerBot(taskArgs.bot, gasMoney);
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
         } catch (error) {
-            handleTransactionError(error, cmAccount);
+            handleTransactionError(error, ttmAccount);
         }
     });
 
-ACCOUNT_SCOPE.task("bot:remove", "Remove bot from the CMAccount")
-    .addOptionalParam("privateKey", "Private key to use, default: CMACCOUNT_PK env variable", process.env.CMACCOUNT_PK)
+ACCOUNT_SCOPE.task("bot:remove", "Remove bot from the TTMAccount")
     .addOptionalParam(
-        "cmAccount",
-        "CMAccount address, default: CMACCOUNT_ADDRESS env variable",
-        process.env.CMACCOUNT_ADDRESS,
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
+    .addOptionalParam(
+        "ttmAccount",
+        "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
+        process.env.TTMACCOUNT_ADDRESS,
     )
     .addParam("bot", "Bot address")
     .setAction(async (taskArgs, hre) => {
-        const cmAccount = await getCMAccount(taskArgs.cmAccount);
-        console.log("CMAccount:", taskArgs.cmAccount);
+        const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
+        console.log("TTMAccount:", taskArgs.ttmAccount);
         console.log("Bot:", taskArgs.bot);
 
         try {
             const signer = new ethers.Wallet(taskArgs.privateKey, ethers.provider);
-            console.log("Removing bot from CMAccount...");
+            console.log("Removing bot from TTMAccount...");
             console.log("Signer:", signer.address);
 
-            const tx = await cmAccount.connect(signer).removeMessengerBot(taskArgs.bot);
+            const tx = await ttmAccount.connect(signer).removeMessengerBot(taskArgs.bot);
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
         } catch (error) {
-            handleTransactionError(error, cmAccount);
+            handleTransactionError(error, ttmAccount);
         }
     });
 
-ACCOUNT_SCOPE.task("payment-token:add", "Add payment token to CMAccount")
-    .addOptionalParam("privateKey", "Private key to use, default: CMACCOUNT_PK env variable", process.env.CMACCOUNT_PK)
+ACCOUNT_SCOPE.task("payment-token:add", "Add payment token to TTMAccount")
     .addOptionalParam(
-        "cmAccount",
-        "CMAccount address, default: CMACCOUNT_ADDRESS env variable",
-        process.env.CMACCOUNT_ADDRESS,
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
+    .addOptionalParam(
+        "ttmAccount",
+        "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
+        process.env.TTMACCOUNT_ADDRESS,
     )
     .addParam("paymentToken", "Payment token address")
     .setAction(async (taskArgs, hre) => {
-        const cmAccount = await getCMAccount(taskArgs.cmAccount);
-        console.log("CMAccount:", taskArgs.cmAccount);
+        const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
+        console.log("TTMAccount:", taskArgs.ttmAccount);
         console.log("Payment Token:", taskArgs.paymentToken);
 
         try {
             const signer = new ethers.Wallet(taskArgs.privateKey, ethers.provider);
-            console.log("Adding payment token to CMAccount...");
+            console.log("Adding payment token to TTMAccount...");
             console.log("Signer:", signer.address);
 
-            const tx = await cmAccount.connect(signer).addSupportedToken(taskArgs.paymentToken);
+            const tx = await ttmAccount.connect(signer).addSupportedToken(taskArgs.paymentToken);
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
         } catch (error) {
-            handleTransactionError(error, cmAccount);
+            handleTransactionError(error, ttmAccount);
         }
     });
 
-ACCOUNT_SCOPE.task("payment-token:remove", "Remove payment token from CMAccount")
-    .addOptionalParam("privateKey", "Private key to use, default: CMACCOUNT_PK env variable", process.env.CMACCOUNT_PK)
+ACCOUNT_SCOPE.task("payment-token:remove", "Remove payment token from TTMAccount")
     .addOptionalParam(
-        "cmAccount",
-        "CMAccount address, default: CMACCOUNT_ADDRESS env variable",
-        process.env.CMACCOUNT_ADDRESS,
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
+    .addOptionalParam(
+        "ttmAccount",
+        "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
+        process.env.TTMACCOUNT_ADDRESS,
     )
     .addParam("paymentToken", "Payment token address")
     .setAction(async (taskArgs, hre) => {
-        const cmAccount = await getCMAccount(taskArgs.cmAccount);
-        console.log("CMAccount:", taskArgs.cmAccount);
+        const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
+        console.log("TTMAccount:", taskArgs.ttmAccount);
         console.log("Payment Token:", taskArgs.paymentToken);
 
         try {
             const signer = new ethers.Wallet(taskArgs.privateKey, ethers.provider);
-            console.log("Removing payment token from CMAccount...");
+            console.log("Removing payment token from TTMAccount...");
             console.log("Signer:", signer.address);
 
-            const tx = await cmAccount.connect(signer).removeSupportedToken(taskArgs.paymentToken);
+            const tx = await ttmAccount.connect(signer).removeSupportedToken(taskArgs.paymentToken);
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
         } catch (error) {
-            handleTransactionError(error, cmAccount);
+            handleTransactionError(error, ttmAccount);
         }
     });
 
-ACCOUNT_SCOPE.task("payment-token:list", "List supported payment tokens from CMAccount")
+ACCOUNT_SCOPE.task("payment-token:list", "List supported payment tokens from TTMAccount")
     .addOptionalParam(
-        "cmAccount",
-        "CMAccount address, default: CMACCOUNT_ADDRESS env variable",
-        process.env.CMACCOUNT_ADDRESS,
+        "ttmAccount",
+        "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
+        process.env.TTMACCOUNT_ADDRESS,
     )
     .setAction(async (taskArgs, hre) => {
-        console.log("CMAccount:", taskArgs.cmAccount, "\n");
+        console.log("TTMAccount:", taskArgs.ttmAccount, "\n");
 
-        const cmAccount = await getCMAccount(taskArgs.cmAccount);
+        const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
 
-        const supportedTokens = await cmAccount.getSupportedTokens();
+        const supportedTokens = await ttmAccount.getSupportedTokens();
         console.log("💵 Supported payment tokens:");
         console.log(supportedTokens);
 
         try {
-            const offChainSupported = await cmAccount.offChainPaymentSupported();
+            const offChainSupported = await ttmAccount.offChainPaymentSupported();
             console.log(`🔗 Off-chain payment supported: ${offChainSupported ? "✅" : "❌"}`);
         } catch (e) {
             console.log("Failed to fetch off-chain payment support info.");
         }
     });
 
-ACCOUNT_SCOPE.task("bot:list", "List all bots from CMAccount")
+ACCOUNT_SCOPE.task("bot:list", "List all bots from TTMAccount")
     .addOptionalParam(
-        "cmAccount",
-        "CMAccount address, default: CMACCOUNT_ADDRESS env variable",
-        process.env.CMACCOUNT_ADDRESS,
+        "ttmAccount",
+        "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
+        process.env.TTMACCOUNT_ADDRESS,
     )
     .setAction(async (taskArgs, hre) => {
-        console.log("CMAccount:", taskArgs.cmAccount, "\n");
+        console.log("TTMAccount:", taskArgs.ttmAccount, "\n");
 
-        const cmAccount = await getCMAccount(taskArgs.cmAccount);
+        const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
         try {
-            const [limit, period] = await cmAccount.getGasMoneyWithdrawal();
+            const [limit, period] = await ttmAccount.getGasMoneyWithdrawal();
             console.log(`Gas limit: ${ethers.formatEther(limit)} CAM per ${period} seconds.`);
         } catch (e) {
             console.log("Failed to fetch gas limit settings.");
         }
 
-        console.log("\n📢 A bot is an address that has been granted some special roles on the CMAccount.");
+        console.log("\n📢 A bot is an address that has been granted some special roles on the TTMAccount.");
 
         const role1 = "MESSENGER_BOT_ROLE";
-        console.log("\n🤖", role1, "(Can represent the CMAccount / interact on behalf of it)");
+        console.log("\n🤖", role1, "(Can represent the TTMAccount / interact on behalf of it)");
         console.log("======================================================");
-        await hre.run({ scope: "account", task: "role:members" }, { role: role1, cmAccount: taskArgs.cmAccount });
+        await hre.run({ scope: "account", task: "role:members" }, { role: role1, ttmAccount: taskArgs.ttmAccount });
 
         const role2 = "BOOKING_OPERATOR_ROLE";
-        console.log("\n🤖", role2, "(Can mint and buy Booking Tokens for the CMAccount)");
+        console.log("\n🤖", role2, "(Can mint and buy Booking Tokens for the TTMAccount)");
         console.log("======================================================");
-        await hre.run({ scope: "account", task: "role:members" }, { role: role2, cmAccount: taskArgs.cmAccount });
+        await hre.run({ scope: "account", task: "role:members" }, { role: role2, ttmAccount: taskArgs.ttmAccount });
 
         const role3 = "GAS_WITHDRAWER_ROLE";
-        console.log("\n🤖", role3, "(Can withdraw gas from the CMAccount)");
+        console.log("\n🤖", role3, "(Can withdraw gas from the TTMAccount)");
         console.log("======================================================");
-        await hre.run({ scope: "account", task: "role:members" }, { role: role3, cmAccount: taskArgs.cmAccount });
+        await hre.run({ scope: "account", task: "role:members" }, { role: role3, ttmAccount: taskArgs.ttmAccount });
     });
 
-ACCOUNT_SCOPE.task("wanted:add", "Add wanted service to CMAccount")
-    .addOptionalParam("privateKey", "Private key to use, default: CMACCOUNT_PK env variable", process.env.CMACCOUNT_PK)
+ACCOUNT_SCOPE.task("wanted:add", "Add wanted service to TTMAccount")
     .addOptionalParam(
-        "cmAccount",
-        "CMAccount address, default: CMACCOUNT_ADDRESS env variable",
-        process.env.CMACCOUNT_ADDRESS,
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
+    .addOptionalParam(
+        "ttmAccount",
+        "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
+        process.env.TTMACCOUNT_ADDRESS,
     )
     .addParam("serviceName", "Name of service to add")
     .setAction(async (taskArgs, hre) => {
-        const cmAccount = await getCMAccount(taskArgs.cmAccount);
-        console.log("CMAccount:", taskArgs.cmAccount);
+        const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
+        console.log("TTMAccount:", taskArgs.ttmAccount);
         console.log("Service Name:", taskArgs.serviceName);
 
         try {
             const signer = new ethers.Wallet(taskArgs.privateKey, ethers.provider);
 
-            console.log("Adding service to CMAccount...");
+            console.log("Adding service to TTMAccount...");
             console.log("Signer:", signer.address);
 
-            const tx = await cmAccount.connect(signer).addWantedServices([taskArgs.serviceName]);
+            const tx = await ttmAccount.connect(signer).addWantedServices([taskArgs.serviceName]);
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
         } catch (error) {
-            handleTransactionError(error, cmAccount);
+            handleTransactionError(error, ttmAccount);
         }
     });
 
-ACCOUNT_SCOPE.task("wanted:remove", "Remove wanted service from CMAccount")
-    .addOptionalParam("privateKey", "Private key to use, default: CMACCOUNT_PK env variable", process.env.CMACCOUNT_PK)
+ACCOUNT_SCOPE.task("wanted:remove", "Remove wanted service from TTMAccount")
     .addOptionalParam(
-        "cmAccount",
-        "CMAccount address, default: CMACCOUNT_ADDRESS env variable",
-        process.env.CMACCOUNT_ADDRESS,
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
+    .addOptionalParam(
+        "ttmAccount",
+        "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
+        process.env.TTMACCOUNT_ADDRESS,
     )
     .addParam("serviceName", "Name of service to remove")
     .setAction(async (taskArgs, hre) => {
-        const cmAccount = await getCMAccount(taskArgs.cmAccount);
-        console.log("CMAccount:", taskArgs.cmAccount);
+        const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
+        console.log("TTMAccount:", taskArgs.ttmAccount);
         console.log("Service Name:", taskArgs.serviceName);
 
         try {
             const signer = new ethers.Wallet(taskArgs.privateKey, ethers.provider);
 
-            console.log("Removing service from CMAccount...");
+            console.log("Removing service from TTMAccount...");
             console.log("Signer:", signer.address);
 
-            const tx = await cmAccount.connect(signer).removeWantedServices([taskArgs.serviceName]);
+            const tx = await ttmAccount.connect(signer).removeWantedServices([taskArgs.serviceName]);
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
         } catch (error) {
-            handleTransactionError(error, cmAccount);
+            handleTransactionError(error, ttmAccount);
         }
     });
 
-ACCOUNT_SCOPE.task("wanted:list", "List all wanted service from CMAccount")
+ACCOUNT_SCOPE.task("wanted:list", "List all wanted service from TTMAccount")
     .addOptionalParam(
-        "cmAccount",
-        "CMAccount address, default: CMACCOUNT_ADDRESS env variable",
-        process.env.CMACCOUNT_ADDRESS,
+        "ttmAccount",
+        "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
+        process.env.TTMACCOUNT_ADDRESS,
     )
     .setAction(async (taskArgs, hre) => {
-        const cmAccount = await getCMAccount(taskArgs.cmAccount);
-        console.log("CMAccount:", taskArgs.cmAccount);
+        const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
+        console.log("TTMAccount:", taskArgs.ttmAccount);
 
         try {
-            console.log("Listing all wanted services from CMAccount...");
+            console.log("Listing all wanted services from TTMAccount...");
 
-            const wantedServices = await cmAccount.getWantedServices();
+            const wantedServices = await ttmAccount.getWantedServices();
             console.log("Wanted Services:");
             console.log(wantedServices);
         } catch (error) {
-            handleTransactionError(error, cmAccount);
+            handleTransactionError(error, ttmAccount);
         }
     });
 
-ACCOUNT_SCOPE.task("service:add", "Add supported service to CMAccount")
-    .addOptionalParam("privateKey", "Private key to use, default: CMACCOUNT_PK env variable", process.env.CMACCOUNT_PK)
+ACCOUNT_SCOPE.task("service:add", "Add supported service to TTMAccount")
     .addOptionalParam(
-        "cmAccount",
-        "CMAccount address, default: CMACCOUNT_ADDRESS env variable",
-        process.env.CMACCOUNT_ADDRESS,
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
+    .addOptionalParam(
+        "ttmAccount",
+        "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
+        process.env.TTMACCOUNT_ADDRESS,
     )
     .addParam("serviceName", "Name of service to add")
     .addParam("restrictedRate", "Restricted rate of the service", false, types.boolean)
     .addOptionalParam("capabilities", "Capabilities of the service, comma separated (optional)")
     .setAction(async (taskArgs, hre) => {
-        const cmAccount = await getCMAccount(taskArgs.cmAccount);
-        console.log("CMAccount:", taskArgs.cmAccount);
+        const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
+        console.log("TTMAccount:", taskArgs.ttmAccount);
         console.log("Service Name:", taskArgs.serviceName);
         console.log("Restricted Rate:", taskArgs.restrictedRate);
         console.log("Capabilities:", taskArgs.capabilities);
@@ -574,60 +612,64 @@ ACCOUNT_SCOPE.task("service:add", "Add supported service to CMAccount")
 
             const capabilities = taskArgs.capabilities ? taskArgs.capabilities.split(",") : [];
 
-            console.log("Adding service to CMAccount...");
+            console.log("Adding service to TTMAccount...");
             console.log("Signer:", signer.address);
 
-            const tx = await cmAccount
+            const tx = await ttmAccount
                 .connect(signer)
                 .addService(taskArgs.serviceName, taskArgs.restrictedRate, capabilities);
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
         } catch (error) {
-            handleTransactionError(error, cmAccount);
+            handleTransactionError(error, ttmAccount);
         }
     });
 
-ACCOUNT_SCOPE.task("service:remove", "Remove wanted service from CMAccount")
-    .addOptionalParam("privateKey", "Private key to use, default: CMACCOUNT_PK env variable", process.env.CMACCOUNT_PK)
+ACCOUNT_SCOPE.task("service:remove", "Remove wanted service from TTMAccount")
     .addOptionalParam(
-        "cmAccount",
-        "CMAccount address, default: CMACCOUNT_ADDRESS env variable",
-        process.env.CMACCOUNT_ADDRESS,
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
+    .addOptionalParam(
+        "ttmAccount",
+        "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
+        process.env.TTMACCOUNT_ADDRESS,
     )
     .addParam("serviceName", "Name of service to remove")
     .setAction(async (taskArgs, hre) => {
-        const cmAccount = await getCMAccount(taskArgs.cmAccount);
-        console.log("CMAccount:", taskArgs.cmAccount);
+        const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
+        console.log("TTMAccount:", taskArgs.ttmAccount);
         console.log("Service Name:", taskArgs.serviceName);
 
         try {
             const signer = new ethers.Wallet(taskArgs.privateKey, ethers.provider);
 
-            console.log("Removing service from CMAccount...");
+            console.log("Removing service from TTMAccount...");
             console.log("Signer:", signer.address);
 
-            const tx = await cmAccount.connect(signer).removeService(taskArgs.serviceName);
+            const tx = await ttmAccount.connect(signer).removeService(taskArgs.serviceName);
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
         } catch (error) {
-            handleTransactionError(error, cmAccount);
+            handleTransactionError(error, ttmAccount);
         }
     });
 
-ACCOUNT_SCOPE.task("service:list", "List supported services from CMAccount")
+ACCOUNT_SCOPE.task("service:list", "List supported services from TTMAccount")
     .addOptionalParam(
-        "cmAccount",
-        "CMAccount address, default: CMACCOUNT_ADDRESS env variable",
-        process.env.CMACCOUNT_ADDRESS,
+        "ttmAccount",
+        "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
+        process.env.TTMACCOUNT_ADDRESS,
     )
     .setAction(async (taskArgs, hre) => {
-        const cmAccount = await getCMAccount(taskArgs.cmAccount);
-        console.log("CMAccount:", taskArgs.cmAccount);
+        const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
+        console.log("TTMAccount:", taskArgs.ttmAccount);
 
         try {
-            console.log("Listing all supported services from CMAccount...");
+            console.log("Listing all supported services from TTMAccount...");
 
-            const supportedServices = await cmAccount.getSupportedServices();
+            const supportedServices = await ttmAccount.getSupportedServices();
             const serviceNames = supportedServices[0];
             const serviceDetails = supportedServices[1];
             if (serviceNames.length > 0) {
@@ -649,67 +691,71 @@ ACCOUNT_SCOPE.task("service:list", "List supported services from CMAccount")
                     }
                 }
             } else {
-                console.log("🛑 CM Account does not have any supported services!");
+                console.log("🛑 TTM Account does not have any supported services!");
             }
         } catch (error) {
-            handleTransactionError(error, cmAccount);
+            handleTransactionError(error, ttmAccount);
         }
     });
 
-ACCOUNT_SCOPE.task("upgrade", "Upgrade CMAccount to latest implementation")
-    .addOptionalParam("privateKey", "Private key to use, default: CMACCOUNT_PK env variable", process.env.CMACCOUNT_PK)
+ACCOUNT_SCOPE.task("upgrade", "Upgrade TTMAccount to latest implementation")
     .addOptionalParam(
-        "cmAccount",
-        "CMAccount address, default: CMACCOUNT_ADDRESS env variable",
-        process.env.CMACCOUNT_ADDRESS,
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
+    .addOptionalParam(
+        "ttmAccount",
+        "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
+        process.env.TTMACCOUNT_ADDRESS,
     )
     .setAction(async (taskArgs, hre) => {
-        const cmAccount = await getCMAccount(taskArgs.cmAccount);
-        console.log("CMAccount:", taskArgs.cmAccount);
+        const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
+        console.log("TTMAccount:", taskArgs.ttmAccount);
 
         // Get new implementation
         const manager = await getManager(hre);
         const currentImplOnManager = await manager.getAccountImplementation();
         console.log("Implementation on the Manager  :", currentImplOnManager);
 
-        // Get implementation on CMAccount
-        const implementation = await getImplementationAddressForProxy(await cmAccount.getAddress());
-        console.log("Implementation on the CMAccount:", implementation);
+        // Get implementation on TTMAccount
+        const implementation = await getImplementationAddressForProxy(await ttmAccount.getAddress());
+        console.log("Implementation on the TTMAccount:", implementation);
 
         if (implementation === currentImplOnManager) {
-            console.log("✅ CMAccount is using the latest implementation!");
+            console.log("✅ TTMAccount is using the latest implementation!");
             console.log("No need for upgrade!");
             return;
         } else {
-            console.log("⏫ There is an upgrade available for the CMAccount! Starting upgrade...");
+            console.log("⏫ There is an upgrade available for the TTMAccount! Starting upgrade...");
         }
 
         try {
             const signer = new ethers.Wallet(taskArgs.privateKey, ethers.provider);
-            console.log("Upgrading CMAccount implementation...");
+            console.log("Upgrading TTMAccount implementation...");
             console.log("Signer:", signer.address);
-            const tx = await cmAccount.connect(signer).upgradeToAndCall(currentImplOnManager, "0x");
+            const tx = await ttmAccount.connect(signer).upgradeToAndCall(currentImplOnManager, "0x");
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
         } catch (error) {
-            handleTransactionError(error, cmAccount);
+            handleTransactionError(error, ttmAccount);
         }
     });
 
-ACCOUNT_SCOPE.task("upgrade:check", "Check if CMAccount is upgradable")
+ACCOUNT_SCOPE.task("upgrade:check", "Check if TTMAccount is upgradable")
     .addOptionalParam(
-        "cmAccount",
-        "CMAccount address, default: CMACCOUNT_ADDRESS env variable",
-        process.env.CMACCOUNT_ADDRESS,
+        "ttmAccount",
+        "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
+        process.env.TTMACCOUNT_ADDRESS,
     )
     .setAction(async (taskArgs, hre) => {
         const manager = await getManager(hre);
         console.log("Manager:", await manager.getAddress());
-        const cmAccount = await getCMAccount(taskArgs.cmAccount);
-        console.log("CMAccount:", taskArgs.cmAccount);
+        const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
+        console.log("TTMAccount:", taskArgs.ttmAccount);
 
         console.log(`📜 ${bold("Implementation:")}`);
-        const implementation = await getImplementationAddressForProxy(await cmAccount.getAddress());
+        const implementation = await getImplementationAddressForProxy(await ttmAccount.getAddress());
 
         const currentImplOnManager = await manager.getAccountImplementation();
 
@@ -724,21 +770,21 @@ ACCOUNT_SCOPE.task("upgrade:check", "Check if CMAccount is upgradable")
         console.log(`${bold("   - Latest:")}`, currentImplOnManager);
 
         if (implementation !== currentImplOnManager) {
-            console.log("⏫ CMAccount needs an upgrade!");
+            console.log("⏫ TTMAccount needs an upgrade!");
         } else {
-            console.log("✅ CMAccount is using the latest implementation!");
+            console.log("✅ TTMAccount is using the latest implementation!");
         }
     });
 
-ACCOUNT_SCOPE.task("find", "Scan all CM Accounts for roles of a given address")
+ACCOUNT_SCOPE.task("find", "Scan all TTM Accounts for roles of a given address")
     .addParam("address", "Address to search for")
     .setAction(async (taskArgs, hre) => {
         const manager = await getManager(hre);
-        const cmAccountRole = await manager.CMACCOUNT_ROLE();
-        const count = await manager.getRoleMemberCount(cmAccountRole);
+        const ttmAccountRole = await manager.TTMACCOUNT_ROLE();
+        const count = await manager.getRoleMemberCount(ttmAccountRole);
 
         console.log(`🔍 Searching for address: ${bold(taskArgs.address)}`);
-        console.log(`📡 Found ${bold(count)} CM Accounts. Starting scan...\n`);
+        console.log(`📡 Found ${bold(count)} TTM Accounts. Starting scan...\n`);
 
         const spinners = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
         let spinnerIdx = 0;
@@ -754,25 +800,25 @@ ACCOUNT_SCOPE.task("find", "Scan all CM Accounts for roles of a given address")
         const findings = [];
 
         for (let i = 0; i < count; i++) {
-            const cmAccountAddress = await manager.getRoleMember(cmAccountRole, i);
+            const ttmAccountAddress = await manager.getRoleMember(ttmAccountRole, i);
 
             // Update progress on every account
-            process.stdout.write(formatProgress(i + 1, count, cmAccountAddress));
+            process.stdout.write(formatProgress(i + 1, count, ttmAccountAddress));
 
-            const cmAccount = await getCMAccount(cmAccountAddress);
+            const ttmAccount = await getTTMAccount(ttmAccountAddress);
 
             const roleChecks = await Promise.all(
                 ACC_ROLES.map(async (roleName) => {
                     try {
-                        const roleHash = await cmAccount[roleName]();
-                        const hasRole = await cmAccount.hasRole(roleHash, taskArgs.address);
+                        const roleHash = await ttmAccount[roleName]();
+                        const hasRole = await ttmAccount.hasRole(roleHash, taskArgs.address);
                         return hasRole ? roleName : null;
                     } catch (e) {
                         if (e?.message?.includes("is not a function")) {
                             return null;
                         }
                         throw new Error(
-                            `Role scan failed for CMAccount ${cmAccountAddress}, role ${roleName}: ${e?.message || e}`,
+                            `Role scan failed for TTMAccount ${ttmAccountAddress}, role ${roleName}: ${e?.message || e}`,
                         );
                     }
                 }),
@@ -782,10 +828,10 @@ ACCOUNT_SCOPE.task("find", "Scan all CM Accounts for roles of a given address")
 
             if (rolesHeld.length > 0) {
                 foundCount++;
-                findings.push({ address: cmAccountAddress, roles: rolesHeld });
+                findings.push({ address: ttmAccountAddress, roles: rolesHeld });
                 // If we found something, clear the current progress line and print it
                 process.stdout.write("\r" + " ".repeat(80) + "\r"); // Clear line
-                console.log(`✨ ${bold("Found match:")} ${bold(cmAccountAddress)}`);
+                console.log(`✨ ${bold("Found match:")} ${bold(ttmAccountAddress)}`);
                 rolesHeld.forEach((r) => console.log(`   └─ ${r}`));
                 console.log();
             }
@@ -795,25 +841,29 @@ ACCOUNT_SCOPE.task("find", "Scan all CM Accounts for roles of a given address")
         process.stdout.write("\r" + " ".repeat(80) + "\r");
 
         if (foundCount === 0) {
-            console.log("❌ No CM Accounts found where this address holds a role.");
+            console.log("❌ No TTM Accounts found where this address holds a role.");
         } else {
-            console.log(`✅ Search complete. Found matches in ${bold(foundCount)} CM Account(s).`);
+            console.log(`✅ Search complete. Found matches in ${bold(foundCount)} TTM Account(s).`);
         }
     });
 
-ACCOUNT_SCOPE.task("withdraw:erc20", "Withdraw ERC20 tokens from CMAccount")
-    .addOptionalParam("privateKey", "Private key to use, default: CMACCOUNT_PK env variable", process.env.CMACCOUNT_PK)
+ACCOUNT_SCOPE.task("withdraw:erc20", "Withdraw ERC20 tokens from TTMAccount")
     .addOptionalParam(
-        "cmAccount",
-        "CMAccount address, default: CMACCOUNT_ADDRESS env variable",
-        process.env.CMACCOUNT_ADDRESS,
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
+    .addOptionalParam(
+        "ttmAccount",
+        "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
+        process.env.TTMACCOUNT_ADDRESS,
     )
     .addParam("token", "ERC20 token address")
     .addParam("recipient", "Recipient address")
     .addParam("amount", "Amount to withdraw in human readable units")
     .setAction(async (taskArgs, hre) => {
-        const cmAccount = await getCMAccount(taskArgs.cmAccount);
-        console.log("CMAccount:", taskArgs.cmAccount);
+        const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
+        console.log("TTMAccount:", taskArgs.ttmAccount);
         console.log("Token:", taskArgs.token);
         console.log("Recipient:", taskArgs.recipient);
 
@@ -827,80 +877,88 @@ ACCOUNT_SCOPE.task("withdraw:erc20", "Withdraw ERC20 tokens from CMAccount")
             console.log(`Withdrawing ${taskArgs.amount} tokens (wei: ${amountWei.toString()})...`);
 
             const signer = new ethers.Wallet(taskArgs.privateKey, ethers.provider);
-            const tx = await cmAccount.connect(signer).transferERC20(taskArgs.token, taskArgs.recipient, amountWei);
+            const tx = await ttmAccount.connect(signer).transferERC20(taskArgs.token, taskArgs.recipient, amountWei);
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
         } catch (error) {
-            handleTransactionError(error, cmAccount);
+            handleTransactionError(error, ttmAccount);
         }
     });
 
-ACCOUNT_SCOPE.task("withdraw:erc721", "Withdraw ERC721 tokens from CMAccount")
-    .addOptionalParam("privateKey", "Private key to use, default: CMACCOUNT_PK env variable", process.env.CMACCOUNT_PK)
+ACCOUNT_SCOPE.task("withdraw:erc721", "Withdraw ERC721 tokens from TTMAccount")
     .addOptionalParam(
-        "cmAccount",
-        "CMAccount address, default: CMACCOUNT_ADDRESS env variable",
-        process.env.CMACCOUNT_ADDRESS,
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
+    .addOptionalParam(
+        "ttmAccount",
+        "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
+        process.env.TTMACCOUNT_ADDRESS,
     )
     .addParam("token", "ERC721 token address")
     .addParam("recipient", "Recipient address")
     .addParam("tokenId", "Token ID to withdraw")
     .setAction(async (taskArgs, hre) => {
-        const cmAccount = await getCMAccount(taskArgs.cmAccount);
-        console.log("CMAccount:", taskArgs.cmAccount);
+        const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
+        console.log("TTMAccount:", taskArgs.ttmAccount);
         console.log("Token:", taskArgs.token);
         console.log("Recipient:", taskArgs.recipient);
         console.log("Token ID:", taskArgs.tokenId);
 
         try {
             const signer = new ethers.Wallet(taskArgs.privateKey, ethers.provider);
-            const tx = await cmAccount
+            const tx = await ttmAccount
                 .connect(signer)
                 .transferERC721(taskArgs.token, taskArgs.recipient, taskArgs.tokenId);
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
         } catch (error) {
-            handleTransactionError(error, cmAccount);
+            handleTransactionError(error, ttmAccount);
         }
     });
 
-ACCOUNT_SCOPE.task("bot:withdraw-gas", "Withdraw gas money for a bot from CMAccount")
+ACCOUNT_SCOPE.task("bot:withdraw-gas", "Withdraw gas money for a bot from TTMAccount")
     .addParam("privateKey", "Private key of the bot")
     .addOptionalParam(
-        "cmAccount",
-        "CMAccount address, default: CMACCOUNT_ADDRESS env variable",
-        process.env.CMACCOUNT_ADDRESS,
+        "ttmAccount",
+        "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
+        process.env.TTMACCOUNT_ADDRESS,
     )
     .addParam("amount", "Amount to withdraw in CAM (e.g. 0.5)")
     .setAction(async (taskArgs, hre) => {
-        const cmAccount = await getCMAccount(taskArgs.cmAccount);
-        console.log("CMAccount:", taskArgs.cmAccount);
+        const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
+        console.log("TTMAccount:", taskArgs.ttmAccount);
 
         try {
             const amountWei = ethers.parseEther(taskArgs.amount);
             const signer = new ethers.Wallet(taskArgs.privateKey, ethers.provider);
             console.log(`Bot address: ${signer.address}`);
             console.log(`Withdrawing ${taskArgs.amount} CAM (wei: ${amountWei.toString()})...`);
-            const tx = await cmAccount.connect(signer).withdrawGasMoney(amountWei);
+            const tx = await ttmAccount.connect(signer).withdrawGasMoney(amountWei);
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
         } catch (error) {
-            handleTransactionError(error, cmAccount);
+            handleTransactionError(error, ttmAccount);
         }
     });
 
 ACCOUNT_SCOPE.task("bot:set-gas-limit", "Set gas money withdrawal limit and period for bots")
-    .addOptionalParam("privateKey", "Private key to use, default: CMACCOUNT_PK env variable", process.env.CMACCOUNT_PK)
     .addOptionalParam(
-        "cmAccount",
-        "CMAccount address, default: CMACCOUNT_ADDRESS env variable",
-        process.env.CMACCOUNT_ADDRESS,
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
+    .addOptionalParam(
+        "ttmAccount",
+        "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
+        process.env.TTMACCOUNT_ADDRESS,
     )
     .addParam("limit", "Withdrawal limit in CAM (e.g. 10)")
     .addParam("period", "Withdrawal period in seconds (e.g. 86400 for 24h)")
     .setAction(async (taskArgs, hre) => {
-        const cmAccount = await getCMAccount(taskArgs.cmAccount);
-        console.log("CMAccount:", taskArgs.cmAccount);
+        const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
+        console.log("TTMAccount:", taskArgs.ttmAccount);
 
         try {
             const limitWei = ethers.parseEther(taskArgs.limit);
@@ -908,76 +966,84 @@ ACCOUNT_SCOPE.task("bot:set-gas-limit", "Set gas money withdrawal limit and peri
                 `Setting gas limit to ${taskArgs.limit} CAM (wei: ${limitWei.toString()}) per ${taskArgs.period} seconds...`,
             );
             const signer = new ethers.Wallet(taskArgs.privateKey, ethers.provider);
-            const tx = await cmAccount.connect(signer).setGasMoneyWithdrawal(limitWei, taskArgs.period);
+            const tx = await ttmAccount.connect(signer).setGasMoneyWithdrawal(limitWei, taskArgs.period);
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
         } catch (error) {
-            handleTransactionError(error, cmAccount);
+            handleTransactionError(error, ttmAccount);
         }
     });
 
 ACCOUNT_SCOPE.task("pubkey:add", "Add public key with address for off-chain encryption")
-    .addOptionalParam("privateKey", "Private key to use, default: CMACCOUNT_PK env variable", process.env.CMACCOUNT_PK)
     .addOptionalParam(
-        "cmAccount",
-        "CMAccount address, default: CMACCOUNT_ADDRESS env variable",
-        process.env.CMACCOUNT_ADDRESS,
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
+    .addOptionalParam(
+        "ttmAccount",
+        "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
+        process.env.TTMACCOUNT_ADDRESS,
     )
     .addParam("pubkeyAddress", "Address of the public key")
     .addParam("pubkeyData", "Public key data in hex format (must start with 0x)")
     .setAction(async (taskArgs, hre) => {
-        const cmAccount = await getCMAccount(taskArgs.cmAccount);
-        console.log("CMAccount:", taskArgs.cmAccount);
+        const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
+        console.log("TTMAccount:", taskArgs.ttmAccount);
 
         try {
             const signer = new ethers.Wallet(taskArgs.privateKey, ethers.provider);
             console.log(`Adding public key for address ${taskArgs.pubkeyAddress}...`);
-            const tx = await cmAccount.connect(signer).addPublicKey(taskArgs.pubkeyAddress, taskArgs.pubkeyData);
+            const tx = await ttmAccount.connect(signer).addPublicKey(taskArgs.pubkeyAddress, taskArgs.pubkeyData);
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
         } catch (error) {
-            handleTransactionError(error, cmAccount);
+            handleTransactionError(error, ttmAccount);
         }
     });
 
 ACCOUNT_SCOPE.task("pubkey:remove", "Remove public key by address")
-    .addOptionalParam("privateKey", "Private key to use, default: CMACCOUNT_PK env variable", process.env.CMACCOUNT_PK)
     .addOptionalParam(
-        "cmAccount",
-        "CMAccount address, default: CMACCOUNT_ADDRESS env variable",
-        process.env.CMACCOUNT_ADDRESS,
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
+    .addOptionalParam(
+        "ttmAccount",
+        "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
+        process.env.TTMACCOUNT_ADDRESS,
     )
     .addParam("pubkeyAddress", "Address of the public key to remove")
     .setAction(async (taskArgs, hre) => {
-        const cmAccount = await getCMAccount(taskArgs.cmAccount);
-        console.log("CMAccount:", taskArgs.cmAccount);
+        const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
+        console.log("TTMAccount:", taskArgs.ttmAccount);
 
         try {
             const signer = new ethers.Wallet(taskArgs.privateKey, ethers.provider);
             console.log(`Removing public key for address ${taskArgs.pubkeyAddress}...`);
-            const tx = await cmAccount.connect(signer).removePublicKey(taskArgs.pubkeyAddress);
+            const tx = await ttmAccount.connect(signer).removePublicKey(taskArgs.pubkeyAddress);
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
         } catch (error) {
-            handleTransactionError(error, cmAccount);
+            handleTransactionError(error, ttmAccount);
         }
     });
 
-ACCOUNT_SCOPE.task("pubkey:list", "List all public keys registered on CMAccount")
+ACCOUNT_SCOPE.task("pubkey:list", "List all public keys registered on TTMAccount")
     .addOptionalParam(
-        "cmAccount",
-        "CMAccount address, default: CMACCOUNT_ADDRESS env variable",
-        process.env.CMACCOUNT_ADDRESS,
+        "ttmAccount",
+        "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
+        process.env.TTMACCOUNT_ADDRESS,
     )
     .setAction(async (taskArgs, hre) => {
-        const cmAccount = await getCMAccount(taskArgs.cmAccount);
-        console.log("CMAccount:", taskArgs.cmAccount);
+        const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
+        console.log("TTMAccount:", taskArgs.ttmAccount);
 
         try {
-            const addresses = await cmAccount.getPublicKeysAddresses();
+            const addresses = await ttmAccount.getPublicKeysAddresses();
             console.log("🔑 Registered Public Keys:");
             for (const addr of addresses) {
-                const pubkeyData = await cmAccount.getPublicKey(addr);
+                const pubkeyData = await ttmAccount.getPublicKey(addr);
                 console.log(`Address: ${addr}`);
                 console.log(`Data   : ${pubkeyData}\n`);
             }
@@ -985,105 +1051,121 @@ ACCOUNT_SCOPE.task("pubkey:list", "List all public keys registered on CMAccount"
                 console.log("No public keys registered.");
             }
         } catch (error) {
-            handleTransactionError(error, cmAccount);
+            handleTransactionError(error, ttmAccount);
         }
     });
 
-ACCOUNT_SCOPE.task("payment:set-offchain", "Set if off-chain payment is supported by CMAccount")
-    .addOptionalParam("privateKey", "Private key to use, default: CMACCOUNT_PK env variable", process.env.CMACCOUNT_PK)
+ACCOUNT_SCOPE.task("payment:set-offchain", "Set if off-chain payment is supported by TTMAccount")
     .addOptionalParam(
-        "cmAccount",
-        "CMAccount address, default: CMACCOUNT_ADDRESS env variable",
-        process.env.CMACCOUNT_ADDRESS,
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
+    .addOptionalParam(
+        "ttmAccount",
+        "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
+        process.env.TTMACCOUNT_ADDRESS,
     )
     .addParam("supported", "true if supported, false otherwise", null, types.boolean)
     .setAction(async (taskArgs, hre) => {
-        const cmAccount = await getCMAccount(taskArgs.cmAccount);
-        console.log("CMAccount:", taskArgs.cmAccount);
+        const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
+        console.log("TTMAccount:", taskArgs.ttmAccount);
 
         try {
             const signer = new ethers.Wallet(taskArgs.privateKey, ethers.provider);
             console.log(`Setting off-chain payment support to: ${taskArgs.supported}`);
-            const tx = await cmAccount.connect(signer).setOffChainPaymentSupported(taskArgs.supported);
+            const tx = await ttmAccount.connect(signer).setOffChainPaymentSupported(taskArgs.supported);
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
         } catch (error) {
-            handleTransactionError(error, cmAccount);
+            handleTransactionError(error, ttmAccount);
         }
     });
 
-ACCOUNT_SCOPE.task("service:remove-all", "Remove all supported services from CMAccount")
-    .addOptionalParam("privateKey", "Private key to use, default: CMACCOUNT_PK env variable", process.env.CMACCOUNT_PK)
+ACCOUNT_SCOPE.task("service:remove-all", "Remove all supported services from TTMAccount")
     .addOptionalParam(
-        "cmAccount",
-        "CMAccount address, default: CMACCOUNT_ADDRESS env variable",
-        process.env.CMACCOUNT_ADDRESS,
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
+    .addOptionalParam(
+        "ttmAccount",
+        "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
+        process.env.TTMACCOUNT_ADDRESS,
     )
     .setAction(async (taskArgs, hre) => {
-        const cmAccount = await getCMAccount(taskArgs.cmAccount);
-        console.log("CMAccount:", taskArgs.cmAccount);
+        const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
+        console.log("TTMAccount:", taskArgs.ttmAccount);
 
         try {
             const signer = new ethers.Wallet(taskArgs.privateKey, ethers.provider);
-            console.log("Removing all supported services from CMAccount...");
-            const tx = await cmAccount.connect(signer).removeAllServices();
+            console.log("Removing all supported services from TTMAccount...");
+            const tx = await ttmAccount.connect(signer).removeAllServices();
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
         } catch (error) {
-            handleTransactionError(error, cmAccount);
+            handleTransactionError(error, ttmAccount);
         }
     });
 
 // service:set-fee task removed as service fees are deprecated
 
 ACCOUNT_SCOPE.task("service:set-restricted-rate", "Set the restricted rate property of a supported service")
-    .addOptionalParam("privateKey", "Private key to use, default: CMACCOUNT_PK env variable", process.env.CMACCOUNT_PK)
     .addOptionalParam(
-        "cmAccount",
-        "CMAccount address, default: CMACCOUNT_ADDRESS env variable",
-        process.env.CMACCOUNT_ADDRESS,
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
+    .addOptionalParam(
+        "ttmAccount",
+        "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
+        process.env.TTMACCOUNT_ADDRESS,
     )
     .addParam("serviceName", "Name of the service")
     .addParam("restrictedRate", "Restricted rate status (true/false)", null, types.boolean)
     .setAction(async (taskArgs, hre) => {
-        const cmAccount = await getCMAccount(taskArgs.cmAccount);
-        console.log("CMAccount:", taskArgs.cmAccount);
+        const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
+        console.log("TTMAccount:", taskArgs.ttmAccount);
 
         try {
             const signer = new ethers.Wallet(taskArgs.privateKey, ethers.provider);
             console.log(`Setting restricted rate of service ${taskArgs.serviceName} to ${taskArgs.restrictedRate}...`);
-            const tx = await cmAccount
+            const tx = await ttmAccount
                 .connect(signer)
                 .setServiceRestrictedRate(taskArgs.serviceName, taskArgs.restrictedRate);
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
         } catch (error) {
-            handleTransactionError(error, cmAccount);
+            handleTransactionError(error, ttmAccount);
         }
     });
 
 ACCOUNT_SCOPE.task("service:set-capabilities", "Set all capabilities of a supported service")
-    .addOptionalParam("privateKey", "Private key to use, default: CMACCOUNT_PK env variable", process.env.CMACCOUNT_PK)
     .addOptionalParam(
-        "cmAccount",
-        "CMAccount address, default: CMACCOUNT_ADDRESS env variable",
-        process.env.CMACCOUNT_ADDRESS,
+        "privateKey",
+        "Private key to use, default: TTMACCOUNT_PK env variable",
+        process.env.TTMACCOUNT_PK,
+    )
+    .addOptionalParam(
+        "ttmAccount",
+        "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
+        process.env.TTMACCOUNT_ADDRESS,
     )
     .addParam("serviceName", "Name of the service")
     .addParam("capabilities", "Comma-separated capabilities")
     .setAction(async (taskArgs, hre) => {
-        const cmAccount = await getCMAccount(taskArgs.cmAccount);
-        console.log("CMAccount:", taskArgs.cmAccount);
+        const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
+        console.log("TTMAccount:", taskArgs.ttmAccount);
 
         try {
             const capabilities = taskArgs.capabilities ? taskArgs.capabilities.split(",") : [];
             const signer = new ethers.Wallet(taskArgs.privateKey, ethers.provider);
             console.log(`Setting capabilities of service ${taskArgs.serviceName} to:`, capabilities);
-            const tx = await cmAccount.connect(signer).setServiceCapabilities(taskArgs.serviceName, capabilities);
+            const tx = await ttmAccount.connect(signer).setServiceCapabilities(taskArgs.serviceName, capabilities);
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
         } catch (error) {
-            handleTransactionError(error, cmAccount);
+            handleTransactionError(error, ttmAccount);
         }
     });
 

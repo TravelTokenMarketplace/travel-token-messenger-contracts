@@ -1,10 +1,10 @@
-const DOMAIN_NAME = "CaminoMessenger";
+const DOMAIN_NAME = "TravelTokenMessenger";
 const DOMAIN_VERSION = "1";
 
 function calculateMessengerChequeTypeHash() {
     const typeHash = ethers.keccak256(
         ethers.toUtf8Bytes(
-            "MessengerCheque(address fromCMAccount,address toCMAccount,address toBot,uint256 counter,uint256 amount,uint256 createdAt,uint256 expiresAt,address paymentToken)",
+            "MessengerCheque(address fromTTMAccount,address toTTMAccount,address toBot,uint256 counter,uint256 amount,uint256 createdAt,uint256 expiresAt,address paymentToken)",
         ),
     );
     return typeHash;
@@ -34,22 +34,10 @@ function calculateDomainSeparator(domainName, domainVersion, chainId) {
 }
 
 function calculateDomainSeparatorForChain(_chainId) {
-    const domainName = "CaminoMessenger";
+    const domainName = "TravelTokenMessenger";
     const domainVersion = "1";
     const chainId = _chainId;
     return calculateDomainSeparator(domainName, domainVersion, chainId);
-}
-
-function calculateDomainSeparatorCamino() {
-    return calculateDomainSeparatorForChain(500);
-}
-
-function calculateDomainSeparatorColumbus() {
-    return calculateDomainSeparatorForChain(501);
-}
-
-function calculateDomainSeparatorKopernikus() {
-    return calculateDomainSeparatorForChain(502);
 }
 
 function calculateTypedDataHash(cheque, domainSeparator) {
@@ -65,8 +53,8 @@ function calculateMessengerChequeHash(cheque) {
         ["bytes32", "address", "address", "address", "uint256", "uint256", "uint256", "uint256", "address"],
         [
             chequeTypeHash,
-            cheque.fromCMAccount,
-            cheque.toCMAccount,
+            cheque.fromTTMAccount,
+            cheque.toTTMAccount,
             cheque.toBot,
             cheque.counter,
             cheque.amount,
@@ -79,8 +67,8 @@ function calculateMessengerChequeHash(cheque) {
 }
 
 async function _signMessengerCheque(
-    fromCMAccount,
-    toCMAccount,
+    fromTTMAccount,
+    toTTMAccount,
     toBot,
     counter,
     amount,
@@ -92,8 +80,8 @@ async function _signMessengerCheque(
     const chainId = await signer.provider.getNetwork().then((n) => n.chainId);
 
     const cheque = {
-        fromCMAccount: fromCMAccount,
-        toCMAccount: toCMAccount,
+        fromTTMAccount: fromTTMAccount,
+        toTTMAccount: toTTMAccount,
         toBot: toBot,
         counter: counter,
         amount: amount,
@@ -112,8 +100,8 @@ async function signMessengerCheque(cheque, signer) {
 
     const types = {
         MessengerCheque: [
-            { name: "fromCMAccount", type: "address" },
-            { name: "toCMAccount", type: "address" },
+            { name: "fromTTMAccount", type: "address" },
+            { name: "toTTMAccount", type: "address" },
             { name: "toBot", type: "address" },
             { name: "counter", type: "uint256" },
             { name: "amount", type: "uint256" },
@@ -138,8 +126,8 @@ async function signInvalidMessengerCheque(cheque, signer) {
 
     const types = {
         MessengerCheque: [
-            { name: "fromCMAccount", type: "address" },
-            { name: "toCMAccount", type: "address" },
+            { name: "fromTTMAccount", type: "address" },
+            { name: "toTTMAccount", type: "address" },
             { name: "toBot", type: "address" },
             { name: "counter", type: "uint256" },
             { name: "amount", type: "uint256" },
@@ -165,9 +153,6 @@ module.exports = {
     calculateMessengerChequeHash,
     calculateDomainTypeHash,
     calculateDomainSeparator,
-    calculateDomainSeparatorCamino,
-    calculateDomainSeparatorColumbus,
-    calculateDomainSeparatorKopernikus,
     calculateDomainSeparatorForChain,
     signMessengerCheque,
     signInvalidMessengerCheque,

@@ -1,29 +1,165 @@
 # Solidity API
 
-## CMAccount
+## GasMoneyManager
 
-A CM Account manages funds, minting/buying of booking tokens, provided
+GasMoneyManager manages gas money withdrawals for a {TTMAccount}.
+
+Gas money withdrawals are restricted to a withdrawal limit and period.
+
+### GasMoneyStorage
+
+```solidity
+struct GasMoneyStorage {
+    mapping(address => uint256) _withdrawalPeriodStart;
+    mapping(address => uint256) _withdrawnAmount;
+    uint256 _withdrawalLimit;
+    uint256 _withdrawalPeriod;
+}
+```
+
+### GasMoneyWithdrawal
+
+```solidity
+event GasMoneyWithdrawal(address withdrawer, uint256 amount)
+```
+
+Gas money withdrawal event
+
+#### Parameters
+
+| Name       | Type    | Description                   |
+| ---------- | ------- | ----------------------------- |
+| withdrawer | address | the address of the withdrawer |
+| amount     | uint256 | the amount withdrawn          |
+
+### GasMoneyWithdrawalUpdated
+
+```solidity
+event GasMoneyWithdrawalUpdated(uint256 limit, uint256 period)
+```
+
+Gas money withdrawal limit and period updated event
+
+#### Parameters
+
+| Name   | Type    | Description                         |
+| ------ | ------- | ----------------------------------- |
+| limit  | uint256 | the withdrawal limit for the period |
+| period | uint256 | the withdrawal period in seconds    |
+
+### WithdrawalLimitExceeded
+
+```solidity
+error WithdrawalLimitExceeded(uint256 limit, uint256 amount)
+```
+
+### WithdrawalLimitExceededForPeriod
+
+```solidity
+error WithdrawalLimitExceededForPeriod(uint256 limit, uint256 amount)
+```
+
+### \_\_GasMoneyManager_init
+
+```solidity
+function __GasMoneyManager_init(uint256 withdrawalLimit, uint256 withdrawalPeriod) internal
+```
+
+### \_withdrawGasMoney
+
+```solidity
+function _withdrawGasMoney(uint256 amount) internal
+```
+
+Withdraws gas money.
+
+This functions is intended to be called by the bot to withdraw gas money.
+Inheriting contract should restrict who can call this with a public
+function.
+
+### \_setGasMoneyWithdrawal
+
+```solidity
+function _setGasMoneyWithdrawal(uint256 limit, uint256 period) internal
+```
+
+Sets the gas money withdrawal limit and period.
+
+#### Parameters
+
+| Name   | Type    | Description                         |
+| ------ | ------- | ----------------------------------- |
+| limit  | uint256 | the withdrawal limit for the period |
+| period | uint256 | the withdrawal period in seconds    |
+
+### getGasMoneyWithdrawal
+
+```solidity
+function getGasMoneyWithdrawal() public view returns (uint256 withdrawalLimit, uint256 withdrawalPeriod)
+```
+
+Returns the gas money withdrawal restrictions.
+
+#### Return Values
+
+| Name             | Type    | Description |
+| ---------------- | ------- | ----------- |
+| withdrawalLimit  | uint256 |             |
+| withdrawalPeriod | uint256 |             |
+
+### getGasMoneyWithdrawalForAccount
+
+```solidity
+function getGasMoneyWithdrawalForAccount(address account) public view returns (uint256 periodStart, uint256 withdrawnAmount)
+```
+
+Returns the gas money withdrawal details for an account.
+
+#### Parameters
+
+| Name    | Type    | Description            |
+| ------- | ------- | ---------------------- |
+| account | address | address of the account |
+
+#### Return Values
+
+| Name            | Type    | Description                              |
+| --------------- | ------- | ---------------------------------------- |
+| periodStart     | uint256 | timestamp of the withdrawal period start |
+| withdrawnAmount | uint256 | amount withdrawn within the period       |
+
+## ITTMAccount
+
+### initialize
+
+```solidity
+function initialize(address manager, address bookingToken, address owner, address upgrader) external
+```
+
+## TTMAccount
+
+A TTM Account manages funds, minting/buying of booking tokens, provided
 or wanted services, and multiple bots for distributors and suppliers on
-Camino Messenger ecosystem.
+Travel Token Messenger ecosystem.
 
 Registering bots is done by role based access control. Bot's with
-`MESSENGER_BOT_ROLE` are authorized to represent the CMAccount.
+`MESSENGER_BOT_ROLE` are authorized to represent the TTMAccount.
 Bot can also have `GAS_WITHDRAWER_ROLE` and `BOOKING_OPERATOR_ROLE`.
 
-`GAS_WITHDRAWER_ROLE` enables a bot to withdraw native coins (CAM) from the
+`GAS_WITHDRAWER_ROLE` enables a bot to withdraw native coins (ETH) from the
 contract to be used as gas money. This restricted with a `limit`
-(wei/aCAM) and `period` (seconds) by the `BOT_ADMIN_ROLE`. Default starting
-values are 10 CAM per 24 hours.
+(wei) and `period` (seconds) by the `BOT_ADMIN_ROLE`. Default starting
+values are 10 ETH per 24 hours.
 
 `BOOKING_OPERATOR_ROLE` enables a bot to mint and buy Booking Tokens by
 calling the corresponding functions on the {BookingToken} contract. The buy
 operation pays the price of the Booking Token with the funds on the
-{CMAccount} contract.
+{TTMAccount} contract.
 
 _This contract uses UUPS style upgradeability. The authorization function
 `_authorizeUpgrade(address)` can be called by the `UPGRADER_ROLE` and is
 restricted to only upgrade to the implementation address registered on the
-{CMAccountManager} contract._
+{TTMAccountManager} contract._
 
 ### UPGRADER_ROLE
 
@@ -48,7 +184,7 @@ parameters.
 bytes32 MESSENGER_BOT_ROLE
 ```
 
-Messenger bot role can interact on behalf of this CMAccount
+Messenger bot role can interact on behalf of this TTMAccount
 contract.
 
 ### GAS_WITHDRAWER_ROLE
@@ -87,23 +223,23 @@ bytes32 SERVICE_ADMIN_ROLE
 
 Service admin role can add & remove supported & wanted services.
 
-### CMAccountStorage
+### TTMAccountStorage
 
 ```solidity
-struct CMAccountStorage {
+struct TTMAccountStorage {
     address _manager;
     address _bookingToken;
     uint256 _unused;
 }
 ```
 
-### CMAccountUpgraded
+### TTMAccountUpgraded
 
 ```solidity
-event CMAccountUpgraded(address oldImplementation, address newImplementation)
+event TTMAccountUpgraded(address oldImplementation, address newImplementation)
 ```
 
-CMAccount upgrade event. Emitted when the CMAccount implementation is upgraded.
+TTMAccount upgrade event. Emitted when the TTMAccount implementation is upgraded.
 
 ### Deposit
 
@@ -185,18 +321,18 @@ event ServiceCapabilityAdded(string serviceName, string capability)
 event ServiceCapabilityRemoved(string serviceName, string capability)
 ```
 
-### CMAccountImplementationMismatch
+### TTMAccountImplementationMismatch
 
 ```solidity
-error CMAccountImplementationMismatch(address latestImplementation, address newImplementation)
+error TTMAccountImplementationMismatch(address latestImplementation, address newImplementation)
 ```
 
-CMAccount implementation address does not match the one in the manager
+TTMAccount implementation address does not match the one in the manager
 
-### CMAccountNoUpgradeNeeded
+### TTMAccountNoUpgradeNeeded
 
 ```solidity
-error CMAccountNoUpgradeNeeded(address oldImplementation, address newImplementation)
+error TTMAccountNoUpgradeNeeded(address oldImplementation, address newImplementation)
 ```
 
 New implementation is the same as the current implementation, no update needed
@@ -241,13 +377,13 @@ receive() external payable
 function getManagerAddress() public view returns (address)
 ```
 
-Returns the CMAccountManager address.
+Returns the TTMAccountManager address.
 
 #### Return Values
 
-| Name | Type    | Description              |
-| ---- | ------- | ------------------------ |
-| [0]  | address | CMAccountManager address |
+| Name | Type    | Description               |
+| ---- | ------- | ------------------------- |
+| [0]  | address | TTMAccountManager address |
 
 ### getBookingTokenAddress
 
@@ -269,14 +405,14 @@ Returns the booking token address.
 function _authorizeUpgrade(address newImplementation) internal
 ```
 
-Authorizes the upgrade of the CMAccount.
+Authorizes the upgrade of the TTMAccount.
 
 Reverts if the new implementation is the same as the old one.
 
 Reverts if the new implementation does not match the implementation address
 in the manager. Only implementations registered at the manager are allowed.
 
-_Emits a {CMAccountUpgraded} event._
+_Emits a {TTMAccountUpgraded} event._
 
 #### Parameters
 
@@ -304,7 +440,7 @@ Returns true if an address is an authorized messenger bot
 function withdraw(address payable recipient, uint256 amount) external
 ```
 
-Withdraw CAM from the CMAccount
+Withdraw ETH from the TTMAccount
 
 #### Parameters
 
@@ -415,10 +551,10 @@ Adds a service to the account as a supported service.
 
 ```text
  ┌────────────── pkg ─────────────┐ ┌───── service name ─────┐
-"cmp.services.accommodation.v1alpha.AccommodationSearchService")
+"ttm.services.accommodation.v1alpha.AccommodationSearchService")
 ```
 
-_These services are coming from the Camino Messenger Protocol's protobuf
+_These services are coming from the Travel Token Messenger Protocol's protobuf
 definitions._
 
 #### Parameters
@@ -652,9 +788,9 @@ Withdraw gas money. Requires the `GAS_WITHDRAWER_ROLE`.
 
 #### Parameters
 
-| Name   | Type    | Description                          |
-| ------ | ------- | ------------------------------------ |
-| amount | uint256 | The amount to withdraw in aCAM (wei) |
+| Name   | Type    | Description                   |
+| ------ | ------- | ----------------------------- |
+| amount | uint256 | The amount to withdraw in wei |
 
 ### setGasMoneyWithdrawal
 
@@ -705,11 +841,11 @@ Withdraws an active cancellation proposal. Only the initiator can withdraw.
 
 #### Parameters
 
-| Name          | Type    | Description                                       |
-| ------------- | ------- | ------------------------------------------------- |
-| tokenId       | uint256 | The token id for which to withdraw the proposal   |
-| reason        | uint16  | The reason for withdrawing the proposal           |
-| reasonVersion | uint16  | The version of the withdrawal reason from the CMP |
+| Name          | Type    | Description                                                                   |
+| ------------- | ------- | ----------------------------------------------------------------------------- |
+| tokenId       | uint256 | The token id for which to withdraw the proposal                               |
+| reason        | uint16  | The reason for withdrawing the proposal                                       |
+| reasonVersion | uint16  | The version of the withdrawal reason from the Travel Token Messenger Protocol |
 
 ### finalizeCancellation
 
@@ -726,145 +862,9 @@ Finalizes a cancellation proposal. Only the supplier of the token can finalize.
 | tokenId      | uint256 | The token id for which to finalize the proposal                      |
 | refundAmount | uint256 | The refund amount to check, this is to prevent front-running attacks |
 
-## GasMoneyManager
-
-GasMoneyManager manages gas money withdrawals for a {CMAccount}.
-
-Gas money withdrawals are restricted to a withdrawal limit and period.
-
-### GasMoneyStorage
-
-```solidity
-struct GasMoneyStorage {
-    mapping(address => uint256) _withdrawalPeriodStart;
-    mapping(address => uint256) _withdrawnAmount;
-    uint256 _withdrawalLimit;
-    uint256 _withdrawalPeriod;
-}
-```
-
-### GasMoneyWithdrawal
-
-```solidity
-event GasMoneyWithdrawal(address withdrawer, uint256 amount)
-```
-
-Gas money withdrawal event
-
-#### Parameters
-
-| Name       | Type    | Description                   |
-| ---------- | ------- | ----------------------------- |
-| withdrawer | address | the address of the withdrawer |
-| amount     | uint256 | the amount withdrawn          |
-
-### GasMoneyWithdrawalUpdated
-
-```solidity
-event GasMoneyWithdrawalUpdated(uint256 limit, uint256 period)
-```
-
-Gas money withdrawal limit and period updated event
-
-#### Parameters
-
-| Name   | Type    | Description                         |
-| ------ | ------- | ----------------------------------- |
-| limit  | uint256 | the withdrawal limit for the period |
-| period | uint256 | the withdrawal period in seconds    |
-
-### WithdrawalLimitExceeded
-
-```solidity
-error WithdrawalLimitExceeded(uint256 limit, uint256 amount)
-```
-
-### WithdrawalLimitExceededForPeriod
-
-```solidity
-error WithdrawalLimitExceededForPeriod(uint256 limit, uint256 amount)
-```
-
-### \_\_GasMoneyManager_init
-
-```solidity
-function __GasMoneyManager_init(uint256 withdrawalLimit, uint256 withdrawalPeriod) internal
-```
-
-### \_withdrawGasMoney
-
-```solidity
-function _withdrawGasMoney(uint256 amount) internal
-```
-
-Withdraws gas money.
-
-This functions is intended to be called by the bot to withdraw gas money.
-Inheriting contract should restrict who can call this with a public
-function.
-
-### \_setGasMoneyWithdrawal
-
-```solidity
-function _setGasMoneyWithdrawal(uint256 limit, uint256 period) internal
-```
-
-Sets the gas money withdrawal limit and period.
-
-#### Parameters
-
-| Name   | Type    | Description                         |
-| ------ | ------- | ----------------------------------- |
-| limit  | uint256 | the withdrawal limit for the period |
-| period | uint256 | the withdrawal period in seconds    |
-
-### getGasMoneyWithdrawal
-
-```solidity
-function getGasMoneyWithdrawal() public view returns (uint256 withdrawalLimit, uint256 withdrawalPeriod)
-```
-
-Returns the gas money withdrawal restrictions.
-
-#### Return Values
-
-| Name             | Type    | Description |
-| ---------------- | ------- | ----------- |
-| withdrawalLimit  | uint256 |             |
-| withdrawalPeriod | uint256 |             |
-
-### getGasMoneyWithdrawalForAccount
-
-```solidity
-function getGasMoneyWithdrawalForAccount(address account) public view returns (uint256 periodStart, uint256 withdrawnAmount)
-```
-
-Returns the gas money withdrawal details for an account.
-
-#### Parameters
-
-| Name    | Type    | Description            |
-| ------- | ------- | ---------------------- |
-| account | address | address of the account |
-
-#### Return Values
-
-| Name            | Type    | Description                              |
-| --------------- | ------- | ---------------------------------------- |
-| periodStart     | uint256 | timestamp of the withdrawal period start |
-| withdrawnAmount | uint256 | amount withdrawn within the period       |
-
-## ICMAccount
-
-### initialize
-
-```solidity
-function initialize(address manager, address bookingToken, address owner, address upgrader) external
-```
-
 ## BookingToken
 
-Booking Token contract represents a booking done on the Camino Messenger.
+Booking Token contract represents a booking done on the Travel Token Messenger.
 
 Suppliers can mint Booking Tokens and reserve them for a distributor address to
 buy.
@@ -947,8 +947,8 @@ address OFFCHAIN_PAYMENT
 A third-party service is used to handle payments.
 
 _Special address for offchain payments. The enum for this
-is defined in the Camino Messenger Protocol's
-cmp.types.<version>.IsoCurrency enum (currency.proto file)._
+is defined in the Travel Token Messenger Protocol's
+ttm.types.<version>.IsoCurrency enum (currency.proto file)._
 
 ### BookingStatus
 
@@ -1053,13 +1053,13 @@ error ExpirationTimestampTooSoon(uint256 expirationTimestamp, uint256 minExpirat
 Error for expiration timestamp too soon. It must be at least
 `_minExpirationTimestampDiff` seconds in the future.
 
-### NotCMAccount
+### NotTTMAccount
 
 ```solidity
-error NotCMAccount(address account)
+error NotTTMAccount(address account)
 ```
 
-Address is not a CM Account.
+Address is not a TTM Account.
 
 #### Parameters
 
@@ -1203,13 +1203,13 @@ Error for when there is unexpected native payment.
 | ------ | ------- | --------------------- |
 | amount | uint256 | The unexpected amount |
 
-### onlyCMAccount
+### onlyTTMAccount
 
 ```solidity
-modifier onlyCMAccount(address account)
+modifier onlyTTMAccount(address account)
 ```
 
-Only CMAccount modifier.
+Only TTMAccount modifier.
 
 ### initialize
 
@@ -1254,7 +1254,7 @@ Mints a new token with a reservation for a specific address.
 
 | Name                    | Type            | Description                                                           |
 | ----------------------- | --------------- | --------------------------------------------------------------------- |
-| reservedFor             | address         | The CM Account address that can buy the token                         |
+| reservedFor             | address         | The TTM Account address that can buy the token                        |
 | uri                     | string          | The URI of the token                                                  |
 | expirationTimestamp     | uint256         | The expiration timestamp                                              |
 | price                   | uint256         | The price of the token                                                |
@@ -1283,7 +1283,7 @@ contract to at least the reservation price. (only for ERC20 tokens)
 
 For native coin, the message sender should send the exact amount.
 
-Only CM Accounts can call this function
+Only TTM Accounts can call this function
 
 #### Parameters
 
@@ -1387,13 +1387,13 @@ Record expiration status if the token is expired
 | ------- | ------- | ------------ |
 | tokenId | uint256 | The token id |
 
-### isCMAccount
+### isTTMAccount
 
 ```solidity
-function isCMAccount(address account) public view virtual returns (bool)
+function isTTMAccount(address account) public view virtual returns (bool)
 ```
 
-Checks if an address is a CM Account.
+Checks if an address is a TTM Account.
 
 #### Parameters
 
@@ -1403,17 +1403,17 @@ Checks if an address is a CM Account.
 
 #### Return Values
 
-| Name | Type | Description                         |
-| ---- | ---- | ----------------------------------- |
-| [0]  | bool | true if the address is a CM Account |
+| Name | Type | Description                          |
+| ---- | ---- | ------------------------------------ |
+| [0]  | bool | true if the address is a TTM Account |
 
-### requireCMAccount
+### requireTTMAccount
 
 ```solidity
-function requireCMAccount(address account) internal view virtual
+function requireTTMAccount(address account) internal view virtual
 ```
 
-Checks if the address is a CM Account and reverts if not.
+Checks if the address is a TTM Account and reverts if not.
 
 #### Parameters
 
@@ -1737,10 +1737,10 @@ function _finalizeCancellation(address supplier, uint256 tokenId, uint256 checkR
 
 ## BookingTokenOperator
 
-Booking token operator contract is used by the {CMAccount} contract to mint
+Booking token operator contract is used by the {TTMAccount} contract to mint
 and buy booking tokens.
 
-We made this a library so that we can use it in the {CMAccount} contract without
+We made this a library so that we can use it in the {TTMAccount} contract without
 increasing the size of the contract.
 
 ### NATIVE_PAYMENT
@@ -1785,16 +1785,16 @@ _Mints a booking token with offchain payment currency and cancellable support._
 
 #### Parameters
 
-| Name                    | Type            | Description                                                                  |
-| ----------------------- | --------------- | ---------------------------------------------------------------------------- |
-| bookingToken            | address         | booking token contract address                                               |
-| reservedFor             | address         | address of the CM Account that can buy the token (generally the distributor) |
-| uri                     | string          | URI of the token                                                             |
-| expirationTimestamp     | uint256         | expiration timestamp of the token in seconds                                 |
-| price                   | uint256         | price of the token                                                           |
-| paymentToken            | contract IERC20 | payment token address                                                        |
-| offchainPaymentCurrency | uint256         | payment token address                                                        |
-| cancellable             | bool            | cancellable flag                                                             |
+| Name                    | Type            | Description                                                                   |
+| ----------------------- | --------------- | ----------------------------------------------------------------------------- |
+| bookingToken            | address         | booking token contract address                                                |
+| reservedFor             | address         | address of the TTM Account that can buy the token (generally the distributor) |
+| uri                     | string          | URI of the token                                                              |
+| expirationTimestamp     | uint256         | expiration timestamp of the token in seconds                                  |
+| price                   | uint256         | price of the token                                                            |
+| paymentToken            | contract IERC20 | payment token address                                                         |
+| offchainPaymentCurrency | uint256         | payment token address                                                         |
+| cancellable             | bool            | cancellable flag                                                              |
 
 ### buyBookingToken
 
@@ -1891,12 +1891,12 @@ Withdraws a cancellation proposal.
 
 #### Parameters
 
-| Name          | Type    | Description                                       |
-| ------------- | ------- | ------------------------------------------------- |
-| bookingToken  | address | booking token contract address                    |
-| tokenId       | uint256 | token id for which to withdraw the proposal       |
-| reason        | uint16  | The reason for withdrawing the proposal           |
-| reasonVersion | uint16  | The version of the withdrawal reason from the CMP |
+| Name          | Type    | Description                                                                   |
+| ------------- | ------- | ----------------------------------------------------------------------------- |
+| bookingToken  | address | booking token contract address                                                |
+| tokenId       | uint256 | token id for which to withdraw the proposal                                   |
+| reason        | uint16  | The reason for withdrawing the proposal                                       |
+| reasonVersion | uint16  | The version of the withdrawal reason from the Travel Token Messenger Protocol |
 
 ### rejectCancellation
 
@@ -1908,12 +1908,12 @@ Reject a cancellation proposal for a bought token.
 
 #### Parameters
 
-| Name                   | Type    | Description                                       |
-| ---------------------- | ------- | ------------------------------------------------- |
-| bookingToken           | address | booking token contract address                    |
-| tokenId                | uint256 | The token id to reject the cancellation for       |
-| rejectionReason        | uint16  | The reason for rejecting the cancellation         |
-| rejectionReasonVersion | uint16  | Version of the rejection reason enum from the CMP |
+| Name                   | Type    | Description                                                                   |
+| ---------------------- | ------- | ----------------------------------------------------------------------------- |
+| bookingToken           | address | booking token contract address                                                |
+| tokenId                | uint256 | The token id to reject the cancellation for                                   |
+| rejectionReason        | uint16  | The reason for rejecting the cancellation                                     |
+| rejectionReasonVersion | uint16  | Version of the rejection reason enum from the Travel Token Messenger Protocol |
 
 ### finalizeCancellation
 
@@ -2068,14 +2068,52 @@ Finalizes a cancellation proposal. Only the supplier of the token can finalize.
 | tokenId      | uint256 | The token id for which to finalize the proposal                      |
 | refundAmount | uint256 | The refund amount to check, this is to prevent front-running attacks |
 
-## CMAccountManager
+## ITTMAccountManager
 
-This contract manages the creation of the Camino Messenger accounts by
-deploying {ERC1967Proxy} proxies that point to the{CMAccount} implementation
+### getAccountImplementation
+
+```solidity
+function getAccountImplementation() external view returns (address)
+```
+
+### isTTMAccount
+
+```solidity
+function isTTMAccount(address account) external view returns (bool)
+```
+
+### getRegisteredServiceHashByName
+
+```solidity
+function getRegisteredServiceHashByName(string serviceName) external view returns (bytes32 serviceHash)
+```
+
+### getServiceHashByName
+
+```solidity
+function getServiceHashByName(string serviceName) external view returns (bytes32 serviceHash)
+```
+
+### getRegisteredServiceNameByHash
+
+```solidity
+function getRegisteredServiceNameByHash(bytes32 serviceHash) external view returns (string serviceName)
+```
+
+### getServiceNameByHash
+
+```solidity
+function getServiceNameByHash(bytes32 serviceHash) external view returns (string serviceName)
+```
+
+## TTMAccountManager
+
+This contract manages the creation of the Travel Token Messenger accounts by
+deploying {ERC1967Proxy} proxies that point to the{TTMAccount} implementation
 address.
 
-Create CM Account: Users who want to create an account should call
-`createCMAccount(address admin, address upgrader)` function with addresses of
+Create TTM Account: Users who want to create an account should call
+`createTTMAccount(address admin, address upgrader)` function with addresses of
 the accounts admin and upgrader roles and they also need to approve the service
 fee token with the amount of prefund.
 
@@ -2085,11 +2123,11 @@ Developer Fee: This contracts also keeps the info about the developer wallet
 and fee basis points. Which are used during the cheque cash in to pay for the
 developer fee.
 
-Service Registry: {CMAccountManager} also acts as a registry for the services
-that {CMAccount} contracts add as a supported or wanted service. Registry
+Service Registry: {TTMAccountManager} also acts as a registry for the services
+that {TTMAccount} contracts add as a supported or wanted service. Registry
 works by hashing (keccak256) the service name (string) and creating a mapping
 as keccak256(serviceName) => serviceName. And provides functions that
-{CMAccount} function uses to register services. The {CMAccount} only keeps
+{TTMAccount} function uses to register services. The {TTMAccount} only keeps
 the hashes (byte32) of the registered services.
 
 ### PAUSER_ROLE
@@ -2099,7 +2137,7 @@ bytes32 PAUSER_ROLE
 ```
 
 Pauser role can pause the contract. Currently this only affects the
-creation of CM Accounts. When paused, account creation is stopped.
+creation of TTM Accounts. When paused, account creation is stopped.
 
 ### UPGRADER_ROLE
 
@@ -2115,11 +2153,11 @@ Upgrader role can upgrade the contract to a new implementation.
 bytes32 VERSIONER_ROLE
 ```
 
-Versioner role can set new {CMAccount} implementation address. When a
-new implementation address is set, it is used for the new {CMAccount}
+Versioner role can set new {TTMAccount} implementation address. When a
+new implementation address is set, it is used for the new {TTMAccount}
 creations.
 
-The old {CMAccount} contracts are not affected by this. Owners of those
+The old {TTMAccount} contracts are not affected by this. Owners of those
 should do the upgrade manually by calling the `upgradeToAndCall(address)`
 function on the account.
 
@@ -2132,58 +2170,58 @@ bytes32 SERVICE_REGISTRY_ADMIN_ROLE
 Service registry admin role can add and remove services to the service
 registry mapping. Implemented by {ServiceRegistry} contract.
 
-### CMACCOUNT_ROLE
+### TTMACCOUNT_ROLE
 
 ```solidity
-bytes32 CMACCOUNT_ROLE
+bytes32 TTMACCOUNT_ROLE
 ```
 
-This role is granted to the created CM Accounts. It is used to keep
-an enumerable list of CM Accounts.
+This role is granted to the created TTM Accounts. It is used to keep
+an enumerable list of TTM Accounts.
 
-### CMAccountInfo
+### TTMAccountInfo
 
-CMAccount info struct, to keep track of created CM Accounts and their
+TTMAccount info struct, to keep track of created TTM Accounts and their
 creators.
 
 ```solidity
-struct CMAccountInfo {
-    bool isCMAccount;
+struct TTMAccountInfo {
+    bool isTTMAccount;
     address creator;
 }
 ```
 
-### CMAccountManagerStorage
+### TTMAccountManagerStorage
 
 ```solidity
-struct CMAccountManagerStorage {
+struct TTMAccountManagerStorage {
   address _latestAccountImplementation;
   address _bookingToken;
-  mapping(address => struct CMAccountManager.CMAccountInfo) _cmAccountInfo;
+  mapping(address => struct TTMAccountManager.TTMAccountInfo) _ttmAccountInfo;
 }
 ```
 
-### CMAccountCreated
+### TTMAccountCreated
 
 ```solidity
-event CMAccountCreated(address account)
+event TTMAccountCreated(address account)
 ```
 
-CM Account created event.
+TTM Account created event.
 
 #### Parameters
 
-| Name    | Type    | Description                      |
-| ------- | ------- | -------------------------------- |
-| account | address | The address of the new CMAccount |
+| Name    | Type    | Description                       |
+| ------- | ------- | --------------------------------- |
+| account | address | The address of the new TTMAccount |
 
-### CMAccountImplementationUpdated
+### TTMAccountImplementationUpdated
 
 ```solidity
-event CMAccountImplementationUpdated(address oldImplementation, address newImplementation)
+event TTMAccountImplementationUpdated(address oldImplementation, address newImplementation)
 ```
 
-CM Account implementation address updated event.
+TTM Account implementation address updated event.
 
 #### Parameters
 
@@ -2207,24 +2245,24 @@ Booking token address updated event.
 | oldBookingToken | address | The old booking token address |
 | newBookingToken | address | The new booking token address |
 
-### CMAccountInvalidImplementation
+### TTMAccountInvalidImplementation
 
 ```solidity
-error CMAccountInvalidImplementation(address implementation)
+error TTMAccountInvalidImplementation(address implementation)
 ```
 
-The implementation of the CMAccount is invalid.
+The implementation of the TTMAccount is invalid.
 
 #### Parameters
 
-| Name           | Type    | Description                                 |
-| -------------- | ------- | ------------------------------------------- |
-| implementation | address | The implementation address of the CMAccount |
+| Name           | Type    | Description                                  |
+| -------------- | ------- | -------------------------------------------- |
+| implementation | address | The implementation address of the TTMAccount |
 
-### CMAccountInvalidAdmin
+### TTMAccountInvalidAdmin
 
 ```solidity
-error CMAccountInvalidAdmin(address admin)
+error TTMAccountInvalidAdmin(address admin)
 ```
 
 The admin address is invalid.
@@ -2267,8 +2305,8 @@ function initialize(address defaultAdmin, address pauser, address upgrader, addr
 function pause() public
 ```
 
-Pauses the CMAccountManager contract. Currently this only affects the
-creation of CMAccount. When paused, account creation is stopped.
+Pauses the TTMAccountManager contract. Currently this only affects the
+creation of TTMAccount. When paused, account creation is stopped.
 
 ### unpause
 
@@ -2276,7 +2314,7 @@ creation of CMAccount. When paused, account creation is stopped.
 function unpause() public
 ```
 
-Unpauses the CMAccountManager contract.
+Unpauses the TTMAccountManager contract.
 
 ### \_authorizeUpgrade
 
@@ -2284,15 +2322,15 @@ Unpauses the CMAccountManager contract.
 function _authorizeUpgrade(address newImplementation) internal
 ```
 
-Authorization for the CMAccountManager contract upgrade.
+Authorization for the TTMAccountManager contract upgrade.
 
-### createCMAccount
+### createTTMAccount
 
 ```solidity
-function createCMAccount(address admin, address upgrader) external payable returns (address)
+function createTTMAccount(address admin, address upgrader) external payable returns (address)
 ```
 
-Creates CMAccount by deploying a ERC1967Proxy with the CMAccount
+Creates TTMAccount by deploying a ERC1967Proxy with the TTMAccount
 implementation from the manager.
 
 Because this function is deploying a contract, it reverts if the caller is
@@ -2300,18 +2338,18 @@ not KYC or KYB verified. (For EOAs only)
 
 Caller must approve the pre-fund amount before calling this function.
 
-_Emits a {CMAccountCreated} event._
+_Emits a {TTMAccountCreated} event._
 
-### \_setCMAccountInfo
+### \_setTTMAccountInfo
 
 ```solidity
-function _setCMAccountInfo(address account, struct CMAccountManager.CMAccountInfo info) internal
+function _setTTMAccountInfo(address account, struct TTMAccountManager.TTMAccountInfo info) internal
 ```
 
-### getCMAccountCreator
+### getTTMAccountCreator
 
 ```solidity
-function getCMAccountCreator(address account) public view returns (address)
+function getTTMAccountCreator(address account) public view returns (address)
 ```
 
 Returns the given account's creator.
@@ -2322,13 +2360,13 @@ Returns the given account's creator.
 | ------- | ------- | ------------------- |
 | account | address | The account address |
 
-### isCMAccount
+### isTTMAccount
 
 ```solidity
-function isCMAccount(address account) public view returns (bool)
+function isTTMAccount(address account) public view returns (bool)
 ```
 
-Check if an address is CMAccount created by the manager.
+Check if an address is TTMAccount created by the manager.
 
 #### Parameters
 
@@ -2342,7 +2380,7 @@ Check if an address is CMAccount created by the manager.
 function getAccountImplementation() public view returns (address)
 ```
 
-Returns the CMAccount implementation address.
+Returns the TTMAccount implementation address.
 
 ### setAccountImplementation
 
@@ -2350,7 +2388,7 @@ Returns the CMAccount implementation address.
 function setAccountImplementation(address newImplementation) public
 ```
 
-Set a new CMAccount implementation address.
+Set a new TTMAccount implementation address.
 
 #### Parameters
 
@@ -2392,7 +2430,7 @@ function _setBookingTokenAddress(address token) internal
 function registerService(string serviceName) public
 ```
 
-Registers a given service name. CM Accounts can only register services
+Registers a given service name. TTM Accounts can only register services
 if they are also registered in the service registry on the manager contract.
 
 #### Parameters
@@ -2407,7 +2445,7 @@ if they are also registered in the service registry on the manager contract.
 function unregisterService(string serviceName) public
 ```
 
-Unregisters a given service name. CM Accounts will not be able to register
+Unregisters a given service name. TTM Accounts will not be able to register
 the service anymore.
 
 #### Parameters
@@ -2416,45 +2454,7 @@ the service anymore.
 | ----------- | ------ | ------------------- |
 | serviceName | string | Name of the service |
 
-## ICMAccountManager
-
-### getAccountImplementation
-
-```solidity
-function getAccountImplementation() external view returns (address)
-```
-
-### isCMAccount
-
-```solidity
-function isCMAccount(address account) external view returns (bool)
-```
-
-### getRegisteredServiceHashByName
-
-```solidity
-function getRegisteredServiceHashByName(string serviceName) external view returns (bytes32 serviceHash)
-```
-
-### getServiceHashByName
-
-```solidity
-function getServiceHashByName(string serviceName) external view returns (bytes32 serviceHash)
-```
-
-### getRegisteredServiceNameByHash
-
-```solidity
-function getRegisteredServiceNameByHash(bytes32 serviceHash) external view returns (string serviceName)
-```
-
-### getServiceNameByHash
-
-```solidity
-function getServiceNameByHash(bytes32 serviceHash) external view returns (string serviceName)
-```
-
-## CMAccountManagerTest
+## TTMAccountManagerTest
 
 ### getVersion
 
@@ -2464,7 +2464,7 @@ function getVersion() public pure returns (string)
 
 ## PartnerConfiguration
 
-Partner Configuration is used by the {CMAccount} contract to register
+Partner Configuration is used by the {TTMAccount} contract to register
 supported and wanted services by the partner.
 
 ### Service
@@ -2706,10 +2706,10 @@ Returns the Service object for a given hash. Service object contains fee and cap
 
 ```text
            ┌────────────── pkg ─────────────┐ ┌───── service name ─────┐
-keccak256("cmp.services.accommodation.v1alpha.AccommodationSearchService")
+keccak256("ttm.services.accommodation.v1alpha.AccommodationSearchService")
 ```
 
-_These services are coming from the Camino Messenger Protocol's protobuf
+_These services are coming from the Travel Token Messenger Protocol's protobuf
 definitions._
 
 #### Parameters
@@ -2913,7 +2913,7 @@ Reverts if the public key does not exist
 
 ## ServiceRegistry
 
-Service registry is used by the {CMAccountManager} contract to register
+Service registry is used by the {TTMAccountManager} contract to register
 services by hashing (keccak256) the service name (string) and creating a mapping
 as keccak256(serviceName) => serviceName.
 
@@ -2976,10 +2976,10 @@ service name and adds it to the registry
 
 ```text
  ┌────────────── pkg ─────────────┐ ┌───── service name ─────┐
-"cmp.services.accommodation.v1alpha.AccommodationSearchService"
+"ttm.services.accommodation.v1alpha.AccommodationSearchService"
 ```
 
-_These services are coming from the Camino Messenger Protocol's protobuf
+_These services are coming from the Travel Token Messenger Protocol's protobuf
 definitions._
 
 #### Parameters

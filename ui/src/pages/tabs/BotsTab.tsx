@@ -30,7 +30,7 @@ function BotBalance({ bot }: { bot: Address }) {
       className={`rounded px-2 py-0.5 text-xs font-medium ${
         isZero
           ? "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
-          : "bg-camino-100 text-camino-700 dark:bg-camino-950 dark:text-camino-300"
+          : "bg-brand-100 text-brand-700 dark:bg-brand-950 dark:text-brand-300"
       }`}
       title={isZero ? "Bot has no funds for transaction fees" : undefined}
     >
@@ -68,7 +68,7 @@ function BotRoles({ account, bot, abi }: { account: Address; bot: Address; abi: 
             <span
               className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
                 has
-                  ? "bg-camino-100 text-camino-700 dark:bg-camino-950 dark:text-camino-300"
+                  ? "bg-brand-100 text-brand-700 dark:bg-brand-950 dark:text-brand-300"
                   : "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300"
               }`}
             >
@@ -124,8 +124,8 @@ function BotRow({
 }
 
 export function BotsTab({ account }: { account: Address }) {
-  const { cmAccountAbi, chainId } = useActiveContracts();
-  const abi = cmAccountAbi as Abi;
+  const { ttmAccountAbi, chainId } = useActiveContracts();
+  const abi = ttmAccountAbi as Abi;
   const { writeContractAsync } = useWriteContract();
   const { members, isLoading, refetch } = useRoleMembers(account, abi, "MESSENGER_BOT_ROLE");
   const { hasRole, isLoading: roleLoading } = useHasRole(account, abi, "BOT_ADMIN_ROLE");
@@ -134,7 +134,7 @@ export function BotsTab({ account }: { account: Address }) {
   const [bot, setBot] = useState("");
   const [gas, setGas] = useState("");
 
-  // The gas money is paid out of the CM Account's own balance, so validate
+  // The gas money is paid out of the TTM Account's own balance, so validate
   // against that and warn (without blocking) when it would exceed it.
   let gasError: string | undefined;
   let gasValue = 0n;
@@ -182,7 +182,7 @@ export function BotsTab({ account }: { account: Address }) {
                 onChange={(e) => setGas(e.target.value)}
               />
               <Tooltip
-                content={`This amount is sent from the CM Account's own balance to the bot to cover its transaction fees${
+                content={`This amount is sent from the TTM Account's own balance to the bot to cover its transaction fees${
                   symbol ? ` (in ${symbol})` : ""
                 }.`}
               >
@@ -217,7 +217,7 @@ export function BotsTab({ account }: { account: Address }) {
           {gasError && <p className="text-xs text-red-600">{gasError}</p>}
           {insufficient && (
             <p className="text-xs text-red-600">
-              Exceeds the CM Account balance ({accountBalance?.formatted} {symbol}). Fund the account first or the
+              Exceeds the TTM Account balance ({accountBalance?.formatted} {symbol}). Fund the account first or the
               transaction will revert.
             </p>
           )}

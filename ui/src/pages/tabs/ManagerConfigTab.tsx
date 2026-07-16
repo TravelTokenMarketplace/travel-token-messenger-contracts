@@ -116,8 +116,8 @@ export function ManagerConfigTab() {
             icon={isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
             tooltip={
               isPaused
-                ? "Resumes CM account creation — sends a transaction to your wallet."
-                : "Pauses CM account creation — sends a transaction to your wallet."
+                ? "Resumes TTM account creation — sends a transaction to your wallet."
+                : "Pauses TTM account creation — sends a transaction to your wallet."
             }
             write={() =>
               writeContractAsync({ address: manager!, abi, functionName: isPaused ? "unpause" : "pause", args: [] })

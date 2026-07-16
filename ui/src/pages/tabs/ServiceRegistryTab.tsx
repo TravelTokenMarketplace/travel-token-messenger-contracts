@@ -31,7 +31,7 @@ export function ServiceRegistryTab() {
   return (
     <Card title="Service Registry">
       <p className="mb-3 text-xs text-tarmac-500 dark:text-tarmac-400">
-        Services must be registered here before any CM Account can support or want them.
+        Services must be registered here before any TTM Account can support or want them.
       </p>
       {isLoading ? (
         <p className="py-2 text-sm text-tarmac-400">Loading…</p>
@@ -54,7 +54,7 @@ export function ServiceRegistryTab() {
                     >
                       <span className="flex min-w-0 items-baseline gap-2">
                         {parsed.version && (
-                          <span className="rounded bg-camino-50 px-1.5 py-0.5 font-mono text-xs font-medium text-camino-700 dark:bg-camino-950 dark:text-camino-300">
+                          <span className="rounded bg-brand-50 px-1.5 py-0.5 font-mono text-xs font-medium text-brand-700 dark:bg-brand-950 dark:text-brand-300">
                             {parsed.version}
                           </span>
                         )}
@@ -94,7 +94,7 @@ export function ServiceRegistryTab() {
         <div className="flex items-end gap-2">
           <input
             className={`flex-1 ${inputClass}`}
-            placeholder="cmp.services.<package>.<version>.<Name>"
+            placeholder="ttm.services.<package>.<version>.<Name>"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />

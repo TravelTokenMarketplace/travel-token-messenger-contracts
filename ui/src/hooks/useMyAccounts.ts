@@ -18,7 +18,7 @@ export function uniqueAddresses(addrs: string[]): string[] {
 }
 
 /**
- * Lists every CM Account by enumerating members of the manager's CMACCOUNT_ROLE.
+ * Lists every TTM Account by enumerating members of the manager's TTMACCOUNT_ROLE.
  * This mirrors the `account find` CLI task and avoids eth_getLogs, which
  * free-tier RPCs reject for wide block ranges.
  */
@@ -27,11 +27,11 @@ export function useManagerAccounts() {
   const { activeChainId } = useActiveChain();
   const abi = managerAbi as Abi;
 
-  const { data: cmRole } = useReadContract({
+  const { data: ttmRole } = useReadContract({
     chainId: activeChainId,
     address: manager,
     abi,
-    functionName: "CMACCOUNT_ROLE",
+    functionName: "TTMACCOUNT_ROLE",
     query: { enabled: Boolean(manager) },
   });
 
@@ -40,8 +40,8 @@ export function useManagerAccounts() {
     address: manager,
     abi,
     functionName: "getRoleMembers",
-    args: cmRole ? [cmRole] : undefined,
-    query: { enabled: Boolean(manager && cmRole) },
+    args: ttmRole ? [ttmRole] : undefined,
+    query: { enabled: Boolean(manager && ttmRole) },
   });
 
   const accounts = uniqueAddresses((data as string[]) ?? []) as Address[];
@@ -49,16 +49,16 @@ export function useManagerAccounts() {
 }
 
 /**
- * Footprint counts for a single CM Account, batched in one multicall: how many
+ * Footprint counts for a single TTM Account, batched in one multicall: how many
  * services it supports, payment tokens it accepts, and public keys it has
  * registered. Gives each dashboard row substance at a glance. Counts only — the
  * array getters decode reliably for length even where tuple getters don't (see
  * CLAUDE.md), so we read the hash/address arrays and take `.length`.
  */
 export function useAccountStats(account: Address) {
-  const { cmAccountAbi } = useActiveContracts();
+  const { ttmAccountAbi } = useActiveContracts();
   const { activeChainId } = useActiveChain();
-  const abi = cmAccountAbi as Abi;
+  const abi = ttmAccountAbi as Abi;
 
   const { data, isLoading } = useReadContracts({
     contracts: [
@@ -78,16 +78,16 @@ export function useAccountStats(account: Address) {
 }
 
 /**
- * For a single CM Account, returns which account-level roles the given address
+ * For a single TTM Account, returns which account-level roles the given address
  * holds. Uses a multicall batch of hasRole() reads (plain eth_call). Returns
  * `isLoading` so callers can distinguish "no roles" from "not resolved yet" —
  * filtering on `roles.length === 0` before the read settles would wrongly drop
  * every row.
  */
 export function useAccountRolesFor(account: Address, address: Address | undefined) {
-  const { cmAccountAbi } = useActiveContracts();
+  const { ttmAccountAbi } = useActiveContracts();
   const { activeChainId } = useActiveChain();
-  const abi = cmAccountAbi as Abi;
+  const abi = ttmAccountAbi as Abi;
 
   const { data, isLoading } = useReadContracts({
     contracts: ACCOUNT_ROLES.map((r) => ({

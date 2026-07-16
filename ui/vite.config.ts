@@ -14,7 +14,7 @@ const spaFallback = {
 
 export default defineConfig({
   plugins: [react(), spaFallback],
-  base: "/camino-messenger-contracts/",
+  base: "/travel-token-messenger-contracts/",
   test: {
     globals: true,
     environment: "jsdom",

@@ -21,6 +21,22 @@ vi.mock("../../wallet/activeChain", () => ({
   useActiveChain: () => ({ activeChainId: 84532, setActiveChainId: vi.fn() }),
 }));
 vi.mock("../../tx/TxProvider", () => ({ useTx: () => ({ track: vi.fn() }) }));
+// The real generated/addresses.ts is populated by `yarn sync` from on-chain
+// deployment journals and is empty until a deployment exists under the
+// renamed Ignition module id, so this test must not depend on it being
+// present to exercise the "supported" path.
+vi.mock("../../hooks/useActiveContracts", () => ({
+  useActiveContracts: () => ({
+    chainId: 84532,
+    supported: true,
+    manager: "0x2222222222222222222222222222222222222222",
+    bookingToken: "0x3333333333333333333333333333333333333333",
+    ttmAccountImpl: "0x4444444444444444444444444444444444444444",
+    managerAbi: [],
+    ttmAccountAbi: [],
+    bookingTokenAbi: [],
+  }),
+}));
 
 function wrap(ui: React.ReactNode) {
   return render(<QueryClientProvider client={new QueryClient()}>{ui}</QueryClientProvider>);

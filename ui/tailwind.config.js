@@ -1,8 +1,8 @@
 /**
- * Transit-board terminal identity for the Camino Messenger console.
+ * Transit-board terminal identity for the Travel Token Messenger console.
  *
  * Two accents carry meaning, not decoration:
- *   camino (teal)     = active / confirmed / "go"
+ *   brand (teal)      = active / confirmed / "go"
  *   departure (amber) = pending / in-transit
  * Neutrals read as a departures board: tarmac ink on cool paper.
  */
@@ -41,8 +41,8 @@ export default {
           DEFAULT: "#EEF2F5",
           raised: "#F7F9FB",
         },
-        // Camino brand-adjacent teal — the "go" signal.
-        camino: {
+        // Travel Token Messenger brand-adjacent teal — the "go" signal.
+        brand: {
           DEFAULT: "#12B8A6",
           50: "#E6FAF6",
           100: "#C2F1E9",

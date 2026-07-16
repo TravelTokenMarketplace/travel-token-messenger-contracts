@@ -14,7 +14,7 @@ import { ERC721EnumerableUpgradeable } from "@openzeppelin/contracts-upgradeable
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
 // Manager Interface
-import { ICMAccountManager } from "../manager/ICMAccountManager.sol";
+import { ITTMAccountManager } from "../manager/ITTMAccountManager.sol";
 
 // Utils
 import { Address } from "@openzeppelin/contracts/utils/Address.sol";
@@ -28,7 +28,7 @@ import { BookingTokenCancellable, CancellationProposalStatus } from "./BookingTo
 
 /**
  * @title BookingToken
- * @notice Booking Token contract represents a booking done on the Camino Messenger.
+ * @notice Booking Token contract represents a booking done on the Travel Token Messenger.
  *
  * Suppliers can mint Booking Tokens and reserve them for a distributor address to
  * buy.
@@ -96,8 +96,8 @@ contract BookingToken is
 
     /**
      * @dev Special address for offchain payments. The enum for this
-     * is defined in the Camino Messenger Protocol's
-     * cmp.types.<version>.IsoCurrency enum (currency.proto file).
+     * is defined in the Travel Token Messenger Protocol's
+     * ttm.types.<version>.IsoCurrency enum (currency.proto file).
      * @notice A third-party service is used to handle payments.
      */
     address public constant OFFCHAIN_PAYMENT = address(1);
@@ -116,8 +116,8 @@ contract BookingToken is
 
     // Reservation details
     struct TokenReservation {
-        address reservedFor; // CM Account address that can buy the token
-        address supplier; // CM Account address that minted the token and created the reservation
+        address reservedFor; // TTM Account address that can buy the token
+        address supplier; // TTM Account address that minted the token and created the reservation
         uint256 expirationTimestamp; // Timestamp when the reservation expires
         uint256 price; // Price of the token, only native for now
         IERC20 paymentToken; // Token used to pay for the reserved token
@@ -125,9 +125,9 @@ contract BookingToken is
         bool cancellable; // Is the token (booking) cancellable
     }
 
-    /// @custom:storage-location erc7201:camino.messenger.storage.BookingToken
+    /// @custom:storage-location erc7201:traveltoken.messenger.storage.BookingToken
     struct BookingTokenStorage {
-        // CMAccountManager address
+        // TTMAccountManager address
         address _manager;
         // Counter for generating unique token IDs
         uint256 _nextTokenId;
@@ -139,9 +139,9 @@ contract BookingToken is
         mapping(uint256 tokenId => BookingStatus status) _bookingStatus;
     }
 
-    // keccak256(abi.encode(uint256(keccak256("camino.messenger.storage.BookingToken")) - 1)) & ~bytes32(uint256(0xff));
+    // keccak256(abi.encode(uint256(keccak256("traveltoken.messenger.storage.BookingToken")) - 1)) & ~bytes32(uint256(0xff));
     bytes32 private constant BookingTokenStorageLocation =
-        0x9db9d405bf15683ce835607b1f0b423dc1484d44bb9d5af64a483fa4afd82900;
+        0x54347f9bbfbc2e7b5786abab9693d2ba67834fa4787a7740d72712e87e207400;
 
     function _getBookingTokenStorage() internal pure returns (BookingTokenStorage storage $) {
         assembly {
@@ -200,11 +200,11 @@ contract BookingToken is
     error ExpirationTimestampTooSoon(uint256 expirationTimestamp, uint256 minExpirationTimestampDiff);
 
     /**
-     * @notice Address is not a CM Account.
+     * @notice Address is not a TTM Account.
      *
      * @param account account address
      */
-    error NotCMAccount(address account);
+    error NotTTMAccount(address account);
 
     /**
      * @notice ReservedFor and buyer mismatch.
@@ -284,10 +284,10 @@ contract BookingToken is
      ***************************************************/
 
     /**
-     * @notice Only CMAccount modifier.
+     * @notice Only TTMAccount modifier.
      */
-    modifier onlyCMAccount(address account) {
-        requireCMAccount(account);
+    modifier onlyTTMAccount(address account) {
+        requireTTMAccount(account);
         _;
     }
 
@@ -340,7 +340,7 @@ contract BookingToken is
     /**
      * @notice Mints a new token with a reservation for a specific address.
      *
-     * @param reservedFor The CM Account address that can buy the token
+     * @param reservedFor The TTM Account address that can buy the token
      * @param uri The URI of the token
      * @param expirationTimestamp The expiration timestamp
      * @param price The price of the token
@@ -356,9 +356,9 @@ contract BookingToken is
         IERC20 paymentToken,
         uint256 offchainPaymentCurrency,
         bool cancellable
-    ) public virtual onlyCMAccount(msg.sender) {
-        // Require reservedFor to be a CM Account
-        requireCMAccount(reservedFor);
+    ) public virtual onlyTTMAccount(msg.sender) {
+        // Require reservedFor to be a TTM Account
+        requireTTMAccount(reservedFor);
 
         BookingTokenStorage storage $ = _getBookingTokenStorage();
 
@@ -442,11 +442,11 @@ contract BookingToken is
      *
      * For native coin, the message sender should send the exact amount.
      *
-     * Only CM Accounts can call this function
+     * Only TTM Accounts can call this function
      *
      * @param tokenId The token id
      */
-    function buyReservedToken(uint256 tokenId) public payable virtual nonReentrant onlyCMAccount(msg.sender) {
+    function buyReservedToken(uint256 tokenId) public payable virtual nonReentrant onlyTTMAccount(msg.sender) {
         BookingTokenStorage storage $ = _getBookingTokenStorage();
 
         // Get the reservation for the token
@@ -486,7 +486,7 @@ contract BookingToken is
     function processPayment(IERC20 paymentToken, uint256 paymentAmount, address recipient) internal virtual {
         // Handle the payment based on payment type
         if (address(paymentToken) == NATIVE_PAYMENT) {
-            // Payment is in native currency (CAM)
+            // Payment is in native currency (ETH)
             if (msg.value != paymentAmount) {
                 revert IncorrectPrice(msg.value, paymentAmount);
             }
@@ -584,10 +584,10 @@ contract BookingToken is
 
             // Check if the current proposer is the owner
             if (msg.sender != currentProposer) {
-                // FIXME: Define a reason in the  CMP and update this
+                // FIXME: Define a reason in the Travel Token Messenger Protocol and update this
                 _rejectCancellation(owner, supplier, tokenId, 99, 1);
             } else {
-                // FIXME: Define a reason in the  CMP and update this
+                // FIXME: Define a reason in the Travel Token Messenger Protocol and update this
                 _withdrawCancellation(owner, supplier, tokenId, 99, 1);
             }
         }
@@ -656,23 +656,23 @@ contract BookingToken is
     }
 
     /**
-     * @notice Checks if an address is a CM Account.
+     * @notice Checks if an address is a TTM Account.
      *
      * @param account The address to check
-     * @return true if the address is a CM Account
+     * @return true if the address is a TTM Account
      */
-    function isCMAccount(address account) public view virtual returns (bool) {
-        return ICMAccountManager(getManagerAddress()).isCMAccount(account);
+    function isTTMAccount(address account) public view virtual returns (bool) {
+        return ITTMAccountManager(getManagerAddress()).isTTMAccount(account);
     }
 
     /**
-     * @notice Checks if the address is a CM Account and reverts if not.
+     * @notice Checks if the address is a TTM Account and reverts if not.
      *
      * @param account The address to check
      */
-    function requireCMAccount(address account) internal view virtual {
-        if (!isCMAccount(account)) {
-            revert NotCMAccount(account);
+    function requireTTMAccount(address account) internal view virtual {
+        if (!isTTMAccount(account)) {
+            revert NotTTMAccount(account);
         }
     }
 
@@ -723,7 +723,7 @@ contract BookingToken is
         uint256 refundAmount,
         uint16 cancellationReason,
         uint16 cancellationReasonVersion
-    ) external virtual onlyCMAccount(msg.sender) {
+    ) external virtual onlyTTMAccount(msg.sender) {
         // Revert if token does not exist
         address owner = _requireOwned(tokenId);
 
@@ -740,7 +740,7 @@ contract BookingToken is
         _initiateCancellation(owner, supplier, tokenId, refundAmount, cancellationReason, cancellationReasonVersion);
     }
 
-    function acceptCancellation(uint256 tokenId, uint256 refundAmount) external virtual onlyCMAccount(msg.sender) {
+    function acceptCancellation(uint256 tokenId, uint256 refundAmount) external virtual onlyTTMAccount(msg.sender) {
         // Revert if token does not exist
         address owner = _requireOwned(tokenId);
 
@@ -762,7 +762,7 @@ contract BookingToken is
         uint256 refundAmount,
         uint16 counterReason,
         uint16 counterReasonVersion
-    ) external virtual onlyCMAccount(msg.sender) {
+    ) external virtual onlyTTMAccount(msg.sender) {
         // Revert if token does not exist
         address owner = _requireOwned(tokenId);
 
@@ -783,7 +783,7 @@ contract BookingToken is
         uint256 tokenId,
         uint16 withdrawalReason,
         uint16 withdrawalReasonVersion
-    ) external virtual onlyCMAccount(msg.sender) {
+    ) external virtual onlyTTMAccount(msg.sender) {
         // Revert if token does not exist
         address owner = _requireOwned(tokenId);
 
@@ -804,7 +804,7 @@ contract BookingToken is
         uint256 tokenId,
         uint16 rejectionReason,
         uint16 rejectionReasonVersion
-    ) external virtual onlyCMAccount(msg.sender) {
+    ) external virtual onlyTTMAccount(msg.sender) {
         // Revert if token does not exist
         address owner = _requireOwned(tokenId);
 
@@ -824,7 +824,7 @@ contract BookingToken is
     function finalizeCancellation(
         uint256 tokenId,
         uint256 checkRefundAmount
-    ) external payable virtual onlyCMAccount(msg.sender) {
+    ) external payable virtual onlyTTMAccount(msg.sender) {
         // Revert if token does not exist
         address owner = _requireOwned(tokenId);
 

@@ -115,7 +115,7 @@ function EnumerableRoleRow({
             <span
               className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                 !isLoading && members.length > 0
-                  ? "bg-camino-100 text-camino-700 dark:bg-camino-950 dark:text-camino-300"
+                  ? "bg-brand-100 text-brand-700 dark:bg-brand-950 dark:text-brand-300"
                   : "bg-tarmac-100 text-tarmac-500 dark:bg-tarmac-700 dark:text-tarmac-400"
               }`}
               title={`${members.length} address${members.length === 1 ? "" : "es"} with this role`}
@@ -198,7 +198,7 @@ function NonEnumerableRoleRow({
           open={open}
           badge={
             youHold ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-camino-100 px-2 py-0.5 text-xs font-medium text-camino-700 dark:bg-camino-950 dark:text-camino-300">
+              <span className="inline-flex items-center gap-1 rounded-full bg-brand-100 px-2 py-0.5 text-xs font-medium text-brand-700 dark:bg-brand-950 dark:text-brand-300">
                 <ShieldCheck className="h-3 w-3" /> You
               </span>
             ) : (

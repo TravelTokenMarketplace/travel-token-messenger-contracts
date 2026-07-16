@@ -3,8 +3,8 @@ import { parseServiceName, versionOrder } from "./serviceName";
 
 describe("parseServiceName", () => {
   it("parses a standard service identifier", () => {
-    expect(parseServiceName("cmp.services.accommodation.v5.AccommodationSearchService")).toEqual({
-      full: "cmp.services.accommodation.v5.AccommodationSearchService",
+    expect(parseServiceName("ttm.services.accommodation.v5.AccommodationSearchService")).toEqual({
+      full: "ttm.services.accommodation.v5.AccommodationSearchService",
       pkg: "accommodation",
       version: "v5",
       name: "AccommodationSearchService",
@@ -12,14 +12,14 @@ describe("parseServiceName", () => {
   });
 
   it("handles packages with underscores", () => {
-    const p = parseServiceName("cmp.services.seat_map.v4.SeatMapService");
+    const p = parseServiceName("ttm.services.seat_map.v4.SeatMapService");
     expect(p.pkg).toBe("seat_map");
     expect(p.version).toBe("v4");
     expect(p.name).toBe("SeatMapService");
   });
 
   it("recognises alpha versions", () => {
-    expect(parseServiceName("cmp.services.ping.v1alpha.PingService").version).toBe("v1alpha");
+    expect(parseServiceName("ttm.services.ping.v1alpha.PingService").version).toBe("v1alpha");
   });
 
   it("falls back gracefully for non-conforming names", () => {

@@ -5,7 +5,7 @@ import { useActiveContracts } from "../hooks/useActiveContracts";
 
 /**
  * Warns, in the account's left pane, when the opened address isn't actually a
- * CM Account according to the manager (no CMACCOUNT_ROLE) or isn't a valid
+ * TTM Account according to the manager (no TTMACCOUNT_ROLE) or isn't a valid
  * address at all. The workspace still renders so users can inspect raw state.
  */
 export function AccountValidityNotice({ account }: { account: Address }) {
@@ -16,7 +16,7 @@ export function AccountValidityNotice({ account }: { account: Address }) {
     chainId,
     address: manager,
     abi: managerAbi as Abi,
-    functionName: "isCMAccount",
+    functionName: "isTTMAccount",
     args: [account],
     query: { enabled: validAddress && !!manager && supported },
   });
@@ -33,9 +33,9 @@ export function AccountValidityNotice({ account }: { account: Address }) {
   if (!supported || isLoading || isCM !== false) return null;
 
   return (
-    <Notice title="Not a CM Account">
-      The manager on this network does not recognize this address as a CM Account (it lacks the{" "}
-      <code className="font-mono">CMACCOUNT_ROLE</code>). You can still browse, but management actions will likely
+    <Notice title="Not a TTM Account">
+      The manager on this network does not recognize this address as a TTM Account (it lacks the{" "}
+      <code className="font-mono">TTMACCOUNT_ROLE</code>). You can still browse, but management actions will likely
       revert.
     </Notice>
   );

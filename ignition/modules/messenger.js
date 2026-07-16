@@ -1,14 +1,14 @@
 const { buildModule } = require("@nomicfoundation/hardhat-ignition/modules");
 
-const CaminoMessengerModule = buildModule("CaminoMessengerModule", (m) => {
+const TravelTokenMessengerModule = buildModule("TravelTokenMessengerModule", (m) => {
     /***************************************************
      *                  SET ACCOUNTS                   *
      ***************************************************/
 
     // Use the first account as the admin. For local node this is the first account
-    // from hardhat's example accounts. For Camino (mainnet) and Columbus (testnet)
-    // this is the vars from hardhat's config vars CAMINO_DEPLOYER_PRIVATE_KEY and
-    // COLUMBUS_DEPLOYER_PRIVATE_KEY (defined in hardhat.config.js).
+    // from hardhat's example accounts. For Base Sepolia this is the vars from
+    // hardhat's config vars BASE_SEPOLIA_DEPLOYER_PRIVATE_KEY (defined in
+    // hardhat.config.js).
     //const admin = m.getParameter("managerAdmin", m.getAccount(0));
     const admin = m.getAccount(0);
 
@@ -16,39 +16,39 @@ const CaminoMessengerModule = buildModule("CaminoMessengerModule", (m) => {
     const upgrader = m.getParameter("managerUpgrader", admin);
     const versioner = m.getParameter("managerVersioner", admin);
 
-    // Deploy CMAccountManager implementation contract
-    const cmAccountManager = m.contract("CMAccountManager");
+    // Deploy TTMAccountManager implementation contract
+    const ttmAccountManager = m.contract("TTMAccountManager");
 
-    // Encode the initialize function call for CMAccountManager
-    const initializeManagerData = m.encodeFunctionCall(cmAccountManager, "initialize", [
+    // Encode the initialize function call for TTMAccountManager
+    const initializeManagerData = m.encodeFunctionCall(ttmAccountManager, "initialize", [
         admin,
         pauser,
         upgrader,
         versioner,
     ]);
 
-    // Deploy the proxy contract for CMAccountManager with the initialize data
-    const ManagerProxy = m.contract("ERC1967Proxy", [cmAccountManager, initializeManagerData], {
+    // Deploy the proxy contract for TTMAccountManager with the initialize data
+    const ManagerProxy = m.contract("ERC1967Proxy", [ttmAccountManager, initializeManagerData], {
         id: "ManagerERC1967Proxy",
     });
 
-    // Create instance of the proxy contract with the CMAccountManager ABI
-    const managerProxy = m.contractAt("CMAccountManager", ManagerProxy, { id: "ManagerProxy" });
+    // Create instance of the proxy contract with the TTMAccountManager ABI
+    const managerProxy = m.contractAt("TTMAccountManager", ManagerProxy, { id: "ManagerProxy" });
 
     /***************************************************
-     *             CM ACCOUNT IMPLEMENTATION           *
+     *             TTM ACCOUNT IMPLEMENTATION          *
      ***************************************************/
 
     // BookingTokenOperator library
     const bookingTokenOperator = m.library("BookingTokenOperator");
 
-    // Deploy CMAccount implementation with the BookingTokenOperator library
-    const CMAccountImpl = m.contract("CMAccount", [], {
+    // Deploy TTMAccount implementation with the BookingTokenOperator library
+    const TTMAccountImpl = m.contract("TTMAccount", [], {
         libraries: { BookingTokenOperator: bookingTokenOperator },
     });
 
-    // Set the CMAccount implementation in the manager
-    m.call(managerProxy, "setAccountImplementation", [CMAccountImpl]);
+    // Set the TTMAccount implementation in the manager
+    m.call(managerProxy, "setAccountImplementation", [TTMAccountImpl]);
 
     /***************************************************
      *                  BOOKING TOKEN                  *
@@ -84,7 +84,7 @@ const CaminoMessengerModule = buildModule("CaminoMessengerModule", (m) => {
     // Set the booking token address in the manager
     m.call(managerProxy, "setBookingTokenAddress", [bookingTokenProxy.address]);
 
-    return { managerProxy, bookingTokenProxy, CMAccountImpl };
+    return { managerProxy, bookingTokenProxy, TTMAccountImpl };
 });
 
-module.exports = CaminoMessengerModule;
+module.exports = TravelTokenMessengerModule;

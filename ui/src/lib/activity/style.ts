@@ -7,7 +7,7 @@ import { type ActivityCategory } from "./types";
  * Tailwind's content scanner keeps them.
  */
 export const CATEGORY_STYLE: Record<ActivityCategory, { icon: string; dot: string }> = {
-  Bookings: { icon: "bg-camino-500/10 text-camino-600 dark:text-camino-400", dot: "bg-camino-500" },
+  Bookings: { icon: "bg-brand-500/10 text-brand-600 dark:text-brand-400", dot: "bg-brand-500" },
   Cancellations: { icon: "bg-rose-500/10 text-rose-600 dark:text-rose-400", dot: "bg-rose-500" },
   Accounts: { icon: "bg-blue-500/10 text-blue-600 dark:text-blue-400", dot: "bg-blue-500" },
   Services: { icon: "bg-sky-500/10 text-sky-600 dark:text-sky-400", dot: "bg-sky-500" },

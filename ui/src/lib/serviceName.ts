@@ -9,8 +9,8 @@ export interface ParsedService {
 }
 
 /**
- * Parses a CMP service identifier of the form
- * `cmp.services.<package>.<version>.<ServiceName>` into its parts. Tolerant of
+ * Parses a Travel Token Messenger Protocol service identifier of the form
+ * `ttm.services.<package>.<version>.<ServiceName>` into its parts. Tolerant of
  * names that don't match: the whole string is used as the name in that case.
  */
 export function parseServiceName(full: string): ParsedService {
@@ -23,7 +23,7 @@ export function parseServiceName(full: string): ParsedService {
   const version = isVersion ? maybeVersion : undefined;
 
   const end = isVersion ? parts.length - 2 : parts.length - 1;
-  const start = parts[0] === "cmp" && parts[1] === "services" ? 2 : 0;
+  const start = parts[0] === "ttm" && parts[1] === "services" ? 2 : 0;
   const pkg = parts.slice(start, end).join(".");
 
   return { full, pkg, version, name };

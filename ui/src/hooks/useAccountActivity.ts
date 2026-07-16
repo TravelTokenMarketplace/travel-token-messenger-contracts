@@ -7,7 +7,7 @@ import { useActiveContracts } from "./useActiveContracts";
 import { ACCOUNT_EVENTS, SERVICE_HASH_EVENTS, renderSentence } from "../lib/activity/catalog";
 
 /**
- * All activity emitted by a single CM Account proxy (bots, services, tokens,
+ * All activity emitted by a single TTM Account proxy (bots, services, tokens,
  * pubkeys, funds, config). One address, so a single getLogs filter covers it.
  *
  * Service events carry only the keccak hash of the service name (it's an indexed

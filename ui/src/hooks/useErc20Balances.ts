@@ -17,13 +17,13 @@ export interface TokenBalance {
 }
 
 export function useErc20Balances(account: Address): { tokens: TokenBalance[]; isLoading: boolean } {
-  const { chainId, cmAccountAbi } = useActiveContracts();
+  const { chainId, ttmAccountAbi } = useActiveContracts();
 
   // On-chain payment tokens the account supports.
   const { data: supportedRaw, isLoading: supportedLoading } = useReadContract({
     chainId,
     address: account,
-    abi: cmAccountAbi,
+    abi: ttmAccountAbi,
     functionName: "getSupportedTokens",
   });
   const supported = (supportedRaw as Address[] | undefined) ?? [];

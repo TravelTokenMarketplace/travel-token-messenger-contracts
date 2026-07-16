@@ -82,7 +82,7 @@ export function ActivityList({
                   onClick={() => toggle(cat)}
                   className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs transition-colors ${
                     on
-                      ? "border-camino-600 bg-camino-50 text-camino-700 dark:border-camino-400 dark:bg-camino-500/10 dark:text-camino-300"
+                      ? "border-brand-600 bg-brand-50 text-brand-700 dark:border-brand-400 dark:bg-brand-500/10 dark:text-brand-300"
                       : "border-tarmac-300 text-tarmac-500 hover:bg-tarmac-50 dark:border-tarmac-700 dark:text-tarmac-400 dark:hover:bg-tarmac-800"
                   }`}
                 >

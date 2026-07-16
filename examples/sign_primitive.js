@@ -13,14 +13,14 @@ const { ethers } = require("hardhat");
  *
  *   Deployed Addresses
  *
- *   CaminoMessengerModule#BookingToken - 0x5FbDB2315678afecb367f032d93F642f64180aa3
- *   CaminoMessengerModule#BookingTokenOperator - 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
- *   CaminoMessengerModule#CMAccountManager - 0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
- *   CaminoMessengerModule#CMAccount - 0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9
- *   CaminoMessengerModule#ManagerERC1967Proxy - 0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9
- *   CaminoMessengerModule#ManagerProxy - 0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9
- *   CaminoMessengerModule#BookingTokenERC1967Proxy - 0x5FC8d32690cc91D4c39d9d3abcBD16989F875707
- *   CaminoMessengerModule#BookingTokenProxy - 0x5FC8d32690cc91D4c39d9d3abcBD16989F875707
+ *   TravelTokenMessengerModule#BookingToken - 0x5FbDB2315678afecb367f032d93F642f64180aa3
+ *   TravelTokenMessengerModule#BookingTokenOperator - 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+ *   TravelTokenMessengerModule#TTMAccountManager - 0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
+ *   TravelTokenMessengerModule#TTMAccount - 0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9
+ *   TravelTokenMessengerModule#ManagerERC1967Proxy - 0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9
+ *   TravelTokenMessengerModule#ManagerProxy - 0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9
+ *   TravelTokenMessengerModule#BookingTokenERC1967Proxy - 0x5FC8d32690cc91D4c39d9d3abcBD16989F875707
+ *   TravelTokenMessengerModule#BookingTokenProxy - 0x5FC8d32690cc91D4c39d9d3abcBD16989F875707
  *
  * Now you are ready to run this script:
  *   yarn hardhat run examples/sign_primitive.js --network localhost
@@ -29,19 +29,19 @@ const { ethers } = require("hardhat");
  *
  *   ❯ yarn hardhat run examples/sign_primitive.js --network localhost
  *   yarn run v1.22.19
- *   $ /hgst/work/github.com/chain4travel/camino-messenger-contracts/node_modules/.bin/hardhat run examples/sign_primitive.js --network localhost
+ *   $ /hgst/work/github.com/TravelTokenMarketplace/travel-token-messenger-contracts/node_modules/.bin/hardhat run examples/sign_primitive.js --network localhost
  *
- *   ----------------------- Prepare CMAccount ------------------------------------------------
+ *   ----------------------- Prepare TTMAccount ------------------------------------------------
  *   🔑 Signer: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
- *   * Getting CMAccountManager and creating a CMAccount...
- *   * Created CMAccount at address: 0x8271373aC5cD66E9e7dC752c0e39da5d12988Ec6
+ *   * Getting TTMAccountManager and creating a TTMAccount...
+ *   * Created TTMAccount at address: 0x8271373aC5cD66E9e7dC752c0e39da5d12988Ec6
  *   Registering address as a bot (Cheque signer)...
  *   Done!
  *
  *   ----------------------- creating cheque and signatures (off-chain) -----------------------
  *   Cheque: {
- *     fromCMAccount: '0x8271373aC5cD66E9e7dC752c0e39da5d12988Ec6',
- *     toCMAccount: '0x8271373aC5cD66E9e7dC752c0e39da5d12988Ec6',
+ *     fromTTMAccount: '0x8271373aC5cD66E9e7dC752c0e39da5d12988Ec6',
+ *     toTTMAccount: '0x8271373aC5cD66E9e7dC752c0e39da5d12988Ec6',
  *     toBot: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
  *     counter: 1n,
  *     amount: 1000000000000000000n,
@@ -58,65 +58,65 @@ const { ethers } = require("hardhat");
  *   Signature: 0xaef61cbfd3dbd39f1184a425113707cd3ac2a732b5e379d19788e9d174aca8c638a56ecad452bbfedd1a2ccd0c79ce0f942d05ecd33c87af25e239abd33d2ad91c
  *   🔑 Recovered Signer: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 <== Should be same as the 'Signer'
  *
- *   ----------------------- Trying with a CMAccount (on-chain) -------------------------------
- *   * Calling CMAccount.verifyCheque...
+ *   ----------------------- Trying with a TTMAccount (on-chain) -------------------------------
+ *   * Calling TTMAccount.verifyCheque...
  *   🔑 Recovered (on-chain): 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 <== Should be same as the off-chain 'Signer' above
  *   Done in 1.94s.
  */
 
 async function main() {
-    console.log("\n----------------------- Prepare CMAccount ------------------------------------------------");
+    console.log("\n----------------------- Prepare TTMAccount ------------------------------------------------");
     // First signer from hardhat local:
     // address: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
     const [wallet] = await ethers.getSigners();
 
     console.log("🔑 Signer:", wallet.address);
-    // First we need to create a CMAccount. So, we get the contract at the address
+    // First we need to create a TTMAccount. So, we get the contract at the address
     // below. Which is always the same address on a fresh hardhat local network
     // because the transaction creating it is the same. (same nonce, same owner
     // etc..)
-    console.log("* Getting CMAccountManager and creating a CMAccount...");
-    const cmAccountManagerAddress = "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9";
-    const manager = await ethers.getContractAt("CMAccountManager", cmAccountManagerAddress);
+    console.log("* Getting TTMAccountManager and creating a TTMAccount...");
+    const ttmAccountManagerAddress = "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9";
+    const manager = await ethers.getContractAt("TTMAccountManager", ttmAccountManagerAddress);
 
-    // Create a CMAccount
-    const tx = await manager.createCMAccount(wallet.address, wallet.address, {
+    // Create a TTMAccount
+    const tx = await manager.createTTMAccount(wallet.address, wallet.address, {
         value: ethers.parseEther("200"),
     });
 
     // Get the tx receipt
     const receipt = await tx.wait();
 
-    // Parse event to get the CMAccount address
+    // Parse event to get the TTMAccount address
     const event = receipt.logs.find((log) => {
         try {
-            return manager.interface.parseLog(log).name === "CMAccountCreated";
+            return manager.interface.parseLog(log).name === "TTMAccountCreated";
         } catch (e) {
             return false;
         }
     });
 
     const parsedEvent = manager.interface.parseLog(event);
-    const cmAccountAddress = parsedEvent.args.account;
+    const ttmAccountAddress = parsedEvent.args.account;
 
-    console.log("* Created CMAccount at address:", cmAccountAddress);
+    console.log("* Created TTMAccount at address:", ttmAccountAddress);
 
-    // Get newly created CM Account contract using the parsed address
-    const cmAccount = await ethers.getContractAt("CMAccount", cmAccountAddress);
+    // Get newly created TTM Account contract using the parsed address
+    const ttmAccount = await ethers.getContractAt("TTMAccount", ttmAccountAddress);
 
     console.log("Registering address as a bot (Cheque signer)...");
 
     // Register address as a bot
-    const tx2 = await cmAccount.addMessengerBot(wallet.address, 0);
+    const tx2 = await ttmAccount.addMessengerBot(wallet.address, 0);
     const receipt2 = await tx2.wait();
     console.log("Done!");
 
     console.log("\n----------------------- creating cheque and signatures (off-chain) -----------------------");
 
-    // Create a sample cheque, CM account addresses used here are same as above. Bot address is just dummy address.
+    // Create a sample cheque, TTM account addresses used here are same as above. Bot address is just dummy address.
     const cheque = {
-        fromCMAccount: cmAccountAddress,
-        toCMAccount: cmAccountAddress,
+        fromTTMAccount: ttmAccountAddress,
+        toTTMAccount: ttmAccountAddress,
         toBot: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
         counter: 1n,
         amount: ethers.parseUnits("1.0", "ether"), // 1 ETH
@@ -129,7 +129,7 @@ async function main() {
     // Calculate the typehash
     const MESSENGER_CHEQUE_TYPEHASH = ethers.keccak256(
         ethers.toUtf8Bytes(
-            "MessengerCheque(address fromCMAccount,address toCMAccount,address toBot,uint256 counter,uint256 amount,uint256 createdAt,uint256 expiresAt)",
+            "MessengerCheque(address fromTTMAccount,address toTTMAccount,address toBot,uint256 counter,uint256 amount,uint256 createdAt,uint256 expiresAt)",
         ),
     );
 
@@ -145,13 +145,13 @@ async function main() {
     const coder = ethers.AbiCoder.defaultAbiCoder();
 
     // Calculate the domain separator using domain typehash and correct values for
-    // name, version, and chain id. (should be same with the CMAccount)
+    // name, version, and chain id. (should be same with the TTMAccount)
     const DOMAIN_SEPARATOR = ethers.keccak256(
         coder.encode(
             ["bytes32", "bytes32", "bytes32", "uint256"],
             [
                 DOMAIN_TYPEHASH,
-                ethers.keccak256(ethers.toUtf8Bytes("CaminoMessenger")),
+                ethers.keccak256(ethers.toUtf8Bytes("TravelTokenMessenger")),
                 ethers.keccak256(ethers.toUtf8Bytes("1")),
                 chainId,
             ],
@@ -171,8 +171,8 @@ async function main() {
             ["bytes32", "address", "address", "address", "uint256", "uint256", "uint256", "uint256"],
             [
                 MESSENGER_CHEQUE_TYPEHASH,
-                cheque.fromCMAccount,
-                cheque.toCMAccount,
+                cheque.fromTTMAccount,
+                cheque.toTTMAccount,
                 cheque.toBot,
                 cheque.counter,
                 cheque.amount,
@@ -214,16 +214,16 @@ async function main() {
     const recoveredAddress = ethers.recoverAddress(ethers.getBytes(typedDataHash), signature);
     console.log("\n🔑 Recovered Signer (off-chain):", recoveredAddress, "<== Should be same as the 'Signer'");
 
-    // Try to recover the same address from the CMAccount's `verifyCheque(cheque ..., signature)` function.
-    console.log("\n----------------------- Trying with a CMAccount (on-chain) -------------------------------");
+    // Try to recover the same address from the TTMAccount's `verifyCheque(cheque ..., signature)` function.
+    console.log("\n----------------------- Trying with a TTMAccount (on-chain) -------------------------------");
 
-    console.log("* Calling CMAccount.verifyCheque...");
+    console.log("* Calling TTMAccount.verifyCheque...");
 
     // Call `verifyCheque` to verify if the recovered signer is the same as our
     // original signer's address
-    const res = await cmAccount.verifyCheque(
-        cheque.fromCMAccount,
-        cheque.toCMAccount,
+    const res = await ttmAccount.verifyCheque(
+        cheque.fromTTMAccount,
+        cheque.toTTMAccount,
         cheque.toBot,
         cheque.counter,
         cheque.amount,

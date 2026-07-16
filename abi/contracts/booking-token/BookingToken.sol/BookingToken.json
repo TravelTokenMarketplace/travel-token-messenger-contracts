@@ -320,17 +320,6 @@
     "type": "error"
   },
   {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "account",
-        "type": "address"
-      }
-    ],
-    "name": "NotCMAccount",
-    "type": "error"
-  },
-  {
     "inputs": [],
     "name": "NotInitializing",
     "type": "error"
@@ -338,6 +327,17 @@
   {
     "inputs": [],
     "name": "NotOwnerOrSupplier",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "NotTTMAccount",
     "type": "error"
   },
   {
@@ -1522,12 +1522,12 @@
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "account",
-        "type": "address"
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
       }
     ],
-    "name": "isCMAccount",
+    "name": "isCancellable",
     "outputs": [
       {
         "internalType": "bool",
@@ -1541,12 +1541,12 @@
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
       }
     ],
-    "name": "isCancellable",
+    "name": "isTTMAccount",
     "outputs": [
       {
         "internalType": "bool",

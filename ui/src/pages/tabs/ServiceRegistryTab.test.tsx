@@ -8,7 +8,7 @@ vi.mock("wagmi", () => ({
   useReadContract: ({ functionName }: { functionName: string }) => ({
     data:
       functionName === "getAllRegisteredServiceNames"
-        ? ["cmp.services.accommodation.v1.AccommodationSearchService"]
+        ? ["ttm.services.accommodation.v1.AccommodationSearchService"]
         : undefined,
     isLoading: false,
     refetch: vi.fn(),

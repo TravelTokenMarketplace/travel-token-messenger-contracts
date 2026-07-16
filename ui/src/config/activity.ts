@@ -4,7 +4,6 @@
 
 /** Starting batch size per chainId — the known-safe range for most public RPCs. */
 export const ACTIVITY_BATCH_BLOCKS: Record<number, bigint> = {
-  500: 10_000n, // Camino
   8453: 10_000n, // Base
   84532: 10_000n, // Base Sepolia
 };

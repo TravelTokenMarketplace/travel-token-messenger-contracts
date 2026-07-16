@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 //
-// Camino Messenger Partner Configuration
+// Travel Token Messenger Partner Configuration
 
 pragma solidity 0.8.24;
 
@@ -9,7 +9,7 @@ import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableS
 
 /**
  * @title PartnerConfiguration
- * @notice Partner Configuration is used by the {CMAccount} contract to register
+ * @notice Partner Configuration is used by the {TTMAccount} contract to register
  * supported and wanted services by the partner.
  */
 abstract contract PartnerConfiguration is Initializable {
@@ -37,7 +37,7 @@ abstract contract PartnerConfiguration is Initializable {
         EnumerableSet.AddressSet _supportedTokens; // Supported on-chain token for payment
     }
 
-    /// @custom:storage-location erc7201:camino.messenger.storage.PartnerConfiguration
+    /// @custom:storage-location erc7201:traveltoken.messenger.storage.PartnerConfiguration
     struct PartnerConfigurationStorage {
         // Set of supported service hashes
         EnumerableSet.Bytes32Set _servicesHashSet;
@@ -53,9 +53,9 @@ abstract contract PartnerConfiguration is Initializable {
         EnumerableSet.Bytes32Set _wantedServicesHashSet;
     }
 
-    // keccak256(abi.encode(uint256(keccak256("camino.messenger.storage.PartnerConfiguration")) - 1)) & ~bytes32(uint256(0xff));
+    // keccak256(abi.encode(uint256(keccak256("traveltoken.messenger.storage.PartnerConfiguration")) - 1)) & ~bytes32(uint256(0xff));
     bytes32 private constant PartnerConfigurationStorageLocation =
-        0xf2856e5e1b7689dcde1bb551fd115c3cad8d243ea609d47a46b4d22ee58d3000;
+        0x39fc6f3ebcc11656ef8cd451e9e1f6a26855304f0f1787c5b86c527a1e2d8600;
 
     function _getPartnerConfigurationStorage() private pure returns (PartnerConfigurationStorage storage $) {
         assembly {
@@ -221,9 +221,9 @@ abstract contract PartnerConfiguration is Initializable {
      *
      * ```text
      *            ┌────────────── pkg ─────────────┐ ┌───── service name ─────┐
-     * keccak256("cmp.services.accommodation.v1alpha.AccommodationSearchService")
+     * keccak256("ttm.services.accommodation.v1alpha.AccommodationSearchService")
      * ```
-     * @dev These services are coming from the Camino Messenger Protocol's protobuf
+     * @dev These services are coming from the Travel Token Messenger Protocol's protobuf
      * definitions.
      *
      * @param serviceHash Hash of the service

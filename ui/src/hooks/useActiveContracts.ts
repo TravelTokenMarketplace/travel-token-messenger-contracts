@@ -1,5 +1,5 @@
 import { type Address } from "viem";
-import { BOOKINGTOKEN_ABI, CMACCOUNT_ABI, MANAGER_ABI, getContractsForChain } from "../contracts";
+import { BOOKINGTOKEN_ABI, TTMACCOUNT_ABI, MANAGER_ABI, getContractsForChain } from "../contracts";
 import { useActiveChain } from "../wallet/activeChain";
 
 export function useActiveContracts() {
@@ -10,9 +10,9 @@ export function useActiveContracts() {
     supported: Boolean(resolved),
     manager: resolved?.manager as Address | undefined,
     bookingToken: resolved?.bookingToken as Address | undefined,
-    cmAccountImpl: resolved?.cmAccountImpl as Address | undefined,
+    ttmAccountImpl: resolved?.ttmAccountImpl as Address | undefined,
     managerAbi: MANAGER_ABI,
-    cmAccountAbi: CMACCOUNT_ABI,
+    ttmAccountAbi: TTMACCOUNT_ABI,
     bookingTokenAbi: BOOKINGTOKEN_ABI,
   };
 }

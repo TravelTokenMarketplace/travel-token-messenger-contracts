@@ -4,7 +4,7 @@ export function findCreatedAccount(logs: Pick<Log, "data" | "topics">[], abi: Ab
   for (const log of logs) {
     try {
       const decoded = decodeEventLog({ abi, data: log.data, topics: log.topics });
-      if (decoded.eventName === "CMAccountCreated") {
+      if (decoded.eventName === "TTMAccountCreated") {
         return (decoded.args as unknown as { account: Address }).account;
       }
     } catch {

@@ -33,15 +33,15 @@ contract BookingTokenCancellable {
      *                   STORAGE                       *
      ***************************************************/
 
-    /// @custom:storage-location erc7201:camino.messenger.storage.BookingTokenCancellable
+    /// @custom:storage-location erc7201:traveltoken.messenger.storage.BookingTokenCancellable
     struct BookingTokenCancellableStorage {
         // Mapping to store the ongoing cancellation proposals for each token
         mapping(uint256 tokenId => Proposal proposal) _proposals;
     }
 
-    // keccak256(abi.encode(uint256(keccak256("camino.messenger.storage.BookingTokenCancellableV2")) - 1)) & ~bytes32(uint256(0xff));
+    // keccak256(abi.encode(uint256(keccak256("traveltoken.messenger.storage.BookingTokenCancellableV2")) - 1)) & ~bytes32(uint256(0xff));
     bytes32 private constant BookingTokenCancellableStorageLocation =
-        0x0b8fb32ffc7043fda9e0ee2bcb4236acf95ab448752c73eff6cc7f2640ff8500;
+        0x1973af827d98d3fe49ea0c9179b69c8f267978d372df89173953530663b72200;
 
     /**
      * @notice Retrieves the BookingTokenCancellable storage struct from the designated storage slot.

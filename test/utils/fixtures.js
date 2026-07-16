@@ -10,9 +10,9 @@ async function setupSigners() {
         managerPauser,
         managerUpgrader,
         managerVersioner,
-        cmAccountAdmin,
-        cmAccountUpgrader,
-        cmServiceAdmin,
+        ttmAccountAdmin,
+        ttmAccountUpgrader,
+        ttmServiceAdmin,
         developerWallet,
         developerWalletAdmin,
         feeAdmin,
@@ -32,9 +32,9 @@ async function setupSigners() {
         managerPauser,
         managerUpgrader,
         managerVersioner,
-        cmAccountAdmin,
-        cmAccountUpgrader,
-        cmServiceAdmin,
+        ttmAccountAdmin,
+        ttmAccountUpgrader,
+        ttmServiceAdmin,
         developerWallet,
         developerWalletAdmin,
         feeAdmin,
@@ -62,13 +62,13 @@ async function deployNullUSDFixture() {
     return { nullUSD, nullUSDDecimals };
 }
 
-async function deployCMAccountManagerFixture() {
+async function deployTTMAccountManagerFixture() {
     // Set up signers
     await setupSigners();
 
-    const CMAccountManager = await ethers.getContractFactory("CMAccountManager");
-    const cmAccountManager = await upgrades.deployProxy(
-        CMAccountManager,
+    const TTMAccountManager = await ethers.getContractFactory("TTMAccountManager");
+    const ttmAccountManager = await upgrades.deployProxy(
+        TTMAccountManager,
         [
             signers.managerAdmin.address,
             signers.managerPauser.address,
@@ -77,42 +77,42 @@ async function deployCMAccountManagerFixture() {
         ],
         { kind: "uups" },
     );
-    return { cmAccountManager };
+    return { ttmAccountManager };
 }
 
-async function deployCMAccountImplFixture() {
+async function deployTTMAccountImplFixture() {
     const BookingTokenOperator = await ethers.getContractFactory("BookingTokenOperator");
     const bookingTokenOperator = await BookingTokenOperator.deploy();
-    const CMAccount = await ethers.getContractFactory("CMAccount", {
+    const TTMAccount = await ethers.getContractFactory("TTMAccount", {
         libraries: { BookingTokenOperator: await bookingTokenOperator.getAddress() },
     });
-    const cmAccountImpl = await CMAccount.deploy();
-    await cmAccountImpl.waitForDeployment();
+    const ttmAccountImpl = await TTMAccount.deploy();
+    await ttmAccountImpl.waitForDeployment();
 
-    return { cmAccountImpl };
+    return { ttmAccountImpl };
 }
 
-async function deployCMAccountManagerWithCMAccountImplFixture() {
+async function deployTTMAccountManagerWithTTMAccountImplFixture() {
     // Set up signers
     await setupSigners();
 
-    const { cmAccountManager } = await loadFixture(deployCMAccountManagerFixture);
-    const { cmAccountImpl } = await loadFixture(deployCMAccountImplFixture);
+    const { ttmAccountManager } = await loadFixture(deployTTMAccountManagerFixture);
+    const { ttmAccountImpl } = await loadFixture(deployTTMAccountImplFixture);
 
-    const cmAccountImplAddress = await cmAccountImpl.getAddress();
+    const ttmAccountImplAddress = await ttmAccountImpl.getAddress();
 
-    await cmAccountManager.grantRole(await cmAccountManager.VERSIONER_ROLE(), signers.managerVersioner.address);
-    await cmAccountManager.connect(signers.managerVersioner).setAccountImplementation(cmAccountImplAddress);
+    await ttmAccountManager.grantRole(await ttmAccountManager.VERSIONER_ROLE(), signers.managerVersioner.address);
+    await ttmAccountManager.connect(signers.managerVersioner).setAccountImplementation(ttmAccountImplAddress);
 
-    return { cmAccountManager, cmAccountImplAddress };
+    return { ttmAccountManager, ttmAccountImplAddress };
 }
 
 async function deployAndConfigureAllFixture() {
     // Set up signers
     await setupSigners();
 
-    const { cmAccountManager, cmAccountImplAddress } = await loadFixture(
-        deployCMAccountManagerWithCMAccountImplFixture,
+    const { ttmAccountManager, ttmAccountImplAddress } = await loadFixture(
+        deployTTMAccountManagerWithTTMAccountImplFixture,
     );
 
     const { nullUSD, nullUSDDecimals } = await loadFixture(deployNullUSDFixture);
@@ -122,61 +122,61 @@ async function deployAndConfigureAllFixture() {
     const BookingToken = await ethers.getContractFactory("BookingToken");
     const bookingToken = await upgrades.deployProxy(
         BookingToken,
-        [await cmAccountManager.getAddress(), signers.btAdmin.address, signers.btUpgrader.address],
+        [await ttmAccountManager.getAddress(), signers.btAdmin.address, signers.btUpgrader.address],
         { kind: "uups" },
     );
 
     // Set BookingToken address on the manager
-    await cmAccountManager.connect(signers.managerVersioner).setBookingTokenAddress(bookingToken.getAddress());
+    await ttmAccountManager.connect(signers.managerVersioner).setBookingTokenAddress(bookingToken.getAddress());
 
-    const tx = await cmAccountManager.createCMAccount(
-        signers.cmAccountAdmin.address,
-        signers.cmAccountUpgrader.address,
+    const tx = await ttmAccountManager.createTTMAccount(
+        signers.ttmAccountAdmin.address,
+        signers.ttmAccountUpgrader.address,
         { value: ethers.parseEther("100") },
     );
 
     const receipt = await tx.wait();
 
-    // Parse event to get the CMAccount address (this is the UUPS proxy address)
+    // Parse event to get the TTMAccount address (this is the UUPS proxy address)
     const event = receipt.logs.find((log) => {
         try {
-            return cmAccountManager.interface.parseLog(log).name === "CMAccountCreated";
+            return ttmAccountManager.interface.parseLog(log).name === "TTMAccountCreated";
         } catch (e) {
             return false;
         }
     });
 
-    const parsedEvent = cmAccountManager.interface.parseLog(event);
-    const cmAccountAddress = parsedEvent.args.account;
+    const parsedEvent = ttmAccountManager.interface.parseLog(event);
+    const ttmAccountAddress = parsedEvent.args.account;
 
-    // Get the CMAccount instance at the address
-    const cmAccount = await ethers.getContractAt("CMAccount", cmAccountAddress);
+    // Get the TTMAccount instance at the address
+    const ttmAccount = await ethers.getContractAt("TTMAccount", ttmAccountAddress);
 
     return {
-        cmAccountManager,
-        cmAccount,
+        ttmAccountManager,
+        ttmAccount,
         bookingToken,
         nullUSD,
         nullUSDDecimals,
     };
 }
 
-async function deployCMAccountWithDepositFixture() {
+async function deployTTMAccountWithDepositFixture() {
     // Set up signers
     await setupSigners();
 
-    const { cmAccountManager, cmAccount, bookingToken, nullUSD, nullUSDDecimals } =
+    const { ttmAccountManager, ttmAccount, bookingToken, nullUSD, nullUSDDecimals } =
         await loadFixture(deployAndConfigureAllFixture);
 
     // Grant withdrawer role
-    const WITHDRAWER_ROLE = await cmAccount.WITHDRAWER_ROLE();
-    await cmAccount.connect(signers.cmAccountAdmin).grantRole(WITHDRAWER_ROLE, signers.withdrawer.address);
+    const WITHDRAWER_ROLE = await ttmAccount.WITHDRAWER_ROLE();
+    await ttmAccount.connect(signers.ttmAccountAdmin).grantRole(WITHDRAWER_ROLE, signers.withdrawer.address);
 
     // Deposit CAM
     const depositAmount = ethers.parseEther("1");
 
     const depositTx = {
-        to: cmAccount.getAddress(),
+        to: ttmAccount.getAddress(),
         value: depositAmount,
     };
 
@@ -184,11 +184,11 @@ async function deployCMAccountWithDepositFixture() {
     await txResponse.wait();
 
     // Deposit service fee token
-    await nullUSD.transfer(cmAccount.getAddress(), ethers.parseUnits("1", nullUSDDecimals));
+    await nullUSD.transfer(ttmAccount.getAddress(), ethers.parseUnits("1", nullUSDDecimals));
 
     return {
-        cmAccountManager,
-        cmAccount,
+        ttmAccountManager,
+        ttmAccount,
         bookingToken,
         nullUSD,
         nullUSDDecimals,
@@ -199,53 +199,53 @@ async function deployBookingTokenFixture() {
     // Set up signers
     await setupSigners();
 
-    const { cmAccountManager, cmAccount, bookingToken, nullUSD, nullUSDDecimals } = await loadFixture(
-        deployCMAccountWithDepositFixture,
+    const { ttmAccountManager, ttmAccount, bookingToken, nullUSD, nullUSDDecimals } = await loadFixture(
+        deployTTMAccountWithDepositFixture,
     );
 
-    // Supplier CMAccount with deposit
-    const supplierCMAccount = cmAccount;
+    // Supplier TTMAccount with deposit
+    const supplierTTMAccount = ttmAccount;
 
-    // Create distributor CMAccount
-    const tx = await cmAccountManager.createCMAccount(
-        signers.cmAccountAdmin.address,
-        signers.cmAccountUpgrader.address,
+    // Create distributor TTMAccount
+    const tx = await ttmAccountManager.createTTMAccount(
+        signers.ttmAccountAdmin.address,
+        signers.ttmAccountUpgrader.address,
         { value: ethers.parseEther("100") },
     );
 
     const receipt = await tx.wait();
 
-    // Parse event to get the CMAccount address (this is the UUPS proxy address)
+    // Parse event to get the TTMAccount address (this is the UUPS proxy address)
     const event = receipt.logs.find((log) => {
         try {
-            return cmAccountManager.interface.parseLog(log).name === "CMAccountCreated";
+            return ttmAccountManager.interface.parseLog(log).name === "TTMAccountCreated";
         } catch (e) {
             return false;
         }
     });
 
-    const parsedEvent = cmAccountManager.interface.parseLog(event);
-    const distributorCMAccountAddress = parsedEvent.args.account;
+    const parsedEvent = ttmAccountManager.interface.parseLog(event);
+    const distributorTTMAccountAddress = parsedEvent.args.account;
 
-    // Get the CMAccount instance at the address
-    const distributorCMAccount = await ethers.getContractAt("CMAccount", distributorCMAccountAddress);
+    // Get the TTMAccount instance at the address
+    const distributorTTMAccount = await ethers.getContractAt("TTMAccount", distributorTTMAccountAddress);
 
-    // Deposit funds to distributor CMAccount
+    // Deposit funds to distributor TTMAccount
     const depositAmount = ethers.parseEther("1");
     const depositTx = {
-        to: distributorCMAccount.getAddress(),
+        to: distributorTTMAccount.getAddress(),
         value: depositAmount,
     };
     const txResponse = await signers.depositor.sendTransaction(depositTx);
     await txResponse.wait();
 
     // Deposit service fee token
-    await nullUSD.transfer(distributorCMAccount.getAddress(), ethers.parseUnits("1", nullUSDDecimals));
+    await nullUSD.transfer(distributorTTMAccount.getAddress(), ethers.parseUnits("1", nullUSDDecimals));
 
     return {
-        cmAccountManager,
-        supplierCMAccount,
-        distributorCMAccount,
+        ttmAccountManager,
+        supplierTTMAccount,
+        distributorTTMAccount,
         bookingToken,
         nullUSD,
         nullUSDDecimals,
@@ -256,18 +256,18 @@ async function deployBookingTokenWithNullUSDFixture() {
     // Set up signers
     await setupSigners();
 
-    const { cmAccountManager, supplierCMAccount, distributorCMAccount, bookingToken, nullUSD, nullUSDDecimals } =
+    const { ttmAccountManager, supplierTTMAccount, distributorTTMAccount, bookingToken, nullUSD, nullUSDDecimals } =
         await loadFixture(deployBookingTokenFixture);
 
-    // Fund NullUSD to the CM accounts
+    // Fund NullUSD to the TTM accounts
     const fundAmount = ethers.parseEther("1000");
-    await nullUSD.transfer(await supplierCMAccount.getAddress(), fundAmount);
-    await nullUSD.transfer(await distributorCMAccount.getAddress(), fundAmount);
+    await nullUSD.transfer(await supplierTTMAccount.getAddress(), fundAmount);
+    await nullUSD.transfer(await distributorTTMAccount.getAddress(), fundAmount);
 
     return {
-        cmAccountManager,
-        supplierCMAccount,
-        distributorCMAccount,
+        ttmAccountManager,
+        supplierTTMAccount,
+        distributorTTMAccount,
         bookingToken,
         nullUSD,
         nullUSDDecimals,
@@ -278,7 +278,7 @@ async function deployCancellationSupportFixture() {
     // Set up signers
     await setupSigners();
 
-    const { cmAccountManager, supplierCMAccount, distributorCMAccount, bookingToken, nullUSD, nullUSDDecimals } =
+    const { ttmAccountManager, supplierTTMAccount, distributorTTMAccount, bookingToken, nullUSD, nullUSDDecimals } =
         await loadFixture(deployBookingTokenWithNullUSDFixture);
 
     // Set accounts
@@ -288,14 +288,14 @@ async function deployCancellationSupportFixture() {
 
     // Set BOOKING_OPERATOR_ROLE
     // Supplier
-    const BOOKING_OPERATOR_ROLE = await supplierCMAccount.BOOKING_OPERATOR_ROLE();
-    await supplierCMAccount
-        .connect(signers.cmAccountAdmin)
+    const BOOKING_OPERATOR_ROLE = await supplierTTMAccount.BOOKING_OPERATOR_ROLE();
+    await supplierTTMAccount
+        .connect(signers.ttmAccountAdmin)
         .grantRole(BOOKING_OPERATOR_ROLE, supplierBookingOperator.address);
 
     // Distributor
-    await distributorCMAccount
-        .connect(signers.cmAccountAdmin)
+    await distributorTTMAccount
+        .connect(signers.ttmAccountAdmin)
         .grantRole(BOOKING_OPERATOR_ROLE, distributorBookingOperator.address);
 
     // Mint BOOKING TOKEN with NATIVE PAYMENT -----------------------------------------------------------------------
@@ -304,8 +304,8 @@ async function deployCancellationSupportFixture() {
     const expirationTimestamp = Math.floor(Date.now() / 1000) + 120;
     const price = ethers.parseEther("0.05");
 
-    await supplierCMAccount.connect(supplierBookingOperator).mintBookingToken(
-        distributorCMAccount.getAddress(), // Reserved for
+    await supplierTTMAccount.connect(supplierBookingOperator).mintBookingToken(
+        distributorTTMAccount.getAddress(), // Reserved for
         tokenURI, // URI
         expirationTimestamp, // Expiration of the reservation
         price, // Price of token in wei
@@ -318,7 +318,7 @@ async function deployCancellationSupportFixture() {
     const tokenWithNativePayment = 0n;
 
     // Buy the token
-    await distributorCMAccount
+    await distributorTTMAccount
         .connect(distributorBookingOperator)
         .buyBookingToken(tokenWithNativePayment, price, ethers.ZeroAddress);
 
@@ -328,8 +328,8 @@ async function deployCancellationSupportFixture() {
     const expirationTimestamp2 = Math.floor(Date.now() / 1000) + 120;
     const price2 = ethers.parseEther("99.95");
 
-    await supplierCMAccount.connect(supplierBookingOperator).mintBookingToken(
-        distributorCMAccount.getAddress(), // Reserved for
+    await supplierTTMAccount.connect(supplierBookingOperator).mintBookingToken(
+        distributorTTMAccount.getAddress(), // Reserved for
         tokenURI2, // URI
         expirationTimestamp2, // Expiration of the reservation
         price2, // Price of token in wei
@@ -342,7 +342,7 @@ async function deployCancellationSupportFixture() {
     const tokenWithNullUSDPayment = 1n;
 
     // Buy the token
-    await distributorCMAccount
+    await distributorTTMAccount
         .connect(distributorBookingOperator)
         .buyBookingToken(tokenWithNullUSDPayment, price2, await nullUSD.getAddress());
 
@@ -352,8 +352,8 @@ async function deployCancellationSupportFixture() {
     const expirationTimestamp3 = Math.floor(Date.now() / 1000) + 600;
     const price3 = ethers.parseEther("0.95");
 
-    await supplierCMAccount.connect(supplierBookingOperator).mintBookingToken(
-        distributorCMAccount.getAddress(), // Reserved for
+    await supplierTTMAccount.connect(supplierBookingOperator).mintBookingToken(
+        distributorTTMAccount.getAddress(), // Reserved for
         tokenURI3, // URI
         expirationTimestamp3, // Expiration of the reservation
         price3, // Price of token in wei
@@ -375,8 +375,8 @@ async function deployCancellationSupportFixture() {
     const expirationTimestamp4 = block.timestamp + 70; // min expiration time diff is 60
     const price4 = ethers.parseEther("0.95");
 
-    await supplierCMAccount.connect(supplierBookingOperator).mintBookingToken(
-        distributorCMAccount.getAddress(), // Reserved for
+    await supplierTTMAccount.connect(supplierBookingOperator).mintBookingToken(
+        distributorTTMAccount.getAddress(), // Reserved for
         tokenURI4, // URI
         expirationTimestamp4, // Expiration of the reservation
         price4, // Price of token in wei
@@ -400,8 +400,8 @@ async function deployCancellationSupportFixture() {
     const offChainPaymentToken = ethers.getAddress("0x0000000000000000000000000000000000000001");
     const offChainPaymentCurrency = 123;
 
-    await supplierCMAccount.connect(supplierBookingOperator).mintBookingToken(
-        distributorCMAccount.getAddress(), // Reserved for
+    await supplierTTMAccount.connect(supplierBookingOperator).mintBookingToken(
+        distributorTTMAccount.getAddress(), // Reserved for
         tokenURI5, // URI
         expirationTimestamp5, // Expiration of the reservation
         price5, // Price of token in wei
@@ -414,59 +414,61 @@ async function deployCancellationSupportFixture() {
     const tokenWithOffChainPayment = 4n;
 
     // Buy the token
-    await distributorCMAccount
+    await distributorTTMAccount
         .connect(distributorBookingOperator)
         .buyBookingToken(tokenWithOffChainPayment, price5, offChainPaymentToken);
 
-    /// OTHER CM ACCOUNT ///
+    /// OTHER TTM ACCOUNT ///
 
-    // We also need another CM Account to test for fail cases
-    // Create other CMAccount
-    const tx = await cmAccountManager.createCMAccount(
-        signers.cmAccountAdmin.address,
-        signers.cmAccountUpgrader.address,
+    // We also need another TTM Account to test for fail cases
+    // Create other TTMAccount
+    const tx = await ttmAccountManager.createTTMAccount(
+        signers.ttmAccountAdmin.address,
+        signers.ttmAccountUpgrader.address,
         { value: ethers.parseEther("100") },
     );
 
     const receipt = await tx.wait();
 
-    // Parse event to get the CMAccount address (this is the UUPS proxy address)
+    // Parse event to get the TTMAccount address (this is the UUPS proxy address)
     const event = receipt.logs.find((log) => {
         try {
-            return cmAccountManager.interface.parseLog(log).name === "CMAccountCreated";
+            return ttmAccountManager.interface.parseLog(log).name === "TTMAccountCreated";
         } catch (e) {
             return false;
         }
     });
 
-    const parsedEvent = cmAccountManager.interface.parseLog(event);
-    const otherCMAccountAddress = parsedEvent.args.account;
+    const parsedEvent = ttmAccountManager.interface.parseLog(event);
+    const otherTTMAccountAddress = parsedEvent.args.account;
 
-    // Get the CMAccount instance at the address
-    const otherCMAccount = await ethers.getContractAt("CMAccount", otherCMAccountAddress);
+    // Get the TTMAccount instance at the address
+    const otherTTMAccount = await ethers.getContractAt("TTMAccount", otherTTMAccountAddress);
 
-    // Deposit funds to the CMAccount
+    // Deposit funds to the TTMAccount
     const depositAmount = ethers.parseEther("5");
     const depositTx = {
-        to: otherCMAccount.getAddress(),
+        to: otherTTMAccount.getAddress(),
         value: depositAmount,
     };
     const txResponse = await signers.depositor.sendTransaction(depositTx);
     await txResponse.wait();
 
     // Distributor
-    await otherCMAccount.connect(signers.cmAccountAdmin).grantRole(BOOKING_OPERATOR_ROLE, otherBookingOperator.address);
+    await otherTTMAccount
+        .connect(signers.ttmAccountAdmin)
+        .grantRole(BOOKING_OPERATOR_ROLE, otherBookingOperator.address);
 
     return {
-        supplierCMAccount,
-        distributorCMAccount,
+        supplierTTMAccount,
+        distributorTTMAccount,
         bookingToken,
         nullUSD,
         tokenWithNativePayment,
         tokenWithNullUSDPayment,
         supplierBookingOperator,
         distributorBookingOperator,
-        otherCMAccount,
+        otherTTMAccount,
         otherBookingOperator,
         tokenWithoutBuying,
         tokenWithPassedExpiration,
@@ -480,31 +482,31 @@ async function deployAndConfigureAllWithRegisteredServicesFixture() {
     // Set up signers
     await setupSigners();
 
-    const { cmAccountManager, cmAccount } = await loadFixture(deployAndConfigureAllFixture);
+    const { ttmAccountManager, ttmAccount } = await loadFixture(deployAndConfigureAllFixture);
 
     // Grant SERVICE_REGISTRY_ADMIN_ROLE
-    const SERVICE_REGISTRY_ADMIN_ROLE = await cmAccountManager.SERVICE_REGISTRY_ADMIN_ROLE();
-    await cmAccountManager
+    const SERVICE_REGISTRY_ADMIN_ROLE = await ttmAccountManager.SERVICE_REGISTRY_ADMIN_ROLE();
+    await ttmAccountManager
         .connect(signers.managerAdmin)
         .grantRole(SERVICE_REGISTRY_ADMIN_ROLE, signers.registryAdmin.address);
 
     // Services to register
-    const serviceName1 = "cmp.service.accommodation.v1.AccommodationSearchService";
+    const serviceName1 = "ttm.service.accommodation.v1.AccommodationSearchService";
     const serviceHash1 = ethers.keccak256(ethers.toUtf8Bytes(serviceName1));
 
-    const serviceName2 = "cmp.service.accommodation.v2.AccommodationSearchService";
+    const serviceName2 = "ttm.service.accommodation.v2.AccommodationSearchService";
     const serviceHash2 = ethers.keccak256(ethers.toUtf8Bytes(serviceName2));
 
-    const serviceName3 = "cmp.service.accommodation.v3.AccommodationSearchService";
+    const serviceName3 = "ttm.service.accommodation.v3.AccommodationSearchService";
     const serviceHash3 = ethers.keccak256(ethers.toUtf8Bytes(serviceName3));
 
-    const serviceName4 = "cmp.service.accommodation.v4.AccommodationSearchService";
+    const serviceName4 = "ttm.service.accommodation.v4.AccommodationSearchService";
     const serviceHash4 = ethers.keccak256(ethers.toUtf8Bytes(serviceName4));
 
-    const serviceName5 = "cmp.service.accommodation.v5.AccommodationSearchService";
+    const serviceName5 = "ttm.service.accommodation.v5.AccommodationSearchService";
     const serviceHash5 = ethers.keccak256(ethers.toUtf8Bytes(serviceName5));
 
-    const serviceName6 = "cmp.service.accommodation.v6.AccommodationSearchService";
+    const serviceName6 = "ttm.service.accommodation.v6.AccommodationSearchService";
     const serviceHash6 = ethers.keccak256(ethers.toUtf8Bytes(serviceName6));
 
     const services = {
@@ -523,29 +525,29 @@ async function deployAndConfigureAllWithRegisteredServicesFixture() {
     };
 
     // Register services
-    await cmAccountManager.connect(signers.registryAdmin).registerService(serviceName1);
-    await cmAccountManager.connect(signers.registryAdmin).registerService(serviceName2);
-    await cmAccountManager.connect(signers.registryAdmin).registerService(serviceName3);
-    await cmAccountManager.connect(signers.registryAdmin).registerService(serviceName4);
-    await cmAccountManager.connect(signers.registryAdmin).registerService(serviceName5);
-    await cmAccountManager.connect(signers.registryAdmin).registerService(serviceName6);
+    await ttmAccountManager.connect(signers.registryAdmin).registerService(serviceName1);
+    await ttmAccountManager.connect(signers.registryAdmin).registerService(serviceName2);
+    await ttmAccountManager.connect(signers.registryAdmin).registerService(serviceName3);
+    await ttmAccountManager.connect(signers.registryAdmin).registerService(serviceName4);
+    await ttmAccountManager.connect(signers.registryAdmin).registerService(serviceName5);
+    await ttmAccountManager.connect(signers.registryAdmin).registerService(serviceName6);
 
     // Get the SERVICE_ADMIN_ROLE
-    const SERVICE_ADMIN_ROLE = await cmAccount.SERVICE_ADMIN_ROLE();
+    const SERVICE_ADMIN_ROLE = await ttmAccount.SERVICE_ADMIN_ROLE();
 
     // Grant SERVICE_ADMIN_ROLE to otherAccount1
-    await cmAccount.connect(signers.cmAccountAdmin).grantRole(SERVICE_ADMIN_ROLE, signers.cmServiceAdmin.address);
+    await ttmAccount.connect(signers.ttmAccountAdmin).grantRole(SERVICE_ADMIN_ROLE, signers.ttmServiceAdmin.address);
 
-    return { cmAccountManager, cmAccount, services };
+    return { ttmAccountManager, ttmAccount, services };
 }
 
 module.exports = {
     setupSigners,
-    deployCMAccountManagerFixture,
-    deployCMAccountImplFixture,
-    deployCMAccountManagerWithCMAccountImplFixture,
+    deployTTMAccountManagerFixture,
+    deployTTMAccountImplFixture,
+    deployTTMAccountManagerWithTTMAccountImplFixture,
     deployAndConfigureAllFixture,
-    deployCMAccountWithDepositFixture,
+    deployTTMAccountWithDepositFixture,
     deployBookingTokenFixture,
     deployAndConfigureAllWithRegisteredServicesFixture,
     deployBookingTokenWithNullUSDFixture,
