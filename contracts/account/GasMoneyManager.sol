@@ -20,12 +20,19 @@ abstract contract GasMoneyManager is Initializable {
      *                   STORAGE                       *
      ***************************************************/
 
+    /**
+     * @notice Per-account withdrawal accounting, packed into a single slot.
+     */
+    struct GasMoneyWithdrawalRecord {
+        uint128 amount; // wei withdrawn in the current period
+        uint64 periodStart; // unix timestamp of the current period start
+    }
+
     /// @custom:storage-location erc7201:traveltoken.messenger.storage.GasMoneyManager
     struct GasMoneyStorage {
-        mapping(address => uint256) _withdrawalPeriodStart;
-        mapping(address => uint256) _withdrawnAmount;
-        uint256 _withdrawalLimit;
-        uint256 _withdrawalPeriod;
+        mapping(address => GasMoneyWithdrawalRecord) _withdrawals;
+        uint128 _withdrawalLimit;
+        uint64 _withdrawalPeriod;
     }
 
     // keccak256(abi.encode(uint256(keccak256("traveltoken.messenger.storage.GasMoneyManager")) - 1)) & ~bytes32(uint256(0xff));
@@ -64,6 +71,7 @@ abstract contract GasMoneyManager is Initializable {
 
     error WithdrawalLimitExceeded(uint256 limit, uint256 amount);
     error WithdrawalLimitExceededForPeriod(uint256 limit, uint256 amount);
+    error GasMoneyValueOutOfRange(uint256 limit, uint256 period);
 
     /***************************************************
      *               INITIALIZATION                    *
@@ -71,8 +79,8 @@ abstract contract GasMoneyManager is Initializable {
 
     function __GasMoneyManager_init(uint256 withdrawalLimit, uint256 withdrawalPeriod) internal onlyInitializing {
         GasMoneyStorage storage $ = _getGasMoneyStorage();
-        $._withdrawalLimit = withdrawalLimit;
-        $._withdrawalPeriod = withdrawalPeriod;
+        $._withdrawalLimit = _toUint128(withdrawalLimit, withdrawalLimit, withdrawalPeriod);
+        $._withdrawalPeriod = _toUint64(withdrawalPeriod, withdrawalLimit, withdrawalPeriod);
     }
 
     /***************************************************
@@ -89,28 +97,32 @@ abstract contract GasMoneyManager is Initializable {
     function _withdrawGasMoney(uint256 amount) internal {
         GasMoneyStorage storage $ = _getGasMoneyStorage();
 
+        uint256 limit = $._withdrawalLimit;
+
         // Ensure the withdrawal does not exceed the allowed limit
-        if (amount > $._withdrawalLimit) {
-            revert WithdrawalLimitExceeded($._withdrawalLimit, amount);
+        if (amount > limit) {
+            revert WithdrawalLimitExceeded(limit, amount);
         }
 
-        // Get timestamps
+        GasMoneyWithdrawalRecord memory withdrawal = $._withdrawals[msg.sender];
         uint256 currentTime = block.timestamp;
 
-        // Reset the withdrawn amount if a new period has started. If more time then
-        // the withdrawal period has passed, it is allowed to withdraw full amount.
-        if (currentTime > $._withdrawalPeriodStart[msg.sender] + $._withdrawalPeriod) {
-            $._withdrawnAmount[msg.sender] = 0;
-            $._withdrawalPeriodStart[msg.sender] = currentTime;
+        // Reset the withdrawn amount if a new period has started. If more time than
+        // the withdrawal period has passed, it is allowed to withdraw the full amount.
+        if (currentTime > uint256(withdrawal.periodStart) + $._withdrawalPeriod) {
+            withdrawal.amount = 0;
+            withdrawal.periodStart = _toUint64(currentTime, limit, $._withdrawalPeriod);
         }
 
         // Ensure the withdrawal does not exceed the allowed limit for the period
-        if ($._withdrawnAmount[msg.sender] + amount > $._withdrawalLimit) {
-            revert WithdrawalLimitExceededForPeriod($._withdrawalLimit, amount);
+        if (uint256(withdrawal.amount) + amount > limit) {
+            revert WithdrawalLimitExceededForPeriod(limit, amount);
         }
 
-        // Update the withdrawn amount
-        $._withdrawnAmount[msg.sender] += amount;
+        // Update the withdrawn amount. Safe: the sum was just checked against
+        // limit, which is itself a uint128.
+        withdrawal.amount = _toUint128(uint256(withdrawal.amount) + amount, limit, $._withdrawalPeriod);
+        $._withdrawals[msg.sender] = withdrawal;
 
         // Transfer the gas money
         payable(msg.sender).sendValue(amount);
@@ -126,8 +138,8 @@ abstract contract GasMoneyManager is Initializable {
      */
     function _setGasMoneyWithdrawal(uint256 limit, uint256 period) internal {
         GasMoneyStorage storage $ = _getGasMoneyStorage();
-        $._withdrawalLimit = limit;
-        $._withdrawalPeriod = period;
+        $._withdrawalLimit = _toUint128(limit, limit, period);
+        $._withdrawalPeriod = _toUint64(period, limit, period);
 
         emit GasMoneyWithdrawalUpdated(limit, period);
     }
@@ -140,7 +152,7 @@ abstract contract GasMoneyManager is Initializable {
      */
     function getGasMoneyWithdrawal() public view returns (uint256 withdrawalLimit, uint256 withdrawalPeriod) {
         GasMoneyStorage storage $ = _getGasMoneyStorage();
-        return ($._withdrawalLimit, $._withdrawalPeriod);
+        return (uint256($._withdrawalLimit), uint256($._withdrawalPeriod));
     }
 
     /**
@@ -154,6 +166,25 @@ abstract contract GasMoneyManager is Initializable {
         address account
     ) public view returns (uint256 periodStart, uint256 withdrawnAmount) {
         GasMoneyStorage storage $ = _getGasMoneyStorage();
-        return ($._withdrawalPeriodStart[account], $._withdrawnAmount[account]);
+        GasMoneyWithdrawalRecord memory withdrawal = $._withdrawals[account];
+        return (uint256(withdrawal.periodStart), uint256(withdrawal.amount));
+    }
+
+    /***************************************************
+     *                   HELPERS                       *
+     ***************************************************/
+
+    function _toUint128(uint256 value, uint256 limit, uint256 period) private pure returns (uint128) {
+        if (value > type(uint128).max) {
+            revert GasMoneyValueOutOfRange(limit, period);
+        }
+        return uint128(value);
+    }
+
+    function _toUint64(uint256 value, uint256 limit, uint256 period) private pure returns (uint64) {
+        if (value > type(uint64).max) {
+            revert GasMoneyValueOutOfRange(limit, period);
+        }
+        return uint64(value);
     }
 }

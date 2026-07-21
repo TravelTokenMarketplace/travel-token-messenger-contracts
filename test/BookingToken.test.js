@@ -1,7 +1,7 @@
 const { loadFixture } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
 const { expect } = require("chai");
 
-const { ethers } = require("hardhat");
+const { ethers, upgrades } = require("hardhat");
 
 const helpers = require("@nomicfoundation/hardhat-network-helpers");
 
@@ -11,6 +11,7 @@ const {
     deployTTMAccountImplFixture,
     deployTTMAccountManagerWithTTMAccountImplFixture,
     deployAndConfigureAllFixture,
+    deployAndConfigureAllWithRegisteredServicesFixture,
     deployTTMAccountWithDepositFixture,
     deployBookingTokenFixture,
     deployBookingTokenWithNullUSDFixture,
@@ -37,32 +38,11 @@ describe("BookingToken", function () {
             expect(await bookingToken.version()).to.deep.equal([1, 0, 0]);
         });
 
-        it("should reinitialize correctly", async function () {
-            const { ttmAccountManager, supplierTTMAccount, distributorTTMAccount, bookingToken } =
-                await loadFixture(deployBookingTokenFixture);
+        it("should initialize name and symbol correctly", async function () {
+            const { bookingToken } = await loadFixture(deployBookingTokenFixture);
 
-            const currentName = expect(await bookingToken.name()).to.be.equal("BookingToken");
-            const currentSymbol = expect(await bookingToken.symbol()).to.be.equal("TRIP");
-
-            const newName = "New Name";
-            const newSymbol = "NEW";
-
-            // Try to re-init with unauthorized caller
-            await expect(
-                bookingToken.connect(signers.otherAccount1).reinitializeV2(newName, newSymbol),
-            ).to.be.revertedWithCustomError(bookingToken, "AccessControlUnauthorizedAccount");
-
-            // Reinitialize
-            await expect(bookingToken.connect(signers.btAdmin).reinitializeV2(newName, newSymbol)).to.not.reverted;
-
-            // Check new name and symbol
-            expect(await bookingToken.name()).to.be.equal(newName);
-            expect(await bookingToken.symbol()).to.be.equal(newSymbol);
-
-            // Try to re-init again, should revert
-            await expect(
-                bookingToken.connect(signers.btAdmin).reinitializeV2("New Name 2", "NEW2"),
-            ).to.be.revertedWithCustomError(bookingToken, "InvalidInitialization");
+            expect(await bookingToken.name()).to.be.equal("BookingToken");
+            expect(await bookingToken.symbol()).to.be.equal("BToken");
         });
 
         it("should set/get manager address correctly", async function () {
@@ -857,7 +837,7 @@ describe("BookingToken", function () {
                 params: [await distributorTTMAccount.getAddress()],
             });
 
-            // Give it some CAM balance
+            // Give it some ETH balance
             await network.provider.send("hardhat_setBalance", [
                 await distributorTTMAccount.getAddress(),
                 ethers.toBeHex(price + ethers.parseEther("100")),
@@ -866,7 +846,7 @@ describe("BookingToken", function () {
             // Get the impersonated signer
             const impersonatedSigner = await ethers.getSigner(await distributorTTMAccount.getAddress());
 
-            // Try to buy the token with CAM - should revert
+            // Try to buy the token with ETH - should revert
             await expect(bookingToken.connect(impersonatedSigner).buyReservedToken(0n, { value: price }))
                 .to.be.revertedWithCustomError(bookingToken, "UnexpectedNativePayment")
                 .withArgs(price);
@@ -943,7 +923,7 @@ describe("BookingToken", function () {
                 .withArgs(0n, distributorTTMAccount.getAddress());
 
             // Check balances
-            // CAM
+            // ETH
             await expect(buyTx).to.changeEtherBalances([supplierTTMAccount, distributorTTMAccount], [0, 0]);
             // Token: NullUSD
             await expect(buyTx).to.changeTokenBalances(
@@ -1015,7 +995,7 @@ describe("BookingToken", function () {
                 params: [await distributorTTMAccount.getAddress()],
             });
 
-            // Give it some CAM balance
+            // Give it some ETH balance
             await network.provider.send("hardhat_setBalance", [
                 await distributorTTMAccount.getAddress(),
                 ethers.toBeHex(price + ethers.parseEther("100")),
@@ -1024,7 +1004,7 @@ describe("BookingToken", function () {
             // Get the impersonated signer
             const impersonatedSigner = await ethers.getSigner(await distributorTTMAccount.getAddress());
 
-            // Try to buy the token with CAM - should revert
+            // Try to buy the token with ETH - should revert
             await expect(bookingToken.connect(impersonatedSigner).buyReservedToken(0n, { value: price }))
                 .to.be.revertedWithCustomError(bookingToken, "UnexpectedNativePayment")
                 .withArgs(price);
@@ -1101,7 +1081,7 @@ describe("BookingToken", function () {
                 .withArgs(0n, distributorTTMAccount.getAddress());
 
             // Check balances
-            // CAM
+            // ETH
             await expect(buyTx).to.changeEtherBalances([supplierTTMAccount, distributorTTMAccount], [0, 0]);
             // Token: NullUSD
             await expect(buyTx).to.changeTokenBalances(
@@ -3217,6 +3197,145 @@ describe("BookingToken", function () {
                 [supplier, distributor, bookingToken, supplierBookingOperator, distributorBookingOperator],
                 [0n, 0n, 0n, 0n, 0n], // Off chain payment, should not change any balances
             );
+        });
+    });
+
+    describe("Initializer validation", function () {
+        it("should reject a zero address for any initializer parameter", async function () {
+            await setupSigners();
+            const BookingToken = await ethers.getContractFactory("BookingToken");
+            const zero = ethers.ZeroAddress;
+            const ok = signers.btAdmin.address;
+
+            for (const args of [
+                [zero, ok, ok],
+                [ok, zero, ok],
+                [ok, ok, zero],
+            ]) {
+                await expect(upgrades.deployProxy(BookingToken, args, { kind: "uups" })).to.be.revertedWithCustomError(
+                    BookingToken,
+                    "ZeroAddress",
+                );
+            }
+        });
+    });
+
+    describe("Pausable", function () {
+        it("should not let a non-pauser pause", async function () {
+            const { bookingToken } = await loadFixture(deployBookingTokenFixture);
+            await expect(bookingToken.connect(signers.otherAccount1).pause()).to.be.revertedWithCustomError(
+                bookingToken,
+                "AccessControlUnauthorizedAccount",
+            );
+        });
+
+        it("should let the pauser pause and unpause", async function () {
+            const { bookingToken } = await loadFixture(deployBookingTokenFixture);
+            await bookingToken
+                .connect(signers.btAdmin)
+                .grantRole(await bookingToken.PAUSER_ROLE(), signers.btAdmin.address);
+
+            await bookingToken.connect(signers.btAdmin).pause();
+            expect(await bookingToken.paused()).to.be.true;
+
+            await bookingToken.connect(signers.btAdmin).unpause();
+            expect(await bookingToken.paused()).to.be.false;
+        });
+
+        it("should block minting while paused", async function () {
+            const { ttmAccountManager, ttmAccount } = await loadFixture(
+                deployAndConfigureAllWithRegisteredServicesFixture,
+            );
+            const bookingToken = await ethers.getContractAt(
+                "BookingToken",
+                await ttmAccountManager.getBookingTokenAddress(),
+            );
+            await bookingToken
+                .connect(signers.btAdmin)
+                .grantRole(await bookingToken.PAUSER_ROLE(), signers.btAdmin.address);
+            await bookingToken.connect(signers.btAdmin).pause();
+
+            // Grant the bot the BOOKING_OPERATOR_ROLE it needs to mint
+            await ttmAccount
+                .connect(signers.ttmAccountAdmin)
+                .grantRole(await ttmAccount.BOOKING_OPERATOR_ROLE(), signers.botOperator.address);
+
+            await expect(
+                ttmAccount
+                    .connect(signers.botOperator)
+                    .mintBookingToken(
+                        await ttmAccount.getAddress(),
+                        "https://example.com/token",
+                        (await helpers.time.latest()) + 3600,
+                        100n,
+                        ethers.ZeroAddress,
+                        0,
+                        false,
+                    ),
+            ).to.be.revertedWithCustomError(bookingToken, "EnforcedPause");
+        });
+
+        it("should block buying a reserved token while paused", async function () {
+            const { bookingToken, distributorTTMAccount, distributorBookingOperator, tokenWithoutBuying } =
+                await loadFixture(deployCancellationSupportFixture);
+
+            // Fetch the real price/paymentToken so the call gets past the
+            // BookingTokenOperator price checks and actually reaches the
+            // whenNotPaused-gated buyReservedToken function.
+            const [price, paymentToken] = await bookingToken.getReservationPrice(tokenWithoutBuying);
+
+            await bookingToken
+                .connect(signers.btAdmin)
+                .grantRole(await bookingToken.PAUSER_ROLE(), signers.btAdmin.address);
+            await bookingToken.connect(signers.btAdmin).pause();
+
+            await expect(
+                distributorTTMAccount
+                    .connect(distributorBookingOperator)
+                    .buyBookingToken(tokenWithoutBuying, price, paymentToken),
+            ).to.be.revertedWithCustomError(bookingToken, "EnforcedPause");
+        });
+
+        it("should block finalizing a cancellation while paused", async function () {
+            const {
+                supplierTTMAccount,
+                distributorTTMAccount,
+                bookingToken,
+                tokenWithNativePayment,
+                supplierBookingOperator,
+                distributorBookingOperator,
+            } = await loadFixture(deployCancellationSupportFixture);
+
+            const refundAmount = ethers.parseEther("0.045");
+            const cancellationReason = 42;
+            const cancellationReasonVersion = 1;
+
+            // Bring the proposal all the way to ACCEPTED, exactly as in the
+            // successful finalize-cancellation test, so pausing is the only
+            // thing standing between this call and success.
+            await supplierTTMAccount
+                .connect(supplierBookingOperator)
+                .initiateCancellation(
+                    tokenWithNativePayment,
+                    refundAmount,
+                    cancellationReason,
+                    cancellationReasonVersion,
+                );
+
+            await distributorTTMAccount
+                .connect(distributorBookingOperator)
+                .acceptCancellation(tokenWithNativePayment, refundAmount);
+
+            await bookingToken
+                .connect(signers.btAdmin)
+                .grantRole(await bookingToken.PAUSER_ROLE(), signers.btAdmin.address);
+            await bookingToken.connect(signers.btAdmin).pause();
+
+            await expect(
+                supplierTTMAccount
+                    .connect(supplierBookingOperator)
+                    .finalizeCancellation(tokenWithNativePayment, refundAmount),
+            ).to.be.revertedWithCustomError(bookingToken, "EnforcedPause");
         });
     });
 });

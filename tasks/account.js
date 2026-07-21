@@ -50,8 +50,6 @@ async function getTTMAccount(ttmAccountAddress) {
     return await ethers.getContractAt("TTMAccount", ttmAccountAddress);
 }
 
-// ServiceFeeToken helper removed as service fees are deprecated
-
 async function handleRoles(taskArgs, hre, action) {
     const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
     console.log("TTMAccount:", taskArgs.ttmAccount);
@@ -213,7 +211,7 @@ ACCOUNT_SCOPE.task("create", "Create TTMAccount")
         "Private key to use, default: TTMACCOUNT_PK env variable",
         process.env.TTMACCOUNT_PK,
     )
-    .addOptionalParam("camAmount", "Amount of CAM to send to TTMAccount", "0")
+    .addOptionalParam("amount", "Amount of ETH to send to TTMAccount", "0")
     .setAction(async (taskArgs, hre) => {
         const manager = await getManager(hre);
 
@@ -223,12 +221,12 @@ ACCOUNT_SCOPE.task("create", "Create TTMAccount")
             console.log("Signer:", signer.address);
 
             // Create TTMAccount
-            const parsedCAM = ethers.parseEther(taskArgs.camAmount);
-            const formattedCAM = ethers.formatEther(parsedCAM);
-            console.log(`Creating TTMAccount... (Sending ${formattedCAM} CAM to the new TTMAccount)`);
+            const parsedAmount = ethers.parseEther(taskArgs.amount);
+            const formattedAmount = ethers.formatEther(parsedAmount);
+            console.log(`Creating TTMAccount... (Sending ${formattedAmount} ETH to the new TTMAccount)`);
             const tx = await manager
                 .connect(signer)
-                .createTTMAccount(signer.address, signer.address, { value: parsedCAM });
+                .createTTMAccount(signer.address, signer.address, { value: parsedAmount });
 
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
@@ -264,14 +262,14 @@ ACCOUNT_SCOPE.task("withdraw", "Withdraw funds from TTMAccount")
     )
     .addParam("recipient", "Recipient address")
     .addParam("amount", "Amount to withdraw")
-    .addOptionalParam("unit", "Unit of amount (CAM/nCAM/aCAM)", "aCAM")
+    .addOptionalParam("unit", "Unit of amount (eth/gwei/wei)", "wei")
     .setAction(async (taskArgs, hre) => {
         const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
         console.log("TTMAccount:", taskArgs.ttmAccount);
 
         try {
             // Validate unit
-            const validUnits = ["cam", "ncam", "acam"];
+            const validUnits = ["eth", "gwei", "wei"];
             if (!validUnits.includes(taskArgs.unit.toLowerCase())) {
                 throw new Error(`Invalid unit. Must be one of: ${validUnits.join(", ")}`);
             }
@@ -282,17 +280,17 @@ ACCOUNT_SCOPE.task("withdraw", "Withdraw funds from TTMAccount")
             const unit = taskArgs.unit.toLowerCase();
 
             switch (unit) {
-                case "cam":
+                case "eth":
                     amountInWei = ethers.parseEther(taskArgs.amount.toString());
-                    hrUnit = "CAM";
+                    hrUnit = "ETH";
                     break;
-                case "ncam":
+                case "gwei":
                     amountInWei = ethers.parseUnits(taskArgs.amount.toString(), "gwei");
-                    hrUnit = "nCAM";
+                    hrUnit = "GWEI";
                     break;
-                case "acam":
+                case "wei":
                     amountInWei = taskArgs.amount.toString();
-                    hrUnit = "aCAM";
+                    hrUnit = "WEI";
                     break;
             }
 
@@ -301,7 +299,7 @@ ACCOUNT_SCOPE.task("withdraw", "Withdraw funds from TTMAccount")
             console.log("From         :", taskArgs.ttmAccount);
             console.log("To           :", taskArgs.recipient);
             console.log("Amount       :", `${taskArgs.amount} ${hrUnit}`);
-            console.log("Amount (aCAM):", amountInWei.toString());
+            console.log("Amount (wei) :", amountInWei.toString());
 
             const signer = new ethers.Wallet(taskArgs.privateKey, ethers.provider);
             const tx = await ttmAccount.connect(signer).withdraw(taskArgs.recipient, amountInWei);
@@ -326,7 +324,7 @@ ACCOUNT_SCOPE.task("bot:add", "Add bot to the TTMAccount")
     .addParam("bot", "Bot address")
     .addOptionalParam(
         "gasMoney",
-        "Gas money in CAM. This amount will be transferred from the TTMAccount to the bot address (Ex: 1 or 0.1)",
+        "Gas money in ETH. This amount will be transferred from the TTMAccount to the bot address (Ex: 1 or 0.1)",
         "0",
         types.string,
     )
@@ -480,7 +478,7 @@ ACCOUNT_SCOPE.task("bot:list", "List all bots from TTMAccount")
         const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
         try {
             const [limit, period] = await ttmAccount.getGasMoneyWithdrawal();
-            console.log(`Gas limit: ${ethers.formatEther(limit)} CAM per ${period} seconds.`);
+            console.log(`Gas limit: ${ethers.formatEther(limit)} ETH per ${period} seconds.`);
         } catch (e) {
             console.log("Failed to fetch gas limit settings.");
         }
@@ -925,7 +923,7 @@ ACCOUNT_SCOPE.task("bot:withdraw-gas", "Withdraw gas money for a bot from TTMAcc
         "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
         process.env.TTMACCOUNT_ADDRESS,
     )
-    .addParam("amount", "Amount to withdraw in CAM (e.g. 0.5)")
+    .addParam("amount", "Amount to withdraw in ETH (e.g. 0.5)")
     .setAction(async (taskArgs, hre) => {
         const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
         console.log("TTMAccount:", taskArgs.ttmAccount);
@@ -934,7 +932,7 @@ ACCOUNT_SCOPE.task("bot:withdraw-gas", "Withdraw gas money for a bot from TTMAcc
             const amountWei = ethers.parseEther(taskArgs.amount);
             const signer = new ethers.Wallet(taskArgs.privateKey, ethers.provider);
             console.log(`Bot address: ${signer.address}`);
-            console.log(`Withdrawing ${taskArgs.amount} CAM (wei: ${amountWei.toString()})...`);
+            console.log(`Withdrawing ${taskArgs.amount} ETH (wei: ${amountWei.toString()})...`);
             const tx = await ttmAccount.connect(signer).withdrawGasMoney(amountWei);
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
@@ -954,7 +952,7 @@ ACCOUNT_SCOPE.task("bot:set-gas-limit", "Set gas money withdrawal limit and peri
         "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
         process.env.TTMACCOUNT_ADDRESS,
     )
-    .addParam("limit", "Withdrawal limit in CAM (e.g. 10)")
+    .addParam("limit", "Withdrawal limit in ETH (e.g. 10)")
     .addParam("period", "Withdrawal period in seconds (e.g. 86400 for 24h)")
     .setAction(async (taskArgs, hre) => {
         const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
@@ -963,7 +961,7 @@ ACCOUNT_SCOPE.task("bot:set-gas-limit", "Set gas money withdrawal limit and peri
         try {
             const limitWei = ethers.parseEther(taskArgs.limit);
             console.log(
-                `Setting gas limit to ${taskArgs.limit} CAM (wei: ${limitWei.toString()}) per ${taskArgs.period} seconds...`,
+                `Setting gas limit to ${taskArgs.limit} ETH (wei: ${limitWei.toString()}) per ${taskArgs.period} seconds...`,
             );
             const signer = new ethers.Wallet(taskArgs.privateKey, ethers.provider);
             const tx = await ttmAccount.connect(signer).setGasMoneyWithdrawal(limitWei, taskArgs.period);
@@ -1107,8 +1105,6 @@ ACCOUNT_SCOPE.task("service:remove-all", "Remove all supported services from TTM
             handleTransactionError(error, ttmAccount);
         }
     });
-
-// service:set-fee task removed as service fees are deprecated
 
 ACCOUNT_SCOPE.task("service:set-restricted-rate", "Set the restricted rate property of a supported service")
     .addOptionalParam(

@@ -4,7 +4,6 @@
 
 pragma solidity 0.8.24;
 
-import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { AccessControlEnumerableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlEnumerableUpgradeable.sol";
@@ -32,9 +31,11 @@ import { GasMoneyManager } from "./GasMoneyManager.sol";
  * Bot can also have `GAS_WITHDRAWER_ROLE` and `BOOKING_OPERATOR_ROLE`.
  *
  * `GAS_WITHDRAWER_ROLE` enables a bot to withdraw native coins (ETH) from the
- * contract to be used as gas money. This restricted with a `limit`
- * (wei) and `period` (seconds) by the `BOT_ADMIN_ROLE`. Default starting
- * values are 10 ETH per 24 hours.
+ * contract to be used as gas money. This is restricted with a `limit` (wei)
+ * and `period` (seconds) set by the `BOT_ADMIN_ROLE`. The limit and period
+ * apply per bot address: each bot tracks its own withdrawals against the
+ * same limit, independently of every other bot on the account. Default
+ * starting values are 10 ETH per 24 hours.
  *
  * `BOOKING_OPERATOR_ROLE` enables a bot to mint and buy Booking Tokens by
  * calling the corresponding functions on the {BookingToken} contract. The buy
@@ -117,10 +118,6 @@ contract TTMAccount is
          * @dev Address of the BookingToken contract
          */
         address _bookingToken;
-        /**
-         * @dev Prefund amount
-         */
-        uint256 _unused; // Not used, but do not remove. Previously used to store the prefund amount.
     }
 
     // keccak256(abi.encode(uint256(keccak256("traveltoken.messenger.storage.TTMAccount")) - 1)) & ~bytes32(uint256(0xff));
@@ -191,14 +188,14 @@ contract TTMAccount is
     error TTMAccountNoUpgradeNeeded(address oldImplementation, address newImplementation);
 
     /**
-     * @notice Error to revert with if the prefund is not spent yet
-     */
-    error PrefundNotSpentYet(uint256 withdrawableAmount, uint256 prefundLeft, uint256 amount);
-
-    /**
      * @notice Error to revert if transfer to zero address
      */
     error TransferToZeroAddress();
+
+    /**
+     * @notice A required address parameter was the zero address.
+     */
+    error ZeroAddress();
 
     /***************************************************
      *         CONSTRUCTOR & INITIALIZATION            *
@@ -209,16 +206,22 @@ contract TTMAccount is
         _disableInitializers();
     }
 
-    // `uint256 prefundAmount` is removed as it is no longer used in the contract @2025-08-28
     function initialize(
         address manager,
         address bookingToken,
         address defaultAdmin,
         address upgrader
     ) public initializer {
+        if (
+            manager == address(0) || bookingToken == address(0) || defaultAdmin == address(0) || upgrader == address(0)
+        ) {
+            revert ZeroAddress();
+        }
+
         __AccessControl_init();
         __UUPSUpgradeable_init();
         __ReentrancyGuard_init();
+        __PartnerConfiguration_init();
 
         _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
         _grantRole(SERVICE_ADMIN_ROLE, defaultAdmin);
@@ -236,7 +239,9 @@ contract TTMAccount is
         __GasMoneyManager_init(withdrawalLimit, withdrawalPeriod);
     }
 
-    receive() external payable {}
+    receive() external payable {
+        emit Deposit(msg.sender, msg.value);
+    }
 
     /***************************************************
      *                    Getters                      *

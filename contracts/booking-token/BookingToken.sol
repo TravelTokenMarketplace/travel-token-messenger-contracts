@@ -22,6 +22,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 
 // Cancellable
 import { BookingTokenCancellable, CancellationProposalStatus } from "./BookingTokenCancellable.sol";
@@ -45,6 +46,7 @@ contract BookingToken is
     ERC721EnumerableUpgradeable,
     ERC721URIStorageUpgradeable,
     AccessControlUpgradeable,
+    PausableUpgradeable,
     ReentrancyGuardUpgradeable,
     UUPSUpgradeable,
     BookingTokenCancellable
@@ -89,6 +91,12 @@ contract BookingToken is
     bytes32 public constant MIN_EXPIRATION_ADMIN_ROLE = keccak256("MIN_EXPIRATION_ADMIN_ROLE");
 
     /**
+     * @notice Pauser role can pause the contract, halting minting, buying, and
+     * cancellation finalization.
+     */
+    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+
+    /**
      * @dev Special address for native payments.
      * @notice Tokens are directly transferred to the recipient.
      */
@@ -101,6 +109,20 @@ contract BookingToken is
      * @notice A third-party service is used to handle payments.
      */
     address public constant OFFCHAIN_PAYMENT = address(1);
+
+    /**
+     * @notice Protocol rejection reason emitted when a pending cancellation is
+     * automatically resolved because the token was transferred on-chain.
+     * Mirrors REJECTION_REASON_TRANSFER_ON_CHAIN in the messenger protocol.
+     */
+    uint16 private constant REJECTION_REASON_TRANSFER_ON_CHAIN = 99;
+
+    /**
+     * @notice Version of the rejection reason schema used when emitting
+     * REJECTION_REASON_TRANSFER_ON_CHAIN, so consumers can interpret the
+     * reason code correctly if it is ever revised.
+     */
+    uint16 private constant REJECTION_REASON_VERSION = 1;
 
     /***************************************************
      *                   STORAGE                       *
@@ -247,16 +269,6 @@ contract BookingToken is
     error TokenIsReserved(uint256 tokenId, address reservedFor);
 
     /**
-     * @notice Insufficient allowance to transfer the ERC20 token to the supplier.
-     *
-     * @param sender msg.sender
-     * @param paymentToken payment token address
-     * @param price price of the token
-     * @param allowance allowance amount
-     */
-    error InsufficientAllowance(address sender, IERC20 paymentToken, uint256 price, uint256 allowance);
-
-    /**
      * @notice Invalid token status.
      *
      * @param tokenId token id
@@ -279,6 +291,11 @@ contract BookingToken is
      */
     error UnexpectedNativePayment(uint256 amount);
 
+    /**
+     * @notice A required address parameter was the zero address.
+     */
+    error ZeroAddress();
+
     /***************************************************
      *                  MODIFIERS                      *
      ***************************************************/
@@ -296,10 +313,15 @@ contract BookingToken is
      ***************************************************/
 
     function initialize(address manager, address defaultAdmin, address upgrader) public initializer {
-        __ERC721_init("BookingToken", "TRIP");
+        if (manager == address(0) || defaultAdmin == address(0) || upgrader == address(0)) {
+            revert ZeroAddress();
+        }
+
+        __ERC721_init("BookingToken", "BToken");
         __ERC721Enumerable_init();
         __ERC721URIStorage_init();
         __AccessControl_init();
+        __Pausable_init();
         __UUPSUpgradeable_init();
 
         _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
@@ -312,23 +334,6 @@ contract BookingToken is
     }
 
     /***************************************************
-     *                  REINITIALIZE                   *
-     ***************************************************/
-
-    /**
-     * @notice This function allows reinitializing the contract to update the name and symbol
-     * @dev Only callable by DEFAULT_ADMIN_ROLE
-     * @param newName New token name
-     * @param newSymbol New token symbol
-     */
-    function reinitializeV2(
-        string memory newName,
-        string memory newSymbol
-    ) public reinitializer(2) onlyRole(DEFAULT_ADMIN_ROLE) {
-        __ERC721_init(newName, newSymbol);
-    }
-
-    /***************************************************
      *             BOOKING-TOKEN LOGIC                 *
      ***************************************************/
 
@@ -336,6 +341,25 @@ contract BookingToken is
      * @notice Function to authorize an upgrade for UUPS proxy.
      */
     function _authorizeUpgrade(address newImplementation) internal virtual override onlyRole(UPGRADER_ROLE) {}
+
+    /**
+     * @notice Pauses minting, buying, and cancellation finalization.
+     *
+     * @dev Pausing halts commerce (minting, buying, and cancellation
+     * finalization), not custody: ERC-721 transfers are unaffected, so a
+     * pending cancellation can still be auto-resolved by a transfer while
+     * paused. This is deliberate.
+     */
+    function pause() external onlyRole(PAUSER_ROLE) {
+        _pause();
+    }
+
+    /**
+     * @notice Resumes normal operation.
+     */
+    function unpause() external onlyRole(PAUSER_ROLE) {
+        _unpause();
+    }
 
     /**
      * @notice Mints a new token with a reservation for a specific address.
@@ -356,7 +380,7 @@ contract BookingToken is
         IERC20 paymentToken,
         uint256 offchainPaymentCurrency,
         bool cancellable
-    ) public virtual onlyTTMAccount(msg.sender) {
+    ) public virtual onlyTTMAccount(msg.sender) whenNotPaused {
         // Require reservedFor to be a TTM Account
         requireTTMAccount(reservedFor);
 
@@ -446,7 +470,9 @@ contract BookingToken is
      *
      * @param tokenId The token id
      */
-    function buyReservedToken(uint256 tokenId) public payable virtual nonReentrant onlyTTMAccount(msg.sender) {
+    function buyReservedToken(
+        uint256 tokenId
+    ) public payable virtual nonReentrant whenNotPaused onlyTTMAccount(msg.sender) {
         BookingTokenStorage storage $ = _getBookingTokenStorage();
 
         // Get the reservation for the token
@@ -584,11 +610,21 @@ contract BookingToken is
 
             // Check if the current proposer is the owner
             if (msg.sender != currentProposer) {
-                // FIXME: Define a reason in the Travel Token Messenger Protocol and update this
-                _rejectCancellation(owner, supplier, tokenId, 99, 1);
+                _rejectCancellation(
+                    owner,
+                    supplier,
+                    tokenId,
+                    REJECTION_REASON_TRANSFER_ON_CHAIN,
+                    REJECTION_REASON_VERSION
+                );
             } else {
-                // FIXME: Define a reason in the Travel Token Messenger Protocol and update this
-                _withdrawCancellation(owner, supplier, tokenId, 99, 1);
+                _withdrawCancellation(
+                    owner,
+                    supplier,
+                    tokenId,
+                    REJECTION_REASON_TRANSFER_ON_CHAIN,
+                    REJECTION_REASON_VERSION
+                );
             }
         }
 
@@ -824,7 +860,7 @@ contract BookingToken is
     function finalizeCancellation(
         uint256 tokenId,
         uint256 checkRefundAmount
-    ) external payable virtual onlyTTMAccount(msg.sender) {
+    ) external payable virtual onlyTTMAccount(msg.sender) whenNotPaused {
         // Revert if token does not exist
         address owner = _requireOwned(tokenId);
 

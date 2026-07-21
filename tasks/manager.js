@@ -1,3 +1,4 @@
+const path = require("path");
 require("@nomicfoundation/hardhat-toolbox");
 
 const MANAGER_SCOPE = scope("manager", "TTM Account Manager Tasks");
@@ -49,8 +50,6 @@ async function getBookingToken(hre) {
     return await ethers.getContractAt("BookingToken", addresses["TravelTokenMessengerModule#BookingTokenProxy"]);
 }
 
-// ServiceFeeToken helper removed as service fees are deprecated
-
 async function handleRoles(taskArgs, hre, action, contractName) {
     let contract;
 
@@ -75,7 +74,7 @@ async function handleRoles(taskArgs, hre, action, contractName) {
 function handleTransactionError(error, contract) {
     console.error("❌ Transaction failed!");
 
-    if (error.data.data && contract) {
+    if (error.data?.data && contract) {
         const decodedError = contract.interface.parseError(error.data.data);
         console.error("Message:", error.message);
         console.error(`Reason: ${decodedError?.name} (${decodedError?.args})`);
@@ -102,7 +101,7 @@ async function handleServices(taskArgs, hre, action) {
     if (taskArgs.service) {
         services = [taskArgs.service];
     } else if (taskArgs.json) {
-        const parsed = require(taskArgs.json);
+        const parsed = require(path.resolve(process.cwd(), taskArgs.json));
         if (!Array.isArray(parsed) || parsed.length === 0 || !parsed.every((s) => typeof s === "string")) {
             throw new Error("JSON file must be a non-empty array of strings.");
         }
@@ -240,7 +239,7 @@ MANAGER_SCOPE.task("role:members", "List role members")
     });
 
 MANAGER_SCOPE.task("role:all", "List all roles").setAction(async (taskArgs, hre) => {
-    const manager = await getManager(hre);
+    await getManager(hre); // validate the manager is deployed on this network before iterating roles
     for (const role of ROLES) {
         console.log(`🛡️  ${bold(role)}`);
         console.log(`${bold("=".repeat(48))}`);
@@ -261,8 +260,6 @@ MANAGER_SCOPE.task("account:set-implementation", "Set TTMAccount implementation 
         const txReceipt = await tx.wait();
         console.log("Tx:", txReceipt.hash);
     });
-
-// Obsolete developer fee and prefund set tasks removed
 
 MANAGER_SCOPE.task("btoken:set", "Set Booking Token address on the manager contract")
     .addParam("address", "Booking Token address")

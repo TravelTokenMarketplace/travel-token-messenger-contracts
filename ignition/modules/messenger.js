@@ -9,12 +9,17 @@ const TravelTokenMessengerModule = buildModule("TravelTokenMessengerModule", (m)
     // from hardhat's example accounts. For Base Sepolia this is the vars from
     // hardhat's config vars BASE_SEPOLIA_DEPLOYER_PRIVATE_KEY (defined in
     // hardhat.config.js).
-    //const admin = m.getParameter("managerAdmin", m.getAccount(0));
-    const admin = m.getAccount(0);
+    const admin = m.getParameter("managerAdmin", m.getAccount(0));
 
-    const pauser = m.getParameter("managerPauser", admin);
-    const upgrader = m.getParameter("managerUpgrader", admin);
-    const versioner = m.getParameter("managerVersioner", admin);
+    // NOTE: these can't default to `admin` itself, because hardhat-ignition
+    // only resolves an AccountRuntimeValue recursively as another parameter's
+    // default -- a ModuleParameterRuntimeValue (which `admin` now is) is left
+    // unresolved and crashes ABI encoding. Defaulting to the same account(0)
+    // preserves prior behaviour; override these explicitly if managerAdmin is
+    // overridden and they should follow it.
+    const pauser = m.getParameter("managerPauser", m.getAccount(0));
+    const upgrader = m.getParameter("managerUpgrader", m.getAccount(0));
+    const versioner = m.getParameter("managerVersioner", m.getAccount(0));
 
     // Deploy TTMAccountManager implementation contract
     const ttmAccountManager = m.contract("TTMAccountManager");
@@ -54,10 +59,12 @@ const TravelTokenMessengerModule = buildModule("TravelTokenMessengerModule", (m)
      *                  BOOKING TOKEN                  *
      ***************************************************/
 
-    // Booking token admin and upgrader. Set default to the manager admin.
-    // Configurable by a parameter json file.
-    const bookingAdmin = m.getParameter("bookingAdmin", admin);
-    const bookingUpgrader = m.getParameter("bookingUpgrader", admin);
+    // Booking token admin and upgrader. Set default to account(0) (the same
+    // default `admin` uses) rather than nesting `admin` itself -- see note
+    // above: hardhat-ignition doesn't resolve a ModuleParameterRuntimeValue
+    // used as another parameter's default. Configurable by a parameter json file.
+    const bookingAdmin = m.getParameter("bookingAdmin", m.getAccount(0));
+    const bookingUpgrader = m.getParameter("bookingUpgrader", m.getAccount(0));
 
     // Deploy BookingToken implementation contract
     const bookingToken = m.contract("BookingToken");

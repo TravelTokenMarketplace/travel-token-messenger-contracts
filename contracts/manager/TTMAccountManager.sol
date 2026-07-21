@@ -31,14 +31,9 @@ import { ServiceRegistry } from "../partner/ServiceRegistry.sol";
  *
  * Create TTM Account: Users who want to create an account should call
  * `createTTMAccount(address admin, address upgrader)` function with addresses of
- * the accounts admin and upgrader roles and they also need to approve the service
- * fee token with the amount of prefund.
+ * the accounts admin and upgrader roles.
  *
  * When the manager contract is paused, account creation is stopped.
- *
- * Developer Fee: This contracts also keeps the info about the developer wallet
- * and fee basis points. Which are used during the cheque cash in to pay for the
- * developer fee.
  *
  * Service Registry: {TTMAccountManager} also acts as a registry for the services
  * that {TTMAccount} contracts add as a supported or wanted service. Registry
@@ -177,6 +172,11 @@ contract TTMAccountManager is
      */
     error InvalidBookingTokenAddress(address bookingToken);
 
+    /**
+     * @notice A required address parameter was the zero address.
+     */
+    error ZeroAddress();
+
     /***************************************************
      *                    FUNCS                        *
      ***************************************************/
@@ -192,9 +192,15 @@ contract TTMAccountManager is
         address upgrader, // can upgrade the manager (this contract)
         address versioner // can set TTMAccount implementation address
     ) public initializer {
+        if (defaultAdmin == address(0) || pauser == address(0) || upgrader == address(0) || versioner == address(0)) {
+            revert ZeroAddress();
+        }
+
         __Pausable_init();
         __AccessControl_init();
         __UUPSUpgradeable_init();
+        __ReentrancyGuard_init();
+        __ServiceRegistry_init();
 
         _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
         _grantRole(PAUSER_ROLE, pauser);
@@ -227,13 +233,11 @@ contract TTMAccountManager is
      ***************************************************/
 
     /**
-     * @notice Creates TTMAccount by deploying a ERC1967Proxy with the TTMAccount
-     * implementation from the manager.
+     * @notice Creates a new TTMAccount.
      *
-     * Because this function is deploying a contract, it reverts if the caller is
-     * not KYC or KYB verified. (For EOAs only)
-     *
-     * Caller must approve the pre-fund amount before calling this function.
+     * This function is currently permissionless: any address may create an
+     * account. See docs/decisions/2026-07-21-contract-design-decisions.md
+     * (Decision 1) -- gating must be resolved before Base mainnet.
      *
      * @dev Emits a {TTMAccountCreated} event.
      */

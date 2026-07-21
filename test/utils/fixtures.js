@@ -13,10 +13,7 @@ async function setupSigners() {
         ttmAccountAdmin,
         ttmAccountUpgrader,
         ttmServiceAdmin,
-        developerWallet,
-        developerWalletAdmin,
-        feeAdmin,
-        chequeOperator,
+        botOperator,
         depositor,
         withdrawer,
         btAdmin,
@@ -35,10 +32,7 @@ async function setupSigners() {
         ttmAccountAdmin,
         ttmAccountUpgrader,
         ttmServiceAdmin,
-        developerWallet,
-        developerWalletAdmin,
-        feeAdmin,
-        chequeOperator,
+        botOperator,
         depositor,
         withdrawer,
         btAdmin,
@@ -172,7 +166,7 @@ async function deployTTMAccountWithDepositFixture() {
     const WITHDRAWER_ROLE = await ttmAccount.WITHDRAWER_ROLE();
     await ttmAccount.connect(signers.ttmAccountAdmin).grantRole(WITHDRAWER_ROLE, signers.withdrawer.address);
 
-    // Deposit CAM
+    // Deposit ETH
     const depositAmount = ethers.parseEther("1");
 
     const depositTx = {
@@ -183,7 +177,7 @@ async function deployTTMAccountWithDepositFixture() {
     const txResponse = await signers.depositor.sendTransaction(depositTx);
     await txResponse.wait();
 
-    // Deposit service fee token
+    // Deposit NullUSD
     await nullUSD.transfer(ttmAccount.getAddress(), ethers.parseUnits("1", nullUSDDecimals));
 
     return {
@@ -239,7 +233,7 @@ async function deployBookingTokenFixture() {
     const txResponse = await signers.depositor.sendTransaction(depositTx);
     await txResponse.wait();
 
-    // Deposit service fee token
+    // Deposit NullUSD
     await nullUSD.transfer(distributorTTMAccount.getAddress(), ethers.parseUnits("1", nullUSDDecimals));
 
     return {

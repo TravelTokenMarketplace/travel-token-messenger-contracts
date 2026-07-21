@@ -8,7 +8,7 @@ vi.mock("wagmi", () => ({
   useReadContract: ({ functionName }: { functionName: string }) => {
     const map: Record<string, unknown> = {
       name: "BookingToken",
-      symbol: "TRIP",
+      symbol: "BToken",
       version: [1n, 0n, 0n],
       getManagerAddress: "0x2222222222222222222222222222222222222222",
       getMinExpirationTimestampDiff: 60n,
@@ -46,7 +46,7 @@ describe("BookingTokenTab", () => {
   it("shows token info and settings", () => {
     wrap(<BookingTokenTab />);
     expect(screen.getByText("BookingToken")).toBeInTheDocument();
-    expect(screen.getByText("TRIP")).toBeInTheDocument();
+    expect(screen.getByText("BToken")).toBeInTheDocument();
     expect(screen.getAllByText(/min expiration/i).length).toBeGreaterThan(0);
   });
 });

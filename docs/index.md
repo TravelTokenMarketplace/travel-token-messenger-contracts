@@ -6,14 +6,24 @@ GasMoneyManager manages gas money withdrawals for a {TTMAccount}.
 
 Gas money withdrawals are restricted to a withdrawal limit and period.
 
+### GasMoneyWithdrawalRecord
+
+Per-account withdrawal accounting, packed into a single slot.
+
+```solidity
+struct GasMoneyWithdrawalRecord {
+    uint128 amount;
+    uint64 periodStart;
+}
+```
+
 ### GasMoneyStorage
 
 ```solidity
 struct GasMoneyStorage {
-    mapping(address => uint256) _withdrawalPeriodStart;
-    mapping(address => uint256) _withdrawnAmount;
-    uint256 _withdrawalLimit;
-    uint256 _withdrawalPeriod;
+  mapping(address => struct GasMoneyManager.GasMoneyWithdrawalRecord) _withdrawals;
+  uint128 _withdrawalLimit;
+  uint64 _withdrawalPeriod;
 }
 ```
 
@@ -57,6 +67,12 @@ error WithdrawalLimitExceeded(uint256 limit, uint256 amount)
 
 ```solidity
 error WithdrawalLimitExceededForPeriod(uint256 limit, uint256 amount)
+```
+
+### GasMoneyValueOutOfRange
+
+```solidity
+error GasMoneyValueOutOfRange(uint256 limit, uint256 period)
 ```
 
 ### \_\_GasMoneyManager_init
@@ -147,9 +163,11 @@ Registering bots is done by role based access control. Bot's with
 Bot can also have `GAS_WITHDRAWER_ROLE` and `BOOKING_OPERATOR_ROLE`.
 
 `GAS_WITHDRAWER_ROLE` enables a bot to withdraw native coins (ETH) from the
-contract to be used as gas money. This restricted with a `limit`
-(wei) and `period` (seconds) by the `BOT_ADMIN_ROLE`. Default starting
-values are 10 ETH per 24 hours.
+contract to be used as gas money. This is restricted with a `limit` (wei)
+and `period` (seconds) set by the `BOT_ADMIN_ROLE`. The limit and period
+apply per bot address: each bot tracks its own withdrawals against the
+same limit, independently of every other bot on the account. Default
+starting values are 10 ETH per 24 hours.
 
 `BOOKING_OPERATOR_ROLE` enables a bot to mint and buy Booking Tokens by
 calling the corresponding functions on the {BookingToken} contract. The buy
@@ -229,7 +247,6 @@ Service admin role can add & remove supported & wanted services.
 struct TTMAccountStorage {
     address _manager;
     address _bookingToken;
-    uint256 _unused;
 }
 ```
 
@@ -337,14 +354,6 @@ error TTMAccountNoUpgradeNeeded(address oldImplementation, address newImplementa
 
 New implementation is the same as the current implementation, no update needed
 
-### PrefundNotSpentYet
-
-```solidity
-error PrefundNotSpentYet(uint256 withdrawableAmount, uint256 prefundLeft, uint256 amount)
-```
-
-Error to revert with if the prefund is not spent yet
-
 ### TransferToZeroAddress
 
 ```solidity
@@ -352,6 +361,14 @@ error TransferToZeroAddress()
 ```
 
 Error to revert if transfer to zero address
+
+### ZeroAddress
+
+```solidity
+error ZeroAddress()
+```
+
+A required address parameter was the zero address.
 
 ### constructor
 
@@ -928,6 +945,15 @@ bytes32 MIN_EXPIRATION_ADMIN_ROLE
 
 This role can set the mininum allowed expiration timestamp difference.
 
+### PAUSER_ROLE
+
+```solidity
+bytes32 PAUSER_ROLE
+```
+
+Pauser role can pause the contract, halting minting, buying, and
+cancellation finalization.
+
 ### NATIVE_PAYMENT
 
 ```solidity
@@ -1142,23 +1168,6 @@ Token is reserved and can not be transferred.
 | tokenId     | uint256 | token id             |
 | reservedFor | address | reserved for address |
 
-### InsufficientAllowance
-
-```solidity
-error InsufficientAllowance(address sender, contract IERC20 paymentToken, uint256 price, uint256 allowance)
-```
-
-Insufficient allowance to transfer the ERC20 token to the supplier.
-
-#### Parameters
-
-| Name         | Type            | Description           |
-| ------------ | --------------- | --------------------- |
-| sender       | address         | msg.sender            |
-| paymentToken | contract IERC20 | payment token address |
-| price        | uint256         | price of the token    |
-| allowance    | uint256         | allowance amount      |
-
 ### InvalidTokenStatus
 
 ```solidity
@@ -1203,6 +1212,14 @@ Error for when there is unexpected native payment.
 | ------ | ------- | --------------------- |
 | amount | uint256 | The unexpected amount |
 
+### ZeroAddress
+
+```solidity
+error ZeroAddress()
+```
+
+A required address parameter was the zero address.
+
 ### onlyTTMAccount
 
 ```solidity
@@ -1217,23 +1234,6 @@ Only TTMAccount modifier.
 function initialize(address manager, address defaultAdmin, address upgrader) public
 ```
 
-### reinitializeV2
-
-```solidity
-function reinitializeV2(string newName, string newSymbol) public
-```
-
-This function allows reinitializing the contract to update the name and symbol
-
-_Only callable by DEFAULT_ADMIN_ROLE_
-
-#### Parameters
-
-| Name      | Type   | Description      |
-| --------- | ------ | ---------------- |
-| newName   | string | New token name   |
-| newSymbol | string | New token symbol |
-
 ### \_authorizeUpgrade
 
 ```solidity
@@ -1241,6 +1241,27 @@ function _authorizeUpgrade(address newImplementation) internal virtual
 ```
 
 Function to authorize an upgrade for UUPS proxy.
+
+### pause
+
+```solidity
+function pause() external
+```
+
+Pauses minting, buying, and cancellation finalization.
+
+_Pausing halts commerce (minting, buying, and cancellation
+finalization), not custody: ERC-721 transfers are unaffected, so a
+pending cancellation can still be auto-resolved by a transfer while
+paused. This is deliberate._
+
+### unpause
+
+```solidity
+function unpause() external
+```
+
+Resumes normal operation.
 
 ### safeMintWithReservation
 
@@ -1613,12 +1634,6 @@ event CancellationFinalized(uint256 tokenId)
 
 ```solidity
 error NotOwnerOrSupplier()
-```
-
-### CancellationProposalExists
-
-```solidity
-error CancellationProposalExists(uint256 tokenId)
 ```
 
 ### IncorrectRefundAmount
@@ -2114,14 +2129,9 @@ address.
 
 Create TTM Account: Users who want to create an account should call
 `createTTMAccount(address admin, address upgrader)` function with addresses of
-the accounts admin and upgrader roles and they also need to approve the service
-fee token with the amount of prefund.
+the accounts admin and upgrader roles.
 
 When the manager contract is paused, account creation is stopped.
-
-Developer Fee: This contracts also keeps the info about the developer wallet
-and fee basis points. Which are used during the cheque cash in to pay for the
-developer fee.
 
 Service Registry: {TTMAccountManager} also acts as a registry for the services
 that {TTMAccount} contracts add as a supported or wanted service. Registry
@@ -2287,6 +2297,14 @@ Invalid booking token address.
 | ------------ | ------- | ------------------------- |
 | bookingToken | address | The booking token address |
 
+### ZeroAddress
+
+```solidity
+error ZeroAddress()
+```
+
+A required address parameter was the zero address.
+
 ### constructor
 
 ```solidity
@@ -2330,13 +2348,11 @@ Authorization for the TTMAccountManager contract upgrade.
 function createTTMAccount(address admin, address upgrader) external payable returns (address)
 ```
 
-Creates TTMAccount by deploying a ERC1967Proxy with the TTMAccount
-implementation from the manager.
+Creates a new TTMAccount.
 
-Because this function is deploying a contract, it reverts if the caller is
-not KYC or KYB verified. (For EOAs only)
-
-Caller must approve the pre-fund amount before calling this function.
+This function is currently permissionless: any address may create an
+account. See docs/decisions/2026-07-21-contract-design-decisions.md
+(Decision 1) -- gating must be resolved before Base mainnet.
 
 _Emits a {TTMAccountCreated} event._
 
@@ -2548,10 +2564,10 @@ error PublicKeyAlreadyExists(address pubKeyAddress)
 error PublicKeyDoesNotExist(address pubKeyAddress)
 ```
 
-### InvalidPublicKeyUseType
+### CapabilityDoesNotExist
 
 ```solidity
-error InvalidPublicKeyUseType(uint8 use)
+error CapabilityDoesNotExist(bytes32 serviceHash, string capability)
 ```
 
 ### PaymentTokenAdded
@@ -3101,32 +3117,4 @@ function getVersion() public pure returns (string)
 
 ```solidity
 constructor() public
-```
-
-## ServiceFeeToken
-
-This contract is deprecated and removed as part of Milestone 1 service fee removal.
-
-### name
-
-```solidity
-function name() public pure returns (string)
-```
-
-### symbol
-
-```solidity
-function symbol() public pure returns (string)
-```
-
-### decimals
-
-```solidity
-function decimals() public pure returns (uint8)
-```
-
-### mint
-
-```solidity
-function mint(address, uint256) public
 ```

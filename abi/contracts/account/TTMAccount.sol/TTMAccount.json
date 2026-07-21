@@ -39,6 +39,22 @@
   {
     "inputs": [
       {
+        "internalType": "bytes32",
+        "name": "serviceHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "string",
+        "name": "capability",
+        "type": "string"
+      }
+    ],
+    "name": "CapabilityDoesNotExist",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "address",
         "name": "implementation",
         "type": "address"
@@ -61,6 +77,22 @@
     "inputs": [
       {
         "internalType": "uint256",
+        "name": "limit",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "period",
+        "type": "uint256"
+      }
+    ],
+    "name": "GasMoneyValueOutOfRange",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
         "name": "balance",
         "type": "uint256"
       },
@@ -76,17 +108,6 @@
   {
     "inputs": [],
     "name": "InvalidInitialization",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint8",
-        "name": "use",
-        "type": "uint8"
-      }
-    ],
-    "name": "InvalidPublicKeyUseType",
     "type": "error"
   },
   {
@@ -114,27 +135,6 @@
       }
     ],
     "name": "PaymentTokenDoesNotExist",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "withdrawableAmount",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "prefundLeft",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "PrefundNotSpentYet",
     "type": "error"
   },
   {
@@ -302,6 +302,11 @@
       }
     ],
     "name": "WithdrawalLimitExceededForPeriod",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ZeroAddress",
     "type": "error"
   },
   {

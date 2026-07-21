@@ -501,6 +501,25 @@ describe("PartnerConfiguration", function () {
         });
     });
 
+    describe("Capability removal", function () {
+        it("should revert when removing a capability that does not exist", async function () {
+            const { ttmAccount, services } = await loadFixture(deployAndConfigureAllWithRegisteredServicesFixture);
+
+            const restrictedRate = false;
+            const capabilities = ["existing-capability"];
+
+            await ttmAccount
+                .connect(signers.ttmServiceAdmin)
+                .addService(services.serviceName1, restrictedRate, capabilities);
+
+            await expect(
+                ttmAccount
+                    .connect(signers.ttmServiceAdmin)
+                    .removeServiceCapability(services.serviceName1, "no-such-capability"),
+            ).to.be.revertedWithCustomError(ttmAccount, "CapabilityDoesNotExist");
+        });
+    });
+
     describe("Unregistered Services", function () {
         it("should remove a service even if it's unregistered on the manager", async function () {
             const { ttmAccountManager, ttmAccount } = await loadFixture(deployAndConfigureAllFixture);

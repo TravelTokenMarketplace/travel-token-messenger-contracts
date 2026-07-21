@@ -4,7 +4,7 @@ Solidity smart contracts for the Travel Token Messenger ecosystem, built with Ha
 
 ## Layout
 
-- `contracts/` — Solidity sources (Solidity 0.8.24, optimizer `runs: 1`, `evmVersion: paris`)
+- `contracts/` — Solidity sources (Solidity 0.8.24, optimizer `runs: 1000`, `evmVersion: cancun`)
     - `manager/` — `TTMAccountManager` (factory + registry + roles), `ITTMAccountManager`
     - `account/` — `TTMAccount` (per-partner account: bots, tokens, services, pubkeys, withdrawals), `GasMoneyManager`, `ITTMAccount`
     - `booking-token/` — `BookingToken` (ERC-721) + cancellable/operator extensions
@@ -25,16 +25,16 @@ Solidity smart contracts for the Travel Token Messenger ecosystem, built with Ha
 
 ## Commands
 
-- `yarn compile` — compile contracts (also runs `contract-sizer`)
+- `yarn compile` — compile contracts (also runs `contract-sizer` and `docgen`)
 - `yarn test` — run the Hardhat test suite (`REPORT_GAS=true`)
 - `yarn lint` — Prettier + ESLint + Solhint; `yarn format` to auto-fix with Prettier
 - `yarn docgen` — regenerate `docs/`
 - `yarn hardhat export-abi` — regenerate `abi/` (see below)
-- Deploy with Hardhat Ignition, e.g. `yarn hardhat ignition deploy ignition/modules/messenger.js --network <name> --parameters ignition/<network>_parameters.json`
+- Deploy with Hardhat Ignition — the single deploy command is **not** sufficient by itself; it leaves the system inert (no roles granted beyond DEFAULT_ADMIN/PAUSER/UPGRADER/VERSIONER, zero services registered). Follow the full runbook in the README's [Deploy (Hardhat Ignition)](README.md#deploy-hardhat-ignition) section, including role grants, service registration, and the `managerAdmin`-does-not-cascade caveat.
 
 ## Networks
 
-Defined in `hardhat.config.js`: `base` (8453), `base_sepolia` (84532), plus `localhost`. RPC URLs and deployer keys come from Hardhat **configuration variables** (`vars.get(...)`), e.g. `BASE_SEPOLIA_DEPLOYER_PRIVATE_KEY`, `BASE_SEPOLIA_URL`, `BASESCAN_API_KEY` — set them with `yarn hardhat vars set <NAME>`.
+Defined in `hardhat.config.js`: `base` (8453), `base_sepolia` (84532), plus `localhost`. RPC URLs and deployer keys come from Hardhat **configuration variables** (`vars.get(...)`), e.g. `BASE_SEPOLIA_DEPLOYER_PRIVATE_KEY`, `BASE_SEPOLIA_URL`, `ETHERSCAN_API_KEY` — set them with `yarn hardhat vars set <NAME>`.
 
 ## ABIs (important)
 

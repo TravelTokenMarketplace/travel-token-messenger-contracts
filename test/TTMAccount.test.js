@@ -3,7 +3,7 @@
  */
 const { loadFixture } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
 const { expect } = require("chai");
-const { ethers } = require("hardhat");
+const { ethers, upgrades } = require("hardhat");
 
 const {
     setupSigners,
@@ -134,7 +134,7 @@ describe("TTMAccount", function () {
             const { ttmAccountManager, ttmAccount } = await loadFixture(deployAndConfigureAllFixture);
 
             const MESSENGER_BOT_ROLE = await ttmAccount.MESSENGER_BOT_ROLE();
-            const botAddr = signers.chequeOperator.address;
+            const botAddr = signers.botOperator.address;
 
             // Grant MESSENGER_BOT_ROLE
             await expect(ttmAccount.connect(signers.ttmAccountAdmin).grantRole(MESSENGER_BOT_ROLE, botAddr))
@@ -206,12 +206,11 @@ describe("TTMAccount", function () {
                 .withArgs(withdrawer.address, WITHDRAWER_ROLE);
         });
 
-        it("should withdraw all amount (removed prefund checkPrefundCheck)", async function () {
+        it("should withdraw all amount", async function () {
             const { ttmAccount } = await loadFixture(deployTTMAccountWithDepositFixture);
 
             const withdrawer = signers.withdrawer;
-            // Try to withdraw allowed amount. ttmAccount has 100 CAM prefund and 1
-            // CAM deposit initially. So max 1 cam is withdrawable.
+            // Withdraw 1 ETH from initial deposit of 1 ETH
             const withdrawAmount = ethers.parseEther("1");
 
             // Try withdraw
@@ -224,10 +223,9 @@ describe("TTMAccount", function () {
                 [-withdrawAmount, withdrawAmount],
             );
 
-            // Update @2025-08-28: We have removed checkPrefund check, so we can withdraw all amount
+            // Full balance is withdrawable
 
-            // Try to withdraw all amount. We withdrawn 1 CAM above, so now
-            // ttmAccount has 100 CAM left.
+            // Withdraw all remaining 100 ETH
             const withdrawAmount2 = ethers.parseEther("100");
 
             // Try withdraw
@@ -320,7 +318,7 @@ describe("TTMAccount", function () {
 
             const bot = signers.otherAccount1;
 
-            const withdrawAmount = ethers.parseEther("25"); // Big amount, we removed checkPrefundCheck.
+            const withdrawAmount = ethers.parseEther("25"); // Withdraw 25 ETH to the bot.
 
             // Register bot
             const withdrawTx = ttmAccount
@@ -570,6 +568,43 @@ describe("TTMAccount", function () {
             await expect(ttmAccount.connect(unauthorizedCaller).finalizeCancellation(0n, ethers.parseEther("0.05")))
                 .to.be.revertedWithCustomError(ttmAccount, "AccessControlUnauthorizedAccount")
                 .withArgs(unauthorizedCaller.address, BOOKING_OPERATOR_ROLE);
+        });
+    });
+
+    describe("Initializer validation", function () {
+        it("should reject a zero address for any initializer parameter", async function () {
+            await setupSigners();
+            const { ttmAccountManager } = await loadFixture(deployTTMAccountManagerFixture);
+            const zero = ethers.ZeroAddress;
+            const ok = signers.ttmAccountAdmin.address;
+            const mgr = await ttmAccountManager.getAddress();
+
+            const bookingTokenOperator = await ethers.deployContract("BookingTokenOperator");
+            const Account = await ethers.getContractFactory("TTMAccount", {
+                libraries: { BookingTokenOperator: await bookingTokenOperator.getAddress() },
+            });
+
+            for (const args of [
+                [zero, ok, ok, ok],
+                [mgr, zero, ok, ok],
+                [mgr, ok, zero, ok],
+                [mgr, ok, ok, zero],
+            ]) {
+                await expect(
+                    upgrades.deployProxy(Account, args, { kind: "uups", unsafeAllow: ["external-library-linking"] }),
+                ).to.be.revertedWithCustomError(Account, "ZeroAddress");
+            }
+        });
+    });
+
+    describe("Deposit event", function () {
+        it("should emit Deposit when receiving ETH", async function () {
+            const { ttmAccount } = await loadFixture(deployAndConfigureAllFixture);
+            const amount = ethers.parseEther("1.5");
+
+            await expect(signers.otherAccount1.sendTransaction({ to: await ttmAccount.getAddress(), value: amount }))
+                .to.emit(ttmAccount, "Deposit")
+                .withArgs(signers.otherAccount1.address, amount);
         });
     });
 });
