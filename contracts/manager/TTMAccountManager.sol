@@ -333,14 +333,18 @@ contract TTMAccountManager is
             return new address[](0);
         }
 
-        uint256 end = offset + limit;
-        if (end > total) {
-            end = total;
+        // Clamp by subtraction, not by computing `offset + limit`: under checked
+        // arithmetic that sum reverts for a large `limit`, which would contradict
+        // the "an oversized limit is not an error" contract above. `offset < total`
+        // here, so `total - offset` cannot underflow.
+        uint256 remaining = total - offset;
+        if (limit > remaining) {
+            limit = remaining;
         }
 
-        accounts = new address[](end - offset);
-        for (uint256 i = offset; i < end; i++) {
-            accounts[i - offset] = ttmAccounts.at(i);
+        accounts = new address[](limit);
+        for (uint256 i = 0; i < limit; i++) {
+            accounts[i] = ttmAccounts.at(offset + i);
         }
     }
 

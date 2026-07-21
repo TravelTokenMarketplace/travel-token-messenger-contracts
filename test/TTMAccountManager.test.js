@@ -456,6 +456,24 @@ describe("TTMAccountManager", function () {
             expect(await ttmAccountManager.getTTMAccountsSlice(4, 1)).to.deep.equal([]);
             expect(await ttmAccountManager.getTTMAccountsSlice(0, 100)).to.deep.equal(all);
         });
+
+        it("should clamp an oversized limit instead of reverting", async function () {
+            await setupSigners();
+            const { ttmAccountManager } = await loadFixture(deployAndConfigureAllFixture);
+
+            // deployAndConfigureAllFixture already created one account, so we
+            // build the pagination assertions off the actual returned list
+            // rather than a hardcoded count.
+            for (let i = 0; i < 3; i++) {
+                await ttmAccountManager
+                    .connect(signers.ttmAccountAdmin)
+                    .createTTMAccount(signers.ttmAccountAdmin.address, signers.ttmAccountUpgrader.address);
+            }
+            const all = await ttmAccountManager.getTTMAccounts();
+
+            expect(await ttmAccountManager.getTTMAccountsSlice(1, ethers.MaxUint256)).to.deep.equal(all.slice(1));
+            expect(await ttmAccountManager.getTTMAccountsSlice(0, ethers.MaxUint256)).to.deep.equal(all);
+        });
     });
 
     describe("Initializer validation", function () {
