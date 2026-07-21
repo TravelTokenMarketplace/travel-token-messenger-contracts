@@ -11,11 +11,10 @@ import { ACCOUNT_EVENTS, SERVICE_HASH_EVENTS, serviceHashArg, renderSentence } f
  * pubkeys, funds, config). One address, so a single getLogs filter covers it.
  *
  * Service events carry the keccak hash of the service name: `ServiceAdded` and
- * its siblings carry it directly as an indexed `bytes32 serviceHash`;
- * `WantedServiceAdded`/`WantedServiceRemoved` still carry an indexed `string
- * serviceName`, which viem can only surface as its keccak topic. Either way we
- * resolve those hashes to human names via the manager's getServiceNameByHash
- * and re-render the affected sentences.
+ * every other account-side service event, including `WantedServiceAdded`/
+ * `WantedServiceRemoved`, carry it directly as an indexed `bytes32
+ * serviceHash`. We resolve those hashes to human names via the manager's
+ * getServiceNameByHash and re-render the affected sentences.
  */
 export function useAccountActivity(account: Address) {
   const { chainId, manager, managerAbi } = useActiveContracts();

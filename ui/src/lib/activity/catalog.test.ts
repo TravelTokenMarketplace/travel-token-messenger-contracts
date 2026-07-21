@@ -6,6 +6,7 @@ import {
   SERVICE_HASH_EVENTS,
   lookupEntry,
   renderSentence,
+  serviceHashArg,
   toActivityEvent,
 } from "./catalog";
 
@@ -56,14 +57,23 @@ describe("catalog rendering", () => {
     ).toBe("Supported service (0xabcd…1234) added");
   });
 
-  it("falls back to a short hash for events that still carry an indexed serviceName", () => {
-    // WantedServiceAdded (Task 6 territory) still carries an indexed `string serviceName`;
-    // viem can only surface its keccak topic, not the original string.
+  it("falls back to a short service hash for wanted-service events too", () => {
+    // WantedServiceAdded/Removed switched from an indexed `string serviceName` to an
+    // indexed `bytes32 serviceHash` in Task 6, mirroring ServiceAdded/Removed (Task 5).
     expect(
       render("account", "WantedServiceAdded", {
-        serviceName: "0xabcd000000000000000000000000000000000000000000000000000000001234",
+        serviceHash: "0xabcd000000000000000000000000000000000000000000000000000000001234",
       }),
     ).toBe("Wanted service (0xabcd…1234) added");
+  });
+
+  it("serviceHashArg still falls back to a serviceName field for any event shape that needs it", () => {
+    // No current account event carries `serviceName` any more (Task 6 converted the last
+    // one), but the fallback stays for future/other producers — keep it under direct test
+    // since render() alone can no longer exercise this branch.
+    expect(serviceHashArg({ serviceHash: "0xhash" })).toBe("0xhash");
+    expect(serviceHashArg({ serviceName: "0xname" })).toBe("0xname");
+    expect(serviceHashArg({ serviceHash: "0xhash", serviceName: "0xname" })).toBe("0xhash");
   });
 
   it("uses the resolved service name when injected via serviceLabel", () => {

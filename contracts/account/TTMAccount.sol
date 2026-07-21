@@ -174,8 +174,8 @@ contract TTMAccount is
     event ServiceAdded(bytes32 indexed serviceHash);
     event ServiceRemoved(bytes32 indexed serviceHash);
 
-    event WantedServiceAdded(string indexed serviceName);
-    event WantedServiceRemoved(string indexed serviceName);
+    event WantedServiceAdded(bytes32 indexed serviceHash);
+    event WantedServiceRemoved(bytes32 indexed serviceHash);
 
     event ServiceRestrictedRateUpdated(bytes32 indexed serviceHash, bool restrictedRate);
 
@@ -618,46 +618,31 @@ contract TTMAccount is
      ***************************************************/
 
     /**
-     * @notice Adds wanted services.
+     * @notice Declares services this account wants to consume from other partners.
      *
-     * @param serviceNames List of service names
+     * @dev Each hash must be registered in the manager's ServiceRegistry, for the same
+     * reason as {addService}.
+     *
+     * @param serviceHashes Hashes of the service names to want
      */
-    function addWantedServices(string[] memory serviceNames) public onlyRole(SERVICE_ADMIN_ROLE) {
-        for (uint256 i = 0; i < serviceNames.length; i++) {
-            bytes32 serviceHash = getRegisteredServiceHash(serviceNames[i]);
-            _addWantedService(serviceHash);
-            emit WantedServiceAdded(serviceNames[i]);
+    function addWantedServices(bytes32[] memory serviceHashes) public onlyRole(SERVICE_ADMIN_ROLE) {
+        for (uint256 i = 0; i < serviceHashes.length; i++) {
+            _requireRegisteredService(serviceHashes[i]);
+            _addWantedService(serviceHashes[i]);
+            emit WantedServiceAdded(serviceHashes[i]);
         }
     }
 
     /**
-     * @notice Removes wanted services.
+     * @notice Removes services from this account's wanted list.
      *
-     * @param serviceNames List of service names
+     * @param serviceHashes Hashes of the service names to stop wanting
      */
-    function removeWantedServices(string[] memory serviceNames) public onlyRole(SERVICE_ADMIN_ROLE) {
-        for (uint256 i = 0; i < serviceNames.length; i++) {
-            bytes32 serviceHash = getServiceHash(serviceNames[i]);
-            _removeWantedService(serviceHash);
-            emit WantedServiceRemoved(serviceNames[i]);
+    function removeWantedServices(bytes32[] memory serviceHashes) public onlyRole(SERVICE_ADMIN_ROLE) {
+        for (uint256 i = 0; i < serviceHashes.length; i++) {
+            _removeWantedService(serviceHashes[i]);
+            emit WantedServiceRemoved(serviceHashes[i]);
         }
-    }
-
-    /**
-     * @notice Get all wanted services.
-     *
-     * @return serviceNames List of service names
-     */
-    function getWantedServices() public view returns (string[] memory serviceNames) {
-        bytes32[] memory _wantedServiceHashes = getWantedServiceHashes();
-
-        string[] memory _wantedServiceNames = new string[](_wantedServiceHashes.length);
-
-        for (uint256 i = 0; i < _wantedServiceHashes.length; i++) {
-            _wantedServiceNames[i] = getServiceName(_wantedServiceHashes[i]);
-        }
-
-        return _wantedServiceNames;
     }
 
     /***************************************************

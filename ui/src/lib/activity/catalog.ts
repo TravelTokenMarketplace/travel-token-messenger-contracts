@@ -19,16 +19,16 @@ import { type ActivityEvent, type ActivitySource, type CatalogEntry } from "./ty
 // Helpers for rendering args. Logs are decoded by viem, so args carry their
 // solidity types: uint -> bigint, address -> string, bool -> boolean.
 //
-// Service events come in two shapes here: `ServiceAdded`/`ServiceRemoved`/
+// Every account-side service event — `ServiceAdded`/`ServiceRemoved`/
 // `ServiceRestrictedRateUpdated`/`ServiceCapabilitiesUpdated`/
-// `ServiceCapabilityAdded`/`ServiceCapabilityRemoved` carry an indexed
-// `bytes32 serviceHash` that viem decodes as-is. `WantedServiceAdded`/
-// `WantedServiceRemoved` still carry an indexed `string serviceName`, which
-// (being a dynamic type) viem can only surface as its keccak topic, not the
-// original string. Either way we render a short hash by default;
-// useAccountActivity resolves the real name via the manager and injects it as
-// `serviceLabel`, after which renderSentence() is called again to upgrade the
-// text.
+// `ServiceCapabilityAdded`/`ServiceCapabilityRemoved`/`WantedServiceAdded`/
+// `WantedServiceRemoved` — carries an indexed `bytes32 serviceHash` that viem
+// decodes as-is. We render a short hash by default; useAccountActivity
+// resolves the real name via the manager and injects it as `serviceLabel`,
+// after which renderSentence() is called again to upgrade the text.
+// (serviceHashArg() below also falls back to a `serviceName` field for any
+// future/other event shape that might still carry the name as a string arg —
+// no current account event needs that branch.)
 const addr = (v: unknown) => shortAddress(String(v));
 const id = (v: unknown) => `#${String(v)}`;
 const ether = (v: unknown) => formatEther(BigInt(v as bigint | number | string));

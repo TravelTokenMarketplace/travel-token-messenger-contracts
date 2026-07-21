@@ -524,7 +524,8 @@ ACCOUNT_SCOPE.task("wanted:add", "Add wanted service to TTMAccount")
             console.log("Adding service to TTMAccount...");
             console.log("Signer:", signer.address);
 
-            const tx = await ttmAccount.connect(signer).addWantedServices([taskArgs.serviceName]);
+            const serviceHash = ethers.keccak256(ethers.toUtf8Bytes(taskArgs.serviceName));
+            const tx = await ttmAccount.connect(signer).addWantedServices([serviceHash]);
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
         } catch (error) {
@@ -555,7 +556,8 @@ ACCOUNT_SCOPE.task("wanted:remove", "Remove wanted service from TTMAccount")
             console.log("Removing service from TTMAccount...");
             console.log("Signer:", signer.address);
 
-            const tx = await ttmAccount.connect(signer).removeWantedServices([taskArgs.serviceName]);
+            const serviceHash = ethers.keccak256(ethers.toUtf8Bytes(taskArgs.serviceName));
+            const tx = await ttmAccount.connect(signer).removeWantedServices([serviceHash]);
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
         } catch (error) {
@@ -576,9 +578,15 @@ ACCOUNT_SCOPE.task("wanted:list", "List all wanted service from TTMAccount")
         try {
             console.log("Listing all wanted services from TTMAccount...");
 
-            const wantedServices = await ttmAccount.getWantedServices();
+            const manager = await getManager(hre);
+            const wantedServiceHashes = await ttmAccount.getWantedServiceHashes();
             console.log("Wanted Services:");
-            console.log(wantedServices);
+            for (const serviceHash of wantedServiceHashes) {
+                // getServiceNameByHash resolves even a service that was later unregistered
+                // from the manager; an empty result just means the hash was never registered.
+                const serviceName = await manager.getServiceNameByHash(serviceHash);
+                console.log(serviceName ? `📦 ${serviceName} (${serviceHash})` : `📦 ${serviceHash}`);
+            }
         } catch (error) {
             handleTransactionError(error, ttmAccount);
         }

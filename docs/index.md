@@ -314,13 +314,13 @@ event ServiceRemoved(bytes32 serviceHash)
 ### WantedServiceAdded
 
 ```solidity
-event WantedServiceAdded(string serviceName)
+event WantedServiceAdded(bytes32 serviceHash)
 ```
 
 ### WantedServiceRemoved
 
 ```solidity
-event WantedServiceRemoved(string serviceName)
+event WantedServiceRemoved(bytes32 serviceHash)
 ```
 
 ### ServiceRestrictedRateUpdated
@@ -697,44 +697,33 @@ Get service capabilities by name. Overloading the getServiceCapabilities functio
 ### addWantedServices
 
 ```solidity
-function addWantedServices(string[] serviceNames) public
+function addWantedServices(bytes32[] serviceHashes) public
 ```
 
-Adds wanted services.
+Declares services this account wants to consume from other partners.
+
+_Each hash must be registered in the manager's ServiceRegistry, for the same
+reason as {addService}._
 
 #### Parameters
 
-| Name         | Type     | Description           |
-| ------------ | -------- | --------------------- |
-| serviceNames | string[] | List of service names |
+| Name          | Type      | Description                         |
+| ------------- | --------- | ----------------------------------- |
+| serviceHashes | bytes32[] | Hashes of the service names to want |
 
 ### removeWantedServices
 
 ```solidity
-function removeWantedServices(string[] serviceNames) public
+function removeWantedServices(bytes32[] serviceHashes) public
 ```
 
-Removes wanted services.
+Removes services from this account's wanted list.
 
 #### Parameters
 
-| Name         | Type     | Description           |
-| ------------ | -------- | --------------------- |
-| serviceNames | string[] | List of service names |
-
-### getWantedServices
-
-```solidity
-function getWantedServices() public view returns (string[] serviceNames)
-```
-
-Get all wanted services.
-
-#### Return Values
-
-| Name         | Type     | Description           |
-| ------------ | -------- | --------------------- |
-| serviceNames | string[] | List of service names |
+| Name          | Type      | Description                                 |
+| ------------- | --------- | ------------------------------------------- |
+| serviceHashes | bytes32[] | Hashes of the service names to stop wanting |
 
 ### setOffChainPaymentSupported
 

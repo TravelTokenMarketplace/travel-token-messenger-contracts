@@ -702,5 +702,44 @@ describe("TTMAccount", function () {
 
             expect(await ttmAccount["getServiceCapabilities(bytes32)"](hash)).to.deep.equal([]);
         });
+
+        it("should add and remove wanted services by hash", async function () {
+            await setupSigners();
+            const { ttmAccount, ttmAccountManager } = await loadFixture(
+                deployAndConfigureAllWithRegisteredServicesFixture,
+            );
+
+            const name = "ttm.services.activity.v2.ActivitySearchService";
+            await ttmAccountManager.connect(signers.registryAdmin).registerService(name);
+            // Independently computed, same reasoning as the ServiceAdded test above: pins the
+            // hash to the registry's own keccak256 rather than trusting a value read back from
+            // the contract, so a wrong storage key would still be caught.
+            const hash = ethers.keccak256(ethers.toUtf8Bytes(name));
+
+            await expect(ttmAccount.connect(signers.ttmServiceAdmin).addWantedServices([hash]))
+                .to.emit(ttmAccount, "WantedServiceAdded")
+                .withArgs(hash);
+
+            expect(await ttmAccount.getWantedServiceHashes()).to.deep.equal([hash]);
+
+            await expect(ttmAccount.connect(signers.ttmServiceAdmin).removeWantedServices([hash]))
+                .to.emit(ttmAccount, "WantedServiceRemoved")
+                .withArgs(hash);
+
+            expect(await ttmAccount.getWantedServiceHashes()).to.deep.equal([]);
+        });
+
+        it("should reject adding a wanted service whose hash is not registered", async function () {
+            await setupSigners();
+            const { ttmAccount } = await loadFixture(deployAndConfigureAllWithRegisteredServicesFixture);
+
+            // ttmServiceAdmin genuinely holds SERVICE_ADMIN_ROLE here (granted by the fixture),
+            // so this must revert on the registry lookup, not on access control.
+            const unregistered = ethers.keccak256(ethers.toUtf8Bytes("ttm.services.nope.v1.NopeService"));
+
+            await expect(
+                ttmAccount.connect(signers.ttmServiceAdmin).addWantedServices([unregistered]),
+            ).to.be.revertedWithCustomError(ttmAccount, "ServiceNotRegistered");
+        });
     });
 });

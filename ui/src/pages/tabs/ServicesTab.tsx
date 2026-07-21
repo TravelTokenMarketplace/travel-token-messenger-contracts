@@ -14,7 +14,8 @@ import { useActiveContracts } from "../../hooks/useActiveContracts";
 import { useContractList } from "../../hooks/useContractList";
 import { useHasRole } from "../../hooks/useHasRole";
 import { useServiceCatalog } from "../../hooks/useServiceCatalog";
-import { hashServiceName } from "../../lib/serviceCatalog";
+import { shortAddress } from "../../lib/format";
+import { hashServiceName, serviceNameForHash } from "../../lib/serviceCatalog";
 import { type ParsedService, groupServicesByPackage } from "../../lib/serviceName";
 import { useTx } from "../../tx/TxProvider";
 
@@ -484,15 +485,28 @@ function WantedServices({
   registered: string[];
 }) {
   const { writeContractAsync } = useWriteContract();
-  const { items, isLoading, refetch } = useContractList(account, abi, "getWantedServices");
+  const { catalog } = useServiceCatalog();
+  const { items: hashes, isLoading, refetch } = useContractList(account, abi, "getWantedServiceHashes");
   const [name, setName] = useState("");
-  const groups = groupServicesByPackage(items.map((n) => ({ name: n })));
+  // The catalog covers currently-registered names; falling back to hashing the
+  // name directly still yields the correct hash if the registry doesn't have it
+  // (mirrors SupportedServices' hashFor above).
+  const hashFor = (n: string) => catalog.hashByName.get(n) ?? hashServiceName(n);
+  // getWantedServiceHashes() only returns hashes — resolve names from the
+  // catalog, falling back to a shortened hash for a service that was
+  // unregistered after this account wanted it (the catalog only knows
+  // currently-registered names).
+  const wanted = hashes.map((hash) => {
+    const resolved = serviceNameForHash(catalog, hash);
+    return { hash, name: resolved ?? shortAddress(hash, 10, 8), resolved: resolved !== undefined };
+  });
+  const groups = groupServicesByPackage(wanted);
 
   return (
     <Card title="Wanted Services">
       {isLoading ? (
         <p>Loading…</p>
-      ) : items.length === 0 ? (
+      ) : wanted.length === 0 ? (
         <p className="mb-4 py-2 text-sm text-tarmac-400">None</p>
       ) : (
         <div className="mb-4 space-y-5">
@@ -502,12 +516,15 @@ function WantedServices({
               <ul className="space-y-2">
                 {g.items.map((s) => (
                   <li
-                    key={s.name}
+                    key={s.hash}
                     className="group flex items-center justify-between gap-3 rounded-md border border-tarmac-100 px-3 py-2 dark:border-tarmac-700/60"
                   >
                     <span className="flex min-w-0 items-center gap-2">
                       <ServiceLabel parsed={s.parsed} />
-                      <CopyButton value={s.name} label="Copy full service name" />
+                      <CopyButton
+                        value={s.resolved ? s.name : s.hash}
+                        label={s.resolved ? "Copy full service name" : "Copy service hash"}
+                      />
                     </span>
                     {hasRole && (
                       <RowAction>
@@ -521,7 +538,7 @@ function WantedServices({
                               address: account,
                               abi,
                               functionName: "removeWantedServices",
-                              args: [[s.name]],
+                              args: [[s.hash]],
                             })
                           }
                           onConfirmed={refetch}
@@ -541,7 +558,7 @@ function WantedServices({
             className="flex-1"
             value={name}
             onChange={setName}
-            options={registered.filter((n) => !items.includes(n))}
+            options={registered.filter((n) => !wanted.some((w) => w.resolved && w.name === n))}
             placeholder="Pick or type a registered service…"
           />
           <TxButton
@@ -550,7 +567,12 @@ function WantedServices({
             disabled={!name.trim()}
             tooltip="Adds a wanted service to the account — sends a transaction to your wallet."
             write={() =>
-              writeContractAsync({ address: account, abi, functionName: "addWantedServices", args: [[name.trim()]] })
+              writeContractAsync({
+                address: account,
+                abi,
+                functionName: "addWantedServices",
+                args: [[hashFor(name.trim())]],
+              })
             }
             onConfirmed={() => {
               setName("");
