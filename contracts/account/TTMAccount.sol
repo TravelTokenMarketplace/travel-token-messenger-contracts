@@ -238,7 +238,9 @@ contract TTMAccount is
         __GasMoneyManager_init(withdrawalLimit, withdrawalPeriod);
     }
 
-    receive() external payable {}
+    receive() external payable {
+        emit Deposit(msg.sender, msg.value);
+    }
 
     /***************************************************
      *                    Getters                      *
