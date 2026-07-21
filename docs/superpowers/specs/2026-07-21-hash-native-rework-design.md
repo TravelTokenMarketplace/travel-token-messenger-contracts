@@ -112,6 +112,8 @@ mapping(address account => address creator) _ttmAccountCreator;
 | `getTTMAccounts()`                      | new — replaces `getRoleMembers(TTMACCOUNT_ROLE)` |
 | `getTTMAccounts(uint256 offset, uint256 limit)` | new — absorbs §8's pagination item |
 
+**This shipped under a different name.** It is `getTTMAccountsSlice(uint256 offset, uint256 limit)`, not an overload of `getTTMAccounts`. That was deliberate, not a drift: an overload would leave ethers/wagmi callers to disambiguate between `getTTMAccounts()` and `getTTMAccounts(uint256,uint256)` by argument count, which both libraries handle unreliably. A distinct name sidesteps that entirely.
+
 `_createTTMAccount` becomes the sole writer, and no external mutator exists at
 all. The divergence class disappears structurally rather than by guard, so no
 `grantRole`/`revokeRole`/`renounceRole` overrides are needed.
@@ -246,6 +248,14 @@ take `bytes32[]`.
 
 Expected saving: roughly 250 lines and ~2 KiB of bytecode.
 
+**Both estimates were wrong; here is why.** `TTMAccount.sol` went from 828 lines
+to 849 — a **+21 line increase**, not a ~250 line reduction, because the new
+`getSupportedServicesSlice` getter (see section F) and its NatSpec added more
+than the resolution helpers removed. The bytecode estimate was also off, though
+by less in relative terms: section F measures the actual change as −0.502 KiB
+against the predicted ~2 KiB. The line-count miss is the larger of the two —
+this rework made the file bigger, not smaller.
+
 ### One staticcall stays, deliberately
 
 `addService` must still verify the hash corresponds to a *registered* service,
@@ -276,6 +286,12 @@ names. The string API is a presentation concern, and this is where it belongs.
 | §8 | Override `supportsInterface` in `TTMAccount` (`:383`) to report `type(IERC721Receiver).interfaceId`. The contract implements `IERC721Receiver` (`:54`) but reports `false`, so counterparties doing capability detection conclude it cannot receive an NFT. |
 | §8 | Collapse the six near-identical cancellation wrappers (`BookingToken.sol:721-850`) behind one `_requireBoughtAndParties(tokenId) returns (address owner, address supplier)`. ABI-identical, ~90 lines and ~1 KiB saved. |
 | §8 | `nonReentrant` on `finalizeCancellation`, for consistency with `buyReservedToken`. |
+
+**The saving estimate was optimistic.** `BookingToken.sol` went from 943 lines
+to 924 — a **−19 line** net reduction, well short of the ~90 lines predicted,
+because roughly 16 of those lines were newly added events (section B) that
+partly offset the wrapper dedup. The bytecode saving came in closer to plan:
+−0.586 KiB measured (section F) against ~1 KiB predicted.
 
 ### Rejected
 
@@ -327,6 +343,13 @@ Consumers of that module: `ServicesTab.tsx`, the activity feed
 `lib/receipt.ts` (which also picks up creator and admin from the widened
 `TTMAccountCreated`).
 
+**`lib/receipt.ts` is not actually a consumer of the catalog module.** It
+decodes `TTMAccountCreated` directly against the manager ABI to pull out
+`account`/`creator`/`admin` — a plain event-log decode with no service name to
+resolve — so it has no dependency on the service-catalog resolver described
+above. The widened-event part of that sentence is correct; the catalog-module
+part is not.
+
 Plus section A's changes to `useMyAccounts.ts` and the deletion of
 `AccountValidityNotice.tsx`.
 
@@ -350,8 +373,9 @@ section C would take "roughly 2 KiB" off `TTMAccount`. The actual reduction is
 about a quarter of that — 0.502 KiB. Task 7's review reproduced the shortfall
 directly: deleting the name-resolution helpers and the string-keyed overloads
 saved 0.632 KiB, but the hash-native rework also *added* a getter that didn't
-exist before — `getSupportedServicesSlice` — which was required once services
-became hash-native, and that getter cost 0.566 KiB back. Net effect: roughly
+exist before — `getSupportedServicesSlice` — which section C sanctioned ("a
+paginated variant alongside it") rather than strictly required, and that getter
+cost 0.566 KiB back. Net effect: roughly
 2 KiB of deletions, offset by a new getter almost as large, leaving ~0.5 KiB of
 real saving. A reviewer audited every remaining `ITTMAccountManager` reference
 during that task and confirmed nothing eligible for deletion was left behind —

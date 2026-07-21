@@ -127,6 +127,10 @@ contract TTMAccountManager is
      * @notice Emitted when a TTM Account is created.
      *
      * @dev Carries creator and admin so indexers need no follow-up call per account.
+     *
+     * @param account The address of the newly created TTM Account
+     * @param creator The address that called {createTTMAccount}
+     * @param admin The admin address granted on the new account
      */
     event TTMAccountCreated(address indexed account, address indexed creator, address indexed admin);
 

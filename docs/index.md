@@ -2251,6 +2251,14 @@ Emitted when a TTM Account is created.
 
 _Carries creator and admin so indexers need no follow-up call per account._
 
+#### Parameters
+
+| Name    | Type    | Description                                  |
+| ------- | ------- | -------------------------------------------- |
+| account | address | The address of the newly created TTM Account |
+| creator | address | The address that called {createTTMAccount}   |
+| admin   | address | The admin address granted on the new account |
+
 ### TTMAccountImplementationUpdated
 
 ```solidity
