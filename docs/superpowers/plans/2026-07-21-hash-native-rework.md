@@ -21,6 +21,7 @@
 - **`vars.get(NAME)` with no default throws at config load** (`HH1201`), breaking *every* Hardhat command. Never add one without a fallback.
 - **The Go bindings under `go/` are knowingly stale from Task 1 until Task 11 regenerates them.** This is deliberate sequencing, not an oversight: `scripts/generate_go_abi.sh` does its own `rm -rf node_modules && yarn install`, so running it per task is wasteful. Verified safe: `.github/workflows/ci.yaml` triggers only on `pull_request` and pushes to `dev`/`main`, so no CI runs on this feature branch in that window. **Do not open a PR before Task 11 completes** — the `go-bindings` job asserts a clean tree after regeneration and would fail.
 - **Verify comments against code before acting on them.** Stale comments have twice produced wrong conclusions in this repo. Treat every line number in the technical backlog as unverified — five of its claims were already found wrong.
+- **Verified signer and fixture names** (read from `test/utils/fixtures.js` on 2026-07-21 — earlier drafts of this plan guessed wrong twice). Signers: `managerAdmin`, `managerPauser`, `managerUpgrader`, `managerVersioner`, `ttmAccountAdmin`, `ttmAccountUpgrader`, `ttmServiceAdmin`, `botOperator`, `depositor`, `withdrawer`, `btAdmin`, `btUpgrader`, `registryAdmin`, `otherAccount1`, `otherAccount2`, `otherAccount3`. Fixtures: `deployNullUSDFixture`, `deployTTMAccountManagerFixture`, `deployTTMAccountImplFixture`, `deployTTMAccountManagerWithTTMAccountImplFixture`, `deployTTMAccountWithDepositFixture`, `deployBookingTokenFixture`, `deployBookingTokenWithNullUSDFixture`, `deployCancellationSupportFixture`, `deployAndConfigureAllFixture`, `deployAndConfigureAllWithRegisteredServicesFixture`. Note `deployTTMAccountManagerWithTTMAccountImplFixture` never calls `setBookingTokenAddress`, so `createTTMAccount` reverts `InvalidBookingTokenAddress` under it — use `deployAndConfigureAllFixture` when you need to create an account. Never invent a signer or fixture.
 - **Solidity style:** 4-space indent, NatSpec on all public/external members. **JS tests:** 4-space indent, `describe`/`it`, fixtures from `test/utils/fixtures`. **UI:** 2-space indent, prettier-enforced.
 
 ## Deliberately NOT in scope
@@ -66,8 +67,8 @@ Add to `test/TTMAccountManager.test.js`, inside the top-level `describe("TTMAcco
             expect(await ttmAccountManager.getTTMAccounts()).to.deep.equal([]);
 
             const tx = await ttmAccountManager
-                .connect(signers.partnerAdmin)
-                .createTTMAccount(signers.partnerAdmin.address, signers.partnerUpgrader.address);
+                .connect(signers.otherAccount1)
+                .createTTMAccount(signers.otherAccount1.address, signers.ttmAccountUpgrader.address);
             const receipt = await tx.wait();
             const created = receipt.logs
                 .map((l) => {
@@ -81,7 +82,7 @@ Add to `test/TTMAccountManager.test.js`, inside the top-level `describe("TTMAcco
             const account = created.args.account;
 
             expect(await ttmAccountManager.isTTMAccount(account)).to.be.true;
-            expect(await ttmAccountManager.getTTMAccountCreator(account)).to.equal(signers.partnerAdmin.address);
+            expect(await ttmAccountManager.getTTMAccountCreator(account)).to.equal(signers.otherAccount1.address);
             expect(await ttmAccountManager.getTTMAccountCount()).to.equal(1);
             expect(await ttmAccountManager.getTTMAccounts()).to.deep.equal([account]);
         });
@@ -90,8 +91,8 @@ Add to `test/TTMAccountManager.test.js`, inside the top-level `describe("TTMAcco
             await setupSigners();
             const { ttmAccountManager } = await loadFixture(deployTTMAccountManagerWithTTMAccountImplFixture);
 
-            expect(await ttmAccountManager.isTTMAccount(signers.partnerAdmin.address)).to.be.false;
-            expect(await ttmAccountManager.getTTMAccountCreator(signers.partnerAdmin.address)).to.equal(
+            expect(await ttmAccountManager.isTTMAccount(signers.otherAccount1.address)).to.be.false;
+            expect(await ttmAccountManager.getTTMAccountCreator(signers.otherAccount1.address)).to.equal(
                 ethers.ZeroAddress,
             );
         });
@@ -122,8 +123,8 @@ Add to `test/TTMAccountManager.test.js`, inside the top-level `describe("TTMAcco
 
             for (let i = 0; i < 3; i++) {
                 await ttmAccountManager
-                    .connect(signers.partnerAdmin)
-                    .createTTMAccount(signers.partnerAdmin.address, signers.partnerUpgrader.address);
+                    .connect(signers.otherAccount1)
+                    .createTTMAccount(signers.otherAccount1.address, signers.ttmAccountUpgrader.address);
             }
             const all = await ttmAccountManager.getTTMAccounts();
             expect(all.length).to.equal(3);
@@ -397,11 +398,11 @@ Add to `test/ServiceRegistry.test.js`:
         const name = "ttm.services.accommodation.v1alpha.AccommodationSearchService";
         const hash = ethers.keccak256(ethers.toUtf8Bytes(name));
 
-        await expect(ttmAccountManager.connect(signers.serviceRegistryAdmin).registerService(name))
+        await expect(ttmAccountManager.connect(signers.registryAdmin).registerService(name))
             .to.emit(ttmAccountManager, "ServiceRegistered")
             .withArgs(hash, name);
 
-        await expect(ttmAccountManager.connect(signers.serviceRegistryAdmin).unregisterService(name))
+        await expect(ttmAccountManager.connect(signers.registryAdmin).unregisterService(name))
             .to.emit(ttmAccountManager, "ServiceUnregistered")
             .withArgs(hash, name);
     });
@@ -416,11 +417,11 @@ Add to `test/TTMAccountManager.test.js`, inside the `describe("Account registry"
 
             await expect(
                 ttmAccountManager
-                    .connect(signers.partnerAdmin)
-                    .createTTMAccount(signers.partnerAdmin.address, signers.partnerUpgrader.address),
+                    .connect(signers.otherAccount1)
+                    .createTTMAccount(signers.otherAccount1.address, signers.ttmAccountUpgrader.address),
             )
                 .to.emit(ttmAccountManager, "TTMAccountCreated")
-                .withArgs(anyValue, signers.partnerAdmin.address, signers.partnerAdmin.address);
+                .withArgs(anyValue, signers.otherAccount1.address, signers.otherAccount1.address);
         });
 ```
 
@@ -430,7 +431,7 @@ Add the `anyValue` import at the top of `test/TTMAccountManager.test.js` if not 
 const { anyValue } = require("@nomicfoundation/hardhat-chai-matchers/withArgs");
 ```
 
-> `signers.serviceRegistryAdmin` must actually hold `SERVICE_REGISTRY_ADMIN_ROLE` in that fixture. Check `test/utils/fixtures.js`; the role starts with zero members after a bare deploy, so the fixture may grant it — if it does not, use whichever signer the existing registry tests use.
+> `signers.registryAdmin` must actually hold `SERVICE_REGISTRY_ADMIN_ROLE` in that fixture. Check `test/utils/fixtures.js`; the role starts with zero members after a bare deploy, so the fixture may grant it — if it does not, use whichever signer the existing registry tests use.
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
@@ -549,7 +550,7 @@ Add to `test/BookingToken.test.js`:
         const oldManager = await bookingToken.getManagerAddress();
         const newManager = await ttmAccountManager.getAddress();
 
-        await expect(bookingToken.connect(signers.bookingTokenAdmin).setManagerAddress(newManager))
+        await expect(bookingToken.connect(signers.btAdmin).setManagerAddress(newManager))
             .to.emit(bookingToken, "ManagerAddressUpdated")
             .withArgs(oldManager, newManager);
     });
@@ -560,7 +561,7 @@ Add to `test/BookingToken.test.js`:
 
         const oldDiff = await bookingToken.getMinExpirationTimestampDiff();
 
-        await expect(bookingToken.connect(signers.bookingTokenAdmin).setMinExpirationTimestampDiff(120))
+        await expect(bookingToken.connect(signers.btAdmin).setMinExpirationTimestampDiff(120))
             .to.emit(bookingToken, "MinExpirationTimestampDiffUpdated")
             .withArgs(oldDiff, 120);
     });
@@ -834,10 +835,10 @@ Add to `test/TTMAccount.test.js`:
             const { ttmAccount, ttmAccountManager } = await loadFixture(deployAndConfigureAllFixture);
 
             const name = "ttm.services.accommodation.v1alpha.AccommodationSearchService";
-            await ttmAccountManager.connect(signers.serviceRegistryAdmin).registerService(name);
+            await ttmAccountManager.connect(signers.registryAdmin).registerService(name);
             const hash = ethers.keccak256(ethers.toUtf8Bytes(name));
 
-            await expect(ttmAccount.connect(signers.partnerServiceAdmin).addService(hash, false, []))
+            await expect(ttmAccount.connect(signers.ttmServiceAdmin).addService(hash, false, []))
                 .to.emit(ttmAccount, "ServiceAdded")
                 .withArgs(hash);
 
@@ -852,7 +853,7 @@ Add to `test/TTMAccount.test.js`:
             const unregistered = ethers.keccak256(ethers.toUtf8Bytes("ttm.services.nope.v1.NopeService"));
 
             await expect(
-                ttmAccount.connect(signers.partnerServiceAdmin).addService(unregistered, false, []),
+                ttmAccount.connect(signers.ttmServiceAdmin).addService(unregistered, false, []),
             ).to.be.revertedWithCustomError(ttmAccount, "ServiceNotRegistered");
         });
 
@@ -866,14 +867,14 @@ Add to `test/TTMAccount.test.js`:
             ];
             const hashes = [];
             for (const name of names) {
-                await ttmAccountManager.connect(signers.serviceRegistryAdmin).registerService(name);
+                await ttmAccountManager.connect(signers.registryAdmin).registerService(name);
                 const hash = ethers.keccak256(ethers.toUtf8Bytes(name));
                 hashes.push(hash);
-                await ttmAccount.connect(signers.partnerServiceAdmin).addService(hash, false, []);
+                await ttmAccount.connect(signers.ttmServiceAdmin).addService(hash, false, []);
             }
             expect(await ttmAccount.getAllServiceHashes()).to.have.lengthOf(2);
 
-            await ttmAccount.connect(signers.partnerServiceAdmin).removeAllServices();
+            await ttmAccount.connect(signers.ttmServiceAdmin).removeAllServices();
 
             expect(await ttmAccount.getAllServiceHashes()).to.deep.equal([]);
             for (const hash of hashes) {
@@ -886,24 +887,22 @@ Add to `test/TTMAccount.test.js`:
             const { ttmAccount, ttmAccountManager } = await loadFixture(deployAndConfigureAllFixture);
 
             const name = "ttm.services.accommodation.v1alpha.AccommodationSearchService";
-            await ttmAccountManager.connect(signers.serviceRegistryAdmin).registerService(name);
+            await ttmAccountManager.connect(signers.registryAdmin).registerService(name);
             const hash = ethers.keccak256(ethers.toUtf8Bytes(name));
-            await ttmAccount.connect(signers.partnerServiceAdmin).addService(hash, false, []);
+            await ttmAccount.connect(signers.ttmServiceAdmin).addService(hash, false, []);
 
-            await expect(ttmAccount.connect(signers.partnerServiceAdmin).addServiceCapability(hash, "luggage"))
+            await expect(ttmAccount.connect(signers.ttmServiceAdmin).addServiceCapability(hash, "luggage"))
                 .to.emit(ttmAccount, "ServiceCapabilityAdded")
                 .withArgs(hash, "luggage");
 
             expect(await ttmAccount.getServiceCapabilities(hash)).to.deep.equal(["luggage"]);
 
-            await expect(ttmAccount.connect(signers.partnerServiceAdmin).removeServiceCapability(hash, "luggage"))
+            await expect(ttmAccount.connect(signers.ttmServiceAdmin).removeServiceCapability(hash, "luggage"))
                 .to.emit(ttmAccount, "ServiceCapabilityRemoved")
                 .withArgs(hash, "luggage");
         });
     });
 ```
-
-> Use the signer names the existing `TTMAccount` tests use for the service admin — `signers.partnerServiceAdmin` is a guess. Check `test/utils/fixtures.js`.
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
@@ -1130,16 +1129,16 @@ Add to `test/TTMAccount.test.js`, inside `describe("Hash-native services", ...)`
             const { ttmAccount, ttmAccountManager } = await loadFixture(deployAndConfigureAllFixture);
 
             const name = "ttm.services.activity.v2.ActivitySearchService";
-            await ttmAccountManager.connect(signers.serviceRegistryAdmin).registerService(name);
+            await ttmAccountManager.connect(signers.registryAdmin).registerService(name);
             const hash = ethers.keccak256(ethers.toUtf8Bytes(name));
 
-            await expect(ttmAccount.connect(signers.partnerServiceAdmin).addWantedServices([hash]))
+            await expect(ttmAccount.connect(signers.ttmServiceAdmin).addWantedServices([hash]))
                 .to.emit(ttmAccount, "WantedServiceAdded")
                 .withArgs(hash);
 
             expect(await ttmAccount.getWantedServiceHashes()).to.deep.equal([hash]);
 
-            await expect(ttmAccount.connect(signers.partnerServiceAdmin).removeWantedServices([hash]))
+            await expect(ttmAccount.connect(signers.ttmServiceAdmin).removeWantedServices([hash]))
                 .to.emit(ttmAccount, "WantedServiceRemoved")
                 .withArgs(hash);
 
@@ -1253,10 +1252,10 @@ Deletes the manager staticcalls from every read path and the ~200 lines of name-
             ];
             const hashes = [];
             for (const name of names) {
-                await ttmAccountManager.connect(signers.serviceRegistryAdmin).registerService(name);
+                await ttmAccountManager.connect(signers.registryAdmin).registerService(name);
                 const hash = ethers.keccak256(ethers.toUtf8Bytes(name));
                 hashes.push(hash);
-                await ttmAccount.connect(signers.partnerServiceAdmin).addService(hash, true, ["luggage"]);
+                await ttmAccount.connect(signers.ttmServiceAdmin).addService(hash, true, ["luggage"]);
             }
 
             const [serviceHashes, services] = await ttmAccount.getSupportedServices();
@@ -1473,7 +1472,7 @@ Two small independent corrections.
         // still reverts on token state, which is the point: the only gate is
         // whether the reservation has genuinely expired.
         await expect(
-            ttmAccount.connect(signers.nobody).recordExpiration(999999),
+            ttmAccount.connect(signers.otherAccount3).recordExpiration(999999),
         ).to.not.be.revertedWithCustomError(ttmAccount, "AccessControlUnauthorizedAccount");
     });
 
@@ -1485,8 +1484,6 @@ Two small independent corrections.
         expect(await ttmAccount.supportsInterface("0x150b7a02")).to.be.true;
     });
 ```
-
-> `signers.nobody` is a guess — use whichever unprivileged signer the fixtures provide.
 
 - [ ] **Step 2: Run to verify they fail**
 
@@ -1679,11 +1676,11 @@ Add to `test/TTMAccountManager.test.js`:
             await setupSigners();
             const { ttmAccountManager } = await loadFixture(deployTTMAccountManagerWithTTMAccountImplFixture);
 
-            // signers.nobody holds no roles at all.
+            // signers.otherAccount3 holds no roles at all.
             await expect(
                 ttmAccountManager
-                    .connect(signers.nobody)
-                    .createTTMAccount(signers.nobody.address, signers.nobody.address),
+                    .connect(signers.otherAccount3)
+                    .createTTMAccount(signers.otherAccount3.address, signers.otherAccount3.address),
             ).to.not.be.reverted;
 
             // IF THIS TEST FAILS, READ THIS BEFORE "FIXING" IT.
