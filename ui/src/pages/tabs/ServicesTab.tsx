@@ -13,6 +13,8 @@ import { TxButton } from "../../components/TxButton";
 import { useActiveContracts } from "../../hooks/useActiveContracts";
 import { useContractList } from "../../hooks/useContractList";
 import { useHasRole } from "../../hooks/useHasRole";
+import { useServiceCatalog } from "../../hooks/useServiceCatalog";
+import { hashServiceName } from "../../lib/serviceCatalog";
 import { type ParsedService, groupServicesByPackage } from "../../lib/serviceName";
 import { useTx } from "../../tx/TxProvider";
 
@@ -192,7 +194,7 @@ function SupportedServiceRow({
                       run(
                         `${service.restricted ? "Disable" : "Enable"} restricted rate · ${service.name}`,
                         "setServiceRestrictedRate",
-                        [service.name, !service.restricted],
+                        [service.hash, !service.restricted],
                       )
                     }
                     className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs transition-colors disabled:opacity-50 ${
@@ -222,7 +224,7 @@ function SupportedServiceRow({
                           disabled={busy}
                           onClick={() =>
                             run(`Remove capability "${c}" · ${service.name}`, "removeServiceCapability", [
-                              service.name,
+                              service.hash,
                               c,
                             ])
                           }
@@ -244,7 +246,7 @@ function SupportedServiceRow({
                         run(
                           `Add capability "${newCap.trim()}" · ${service.name}`,
                           "addServiceCapability",
-                          [service.name, newCap.trim()],
+                          [service.hash, newCap.trim()],
                           () => setNewCap(""),
                         );
                       }
@@ -258,7 +260,7 @@ function SupportedServiceRow({
                         run(
                           `Add capability "${newCap.trim()}" · ${service.name}`,
                           "addServiceCapability",
-                          [service.name, newCap.trim()],
+                          [service.hash, newCap.trim()],
                           () => setNewCap(""),
                         )
                       }
@@ -277,7 +279,7 @@ function SupportedServiceRow({
                   icon={<Trash2 className="h-4 w-4" />}
                   tooltip="Removes this service from the account — sends a transaction to your wallet."
                   write={() =>
-                    writeContractAsync({ address: account, abi, functionName: "removeService", args: [service.name] })
+                    writeContractAsync({ address: account, abi, functionName: "removeService", args: [service.hash] })
                   }
                   onConfirmed={onChanged}
                 />
@@ -305,7 +307,12 @@ function SupportedServices({
 }) {
   const { manager, managerAbi, chainId } = useActiveContracts();
   const { writeContractAsync } = useWriteContract();
+  const { catalog } = useServiceCatalog();
   const serviceInputId = useId();
+  // The catalog covers currently-registered names; falling back to hashing the
+  // name directly still yields the correct hash if the registry doesn't have it
+  // (e.g. it was unregistered after being added to this account).
+  const hashFor = (name: string) => catalog.hashByName.get(name) ?? hashServiceName(name);
   // getSupportedServices() returns a (uint256,bool,string[])[] tuple that viem
   // cannot reliably decode, so list service hashes and resolve names + config
   // via per-hash getters instead.
@@ -441,7 +448,7 @@ function SupportedServices({
                     abi,
                     functionName: "addService",
                     args: [
-                      name.trim(),
+                      hashFor(name.trim()),
                       restricted,
                       caps
                         .split(",")

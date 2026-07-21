@@ -609,13 +609,12 @@ ACCOUNT_SCOPE.task("service:add", "Add supported service to TTMAccount")
             const signer = new ethers.Wallet(taskArgs.privateKey, ethers.provider);
 
             const capabilities = taskArgs.capabilities ? taskArgs.capabilities.split(",") : [];
+            const serviceHash = ethers.keccak256(ethers.toUtf8Bytes(taskArgs.serviceName));
 
             console.log("Adding service to TTMAccount...");
             console.log("Signer:", signer.address);
 
-            const tx = await ttmAccount
-                .connect(signer)
-                .addService(taskArgs.serviceName, taskArgs.restrictedRate, capabilities);
+            const tx = await ttmAccount.connect(signer).addService(serviceHash, taskArgs.restrictedRate, capabilities);
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
         } catch (error) {
@@ -646,7 +645,8 @@ ACCOUNT_SCOPE.task("service:remove", "Remove wanted service from TTMAccount")
             console.log("Removing service from TTMAccount...");
             console.log("Signer:", signer.address);
 
-            const tx = await ttmAccount.connect(signer).removeService(taskArgs.serviceName);
+            const serviceHash = ethers.keccak256(ethers.toUtf8Bytes(taskArgs.serviceName));
+            const tx = await ttmAccount.connect(signer).removeService(serviceHash);
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
         } catch (error) {
@@ -1126,9 +1126,8 @@ ACCOUNT_SCOPE.task("service:set-restricted-rate", "Set the restricted rate prope
         try {
             const signer = new ethers.Wallet(taskArgs.privateKey, ethers.provider);
             console.log(`Setting restricted rate of service ${taskArgs.serviceName} to ${taskArgs.restrictedRate}...`);
-            const tx = await ttmAccount
-                .connect(signer)
-                .setServiceRestrictedRate(taskArgs.serviceName, taskArgs.restrictedRate);
+            const serviceHash = ethers.keccak256(ethers.toUtf8Bytes(taskArgs.serviceName));
+            const tx = await ttmAccount.connect(signer).setServiceRestrictedRate(serviceHash, taskArgs.restrictedRate);
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
         } catch (error) {
@@ -1157,7 +1156,8 @@ ACCOUNT_SCOPE.task("service:set-capabilities", "Set all capabilities of a suppor
             const capabilities = taskArgs.capabilities ? taskArgs.capabilities.split(",") : [];
             const signer = new ethers.Wallet(taskArgs.privateKey, ethers.provider);
             console.log(`Setting capabilities of service ${taskArgs.serviceName} to:`, capabilities);
-            const tx = await ttmAccount.connect(signer).setServiceCapabilities(taskArgs.serviceName, capabilities);
+            const serviceHash = ethers.keccak256(ethers.toUtf8Bytes(taskArgs.serviceName));
+            const tx = await ttmAccount.connect(signer).setServiceCapabilities(serviceHash, capabilities);
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
         } catch (error) {

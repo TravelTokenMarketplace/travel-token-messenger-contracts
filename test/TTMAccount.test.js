@@ -7,10 +7,12 @@ const { ethers, upgrades } = require("hardhat");
 
 const {
     setupSigners,
+    serviceHash,
     deployTTMAccountManagerFixture,
     deployTTMAccountImplFixture,
     deployTTMAccountManagerWithTTMAccountImplFixture,
     deployAndConfigureAllFixture,
+    deployAndConfigureAllWithRegisteredServicesFixture,
     deployTTMAccountWithDepositFixture,
     deployBookingTokenWithNullUSDFixture,
 } = require("./utils/fixtures");
@@ -605,6 +607,100 @@ describe("TTMAccount", function () {
             await expect(signers.otherAccount1.sendTransaction({ to: await ttmAccount.getAddress(), value: amount }))
                 .to.emit(ttmAccount, "Deposit")
                 .withArgs(signers.otherAccount1.address, amount);
+        });
+    });
+
+    describe("Hash-native services", function () {
+        it("should add a service by hash and emit the hash", async function () {
+            await setupSigners();
+            const { ttmAccount, ttmAccountManager } = await loadFixture(
+                deployAndConfigureAllWithRegisteredServicesFixture,
+            );
+
+            const name = "ttm.services.accommodation.v1alpha.AccommodationSearchService";
+            await ttmAccountManager.connect(signers.registryAdmin).registerService(name);
+            // Independently computed (not read back from the contract): this pins the hash to
+            // the exact keccak256 the registry itself uses, so a subtly wrong storage key would
+            // still be caught even if the contract were merely self-consistent.
+            const hash = ethers.keccak256(ethers.toUtf8Bytes(name));
+
+            await expect(ttmAccount.connect(signers.ttmServiceAdmin).addService(hash, false, []))
+                .to.emit(ttmAccount, "ServiceAdded")
+                .withArgs(hash);
+
+            expect(await ttmAccount.getAllServiceHashes()).to.deep.equal([hash]);
+            expect(await ttmAccount.getService(hash)).to.deep.equal([false, []]);
+        });
+
+        it("should reject adding a service whose hash is not registered", async function () {
+            await setupSigners();
+            const { ttmAccount } = await loadFixture(deployAndConfigureAllWithRegisteredServicesFixture);
+
+            // ttmServiceAdmin genuinely holds SERVICE_ADMIN_ROLE here (granted by the fixture),
+            // so this must revert on the registry lookup, not on access control.
+            const unregistered = ethers.keccak256(ethers.toUtf8Bytes("ttm.services.nope.v1.NopeService"));
+
+            await expect(
+                ttmAccount.connect(signers.ttmServiceAdmin).addService(unregistered, false, []),
+            ).to.be.revertedWithCustomError(ttmAccount, "ServiceNotRegistered");
+        });
+
+        it("should remove every service without resolving names", async function () {
+            await setupSigners();
+            const { ttmAccount, ttmAccountManager } = await loadFixture(
+                deployAndConfigureAllWithRegisteredServicesFixture,
+            );
+
+            const names = [
+                "ttm.services.accommodation.v1alpha.AccommodationSearchService",
+                "ttm.services.activity.v2.ActivitySearchService",
+            ];
+            const hashes = [];
+            for (const name of names) {
+                await ttmAccountManager.connect(signers.registryAdmin).registerService(name);
+                const hash = serviceHash(name);
+                hashes.push(hash);
+                await ttmAccount.connect(signers.ttmServiceAdmin).addService(hash, false, []);
+            }
+            expect(await ttmAccount.getAllServiceHashes()).to.deep.equal(hashes);
+
+            await expect(ttmAccount.connect(signers.ttmServiceAdmin).removeAllServices())
+                .to.emit(ttmAccount, "ServiceRemoved")
+                .withArgs(hashes[0])
+                .to.emit(ttmAccount, "ServiceRemoved")
+                .withArgs(hashes[1]);
+
+            expect(await ttmAccount.getAllServiceHashes()).to.deep.equal([]);
+            for (const hash of hashes) {
+                await expect(ttmAccount.getService(hash)).to.be.revertedWithCustomError(
+                    ttmAccount,
+                    "ServiceDoesNotExist",
+                );
+            }
+        });
+
+        it("should manage capabilities by hash, keeping capability strings readable", async function () {
+            await setupSigners();
+            const { ttmAccount, ttmAccountManager } = await loadFixture(
+                deployAndConfigureAllWithRegisteredServicesFixture,
+            );
+
+            const name = "ttm.services.accommodation.v1alpha.AccommodationSearchService";
+            await ttmAccountManager.connect(signers.registryAdmin).registerService(name);
+            const hash = serviceHash(name);
+            await ttmAccount.connect(signers.ttmServiceAdmin).addService(hash, false, []);
+
+            await expect(ttmAccount.connect(signers.ttmServiceAdmin).addServiceCapability(hash, "luggage"))
+                .to.emit(ttmAccount, "ServiceCapabilityAdded")
+                .withArgs(hash, "luggage");
+
+            expect(await ttmAccount["getServiceCapabilities(bytes32)"](hash)).to.deep.equal(["luggage"]);
+
+            await expect(ttmAccount.connect(signers.ttmServiceAdmin).removeServiceCapability(hash, "luggage"))
+                .to.emit(ttmAccount, "ServiceCapabilityRemoved")
+                .withArgs(hash, "luggage");
+
+            expect(await ttmAccount["getServiceCapabilities(bytes32)"](hash)).to.deep.equal([]);
         });
     });
 });

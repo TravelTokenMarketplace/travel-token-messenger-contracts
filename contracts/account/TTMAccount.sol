@@ -161,17 +161,27 @@ contract TTMAccount is
 
     // Partner Config Events
 
-    event ServiceAdded(string indexed serviceName);
-    event ServiceRemoved(string indexed serviceName);
+    /**
+     * @dev Service events carry the service hash only. Indexing a dynamic `string`
+     * stores just its keccak hash in the topic and nothing in the data section, so the
+     * old `string indexed serviceName` form published a hash while pretending to
+     * publish a name. Consumers resolve names from `ServiceRegistry`'s
+     * `ServiceRegistered` / `ServiceUnregistered` events, which do carry them.
+     *
+     * Capability strings stay readable: capabilities are free-form partner text with
+     * no registry to resolve against.
+     */
+    event ServiceAdded(bytes32 indexed serviceHash);
+    event ServiceRemoved(bytes32 indexed serviceHash);
 
     event WantedServiceAdded(string indexed serviceName);
     event WantedServiceRemoved(string indexed serviceName);
 
-    event ServiceRestrictedRateUpdated(string indexed serviceName, bool restrictedRate);
+    event ServiceRestrictedRateUpdated(bytes32 indexed serviceHash, bool restrictedRate);
 
-    event ServiceCapabilitiesUpdated(string indexed serviceName);
-    event ServiceCapabilityAdded(string indexed serviceName, string capability);
-    event ServiceCapabilityRemoved(string indexed serviceName, string capability);
+    event ServiceCapabilitiesUpdated(bytes32 indexed serviceHash);
+    event ServiceCapabilityAdded(bytes32 indexed serviceHash, string capability);
+    event ServiceCapabilityRemoved(bytes32 indexed serviceHash, string capability);
 
     /***************************************************
      *                    ERRORS                       *
@@ -196,6 +206,16 @@ contract TTMAccount is
      * @notice A required address parameter was the zero address.
      */
     error ZeroAddress();
+
+    /**
+     * @notice The given service hash is not registered in the manager's ServiceRegistry.
+     *
+     * @dev Same selector as ServiceRegistry's `ServiceNotRegistered()` (identical, argument-less
+     * signature) since this error is what actually bubbles up from the staticcall in
+     * {_requireRegisteredService}; declaring it here as well only lets this contract's ABI
+     * name it directly.
+     */
+    error ServiceNotRegistered();
 
     /***************************************************
      *         CONSTRUCTOR & INITIALIZATION            *
@@ -432,97 +452,98 @@ contract TTMAccount is
     /**
      * @notice Adds a service to the account as a supported service.
      *
-     * `serviceName` is defined as pkg + service name in protobuf. For example:
+     * `serviceHash` is `keccak256(abi.encodePacked(serviceName))`, where the name is
+     * pkg + service name as defined in the Travel Token Messenger Protocol's protobuf
+     * definitions. For example:
      *
      * ```text
      *  ┌────────────── pkg ─────────────┐ ┌───── service name ─────┐
      * "ttm.services.accommodation.v1alpha.AccommodationSearchService")
      * ```
      *
-     * @dev These services are coming from the Travel Token Messenger Protocol's protobuf
-     * definitions.
+     * @dev The hash must be registered in the manager's `ServiceRegistry`. That check is
+     * the one manager staticcall left on this path: it is a write, called rarely, and
+     * without it an account could advertise a service that does not exist. Reads carry
+     * no manager dependency at all.
      *
-     * @param serviceName Service name to add to the account as a supported service
-     * @param capabilities Capabilities of the service (if any, optional)
+     * @param serviceHash Hash of the service name to support
+     * @param restrictedRate Whether the service is restricted to pre-agreement
+     * @param capabilities Capabilities of the service (optional)
      */
     function addService(
-        string memory serviceName,
+        bytes32 serviceHash,
         bool restrictedRate,
         string[] memory capabilities
     ) public onlyRole(SERVICE_ADMIN_ROLE) {
-        _addService(getRegisteredServiceHash(serviceName), capabilities, restrictedRate);
-        emit ServiceAdded(serviceName);
+        _requireRegisteredService(serviceHash);
+        _addService(serviceHash, capabilities, restrictedRate);
+        emit ServiceAdded(serviceHash);
     }
 
     /**
-     * @notice Remove a service from the account by its name
+     * @notice Reverts unless `serviceHash` is registered in the manager's ServiceRegistry.
      */
-    function removeService(string memory serviceName) public onlyRole(SERVICE_ADMIN_ROLE) {
-        _removeService(getServiceHash(serviceName));
-        emit ServiceRemoved(serviceName);
+    function _requireRegisteredService(bytes32 serviceHash) private view {
+        // Reverts with ServiceNotRegistered if the hash is unknown to the registry.
+        ITTMAccountManager(getManagerAddress()).getRegisteredServiceNameByHash(serviceHash);
     }
 
     /**
-     * @notice Remove all supported services from the account.
-     * This function retrieves all currently supported service names and removes them one by one.
+     * @notice Removes a service from the account by its hash.
+     */
+    function removeService(bytes32 serviceHash) public onlyRole(SERVICE_ADMIN_ROLE) {
+        _removeService(serviceHash);
+        emit ServiceRemoved(serviceHash);
+    }
+
+    /**
+     * @notice Removes all supported services from the account.
      */
     function removeAllServices() public onlyRole(SERVICE_ADMIN_ROLE) {
-        (string[] memory serviceNames, ) = getSupportedServices();
+        bytes32[] memory serviceHashes = getAllServiceHashes();
 
-        for (uint256 i = 0; i < serviceNames.length; i++) {
-            _removeService(getServiceHash(serviceNames[i]));
-            emit ServiceRemoved(serviceNames[i]);
+        for (uint256 i = 0; i < serviceHashes.length; i++) {
+            _removeService(serviceHashes[i]);
+            emit ServiceRemoved(serviceHashes[i]);
         }
     }
 
-    // RESTRICTED RATE
-
     /**
-     * @notice Set the restricted rate of a service by name
+     * @notice Sets whether a service is offered at a restricted (non-rack) rate.
      */
-    function setServiceRestrictedRate(
-        string memory serviceName,
-        bool restrictedRate
-    ) public onlyRole(SERVICE_ADMIN_ROLE) {
-        _setServiceRestrictedRate(getServiceHash(serviceName), restrictedRate);
-        emit ServiceRestrictedRateUpdated(serviceName, restrictedRate);
+    function setServiceRestrictedRate(bytes32 serviceHash, bool restrictedRate) public onlyRole(SERVICE_ADMIN_ROLE) {
+        _setServiceRestrictedRate(serviceHash, restrictedRate);
+        emit ServiceRestrictedRateUpdated(serviceHash, restrictedRate);
     }
 
-    // ALL CAPABILITIES
-
     /**
-     * @notice Set all capabilities for a service by name
+     * @notice Replaces the capability list of a service.
      */
     function setServiceCapabilities(
-        string memory serviceName,
+        bytes32 serviceHash,
         string[] memory capabilities
     ) public onlyRole(SERVICE_ADMIN_ROLE) {
-        _setServiceCapabilities(getServiceHash(serviceName), capabilities);
-        emit ServiceCapabilitiesUpdated(serviceName);
+        _setServiceCapabilities(serviceHash, capabilities);
+        emit ServiceCapabilitiesUpdated(serviceHash);
     }
 
-    // SINGLE CAPABILITY
-
     /**
-     * @notice Add a single capability to the service by name
+     * @notice Adds a single capability to a service.
      */
-    function addServiceCapability(
-        string memory serviceName,
-        string memory capability
-    ) public onlyRole(SERVICE_ADMIN_ROLE) {
-        _addServiceCapability(getServiceHash(serviceName), capability);
-        emit ServiceCapabilityAdded(serviceName, capability);
+    function addServiceCapability(bytes32 serviceHash, string memory capability) public onlyRole(SERVICE_ADMIN_ROLE) {
+        _addServiceCapability(serviceHash, capability);
+        emit ServiceCapabilityAdded(serviceHash, capability);
     }
 
     /**
-     * @notice Remove a single capability from the service by name
+     * @notice Removes a single capability from a service.
      */
     function removeServiceCapability(
-        string memory serviceName,
+        bytes32 serviceHash,
         string memory capability
     ) public onlyRole(SERVICE_ADMIN_ROLE) {
-        _removeServiceCapability(getServiceHash(serviceName), capability);
-        emit ServiceCapabilityRemoved(serviceName, capability);
+        _removeServiceCapability(serviceHash, capability);
+        emit ServiceCapabilityRemoved(serviceHash, capability);
     }
 
     /**

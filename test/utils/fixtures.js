@@ -4,6 +4,13 @@
 const { loadFixture } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
 const { ethers, upgrades } = require("hardhat");
 
+/**
+ * @dev Returns the keccak256 hash of a service name, matching the on-chain
+ * `keccak256(abi.encodePacked(serviceName))` computation used by ServiceRegistry
+ * and PartnerConfiguration.
+ */
+const serviceHash = (name) => ethers.keccak256(ethers.toUtf8Bytes(name));
+
 async function setupSigners() {
     const [
         managerAdmin,
@@ -537,6 +544,7 @@ async function deployAndConfigureAllWithRegisteredServicesFixture() {
 
 module.exports = {
     setupSigners,
+    serviceHash,
     deployTTMAccountManagerFixture,
     deployTTMAccountImplFixture,
     deployTTMAccountManagerWithTTMAccountImplFixture,

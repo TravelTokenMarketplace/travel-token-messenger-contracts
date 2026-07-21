@@ -293,13 +293,22 @@ Messenger bot removed
 ### ServiceAdded
 
 ```solidity
-event ServiceAdded(string serviceName)
+event ServiceAdded(bytes32 serviceHash)
 ```
+
+\_Service events carry the service hash only. Indexing a dynamic `string`
+stores just its keccak hash in the topic and nothing in the data section, so the
+old `string indexed serviceName` form published a hash while pretending to
+publish a name. Consumers resolve names from `ServiceRegistry`'s
+`ServiceRegistered` / `ServiceUnregistered` events, which do carry them.
+
+Capability strings stay readable: capabilities are free-form partner text with
+no registry to resolve against.\_
 
 ### ServiceRemoved
 
 ```solidity
-event ServiceRemoved(string serviceName)
+event ServiceRemoved(bytes32 serviceHash)
 ```
 
 ### WantedServiceAdded
@@ -317,25 +326,25 @@ event WantedServiceRemoved(string serviceName)
 ### ServiceRestrictedRateUpdated
 
 ```solidity
-event ServiceRestrictedRateUpdated(string serviceName, bool restrictedRate)
+event ServiceRestrictedRateUpdated(bytes32 serviceHash, bool restrictedRate)
 ```
 
 ### ServiceCapabilitiesUpdated
 
 ```solidity
-event ServiceCapabilitiesUpdated(string serviceName)
+event ServiceCapabilitiesUpdated(bytes32 serviceHash)
 ```
 
 ### ServiceCapabilityAdded
 
 ```solidity
-event ServiceCapabilityAdded(string serviceName, string capability)
+event ServiceCapabilityAdded(bytes32 serviceHash, string capability)
 ```
 
 ### ServiceCapabilityRemoved
 
 ```solidity
-event ServiceCapabilityRemoved(string serviceName, string capability)
+event ServiceCapabilityRemoved(bytes32 serviceHash, string capability)
 ```
 
 ### TTMAccountImplementationMismatch
@@ -369,6 +378,19 @@ error ZeroAddress()
 ```
 
 A required address parameter was the zero address.
+
+### ServiceNotRegistered
+
+```solidity
+error ServiceNotRegistered()
+```
+
+The given service hash is not registered in the manager's ServiceRegistry.
+
+_Same selector as ServiceRegistry's `ServiceNotRegistered()` (identical, argument-less
+signature) since this error is what actually bubbles up from the staticcall in
+{\_requireRegisteredService}; declaring it here as well only lets this contract's ABI
+name it directly._
 
 ### constructor
 
@@ -559,36 +581,40 @@ This function reverts if `to` is the zero address.
 ### addService
 
 ```solidity
-function addService(string serviceName, bool restrictedRate, string[] capabilities) public
+function addService(bytes32 serviceHash, bool restrictedRate, string[] capabilities) public
 ```
 
 Adds a service to the account as a supported service.
 
-`serviceName` is defined as pkg + service name in protobuf. For example:
+`serviceHash` is `keccak256(abi.encodePacked(serviceName))`, where the name is
+pkg + service name as defined in the Travel Token Messenger Protocol's protobuf
+definitions. For example:
 
 ```text
  ┌────────────── pkg ─────────────┐ ┌───── service name ─────┐
 "ttm.services.accommodation.v1alpha.AccommodationSearchService")
 ```
 
-_These services are coming from the Travel Token Messenger Protocol's protobuf
-definitions._
+_The hash must be registered in the manager's `ServiceRegistry`. That check is
+the one manager staticcall left on this path: it is a write, called rarely, and
+without it an account could advertise a service that does not exist. Reads carry
+no manager dependency at all._
 
 #### Parameters
 
-| Name           | Type     | Description                                               |
-| -------------- | -------- | --------------------------------------------------------- |
-| serviceName    | string   | Service name to add to the account as a supported service |
-| restrictedRate | bool     |                                                           |
-| capabilities   | string[] | Capabilities of the service (if any, optional)            |
+| Name           | Type     | Description                                        |
+| -------------- | -------- | -------------------------------------------------- |
+| serviceHash    | bytes32  | Hash of the service name to support                |
+| restrictedRate | bool     | Whether the service is restricted to pre-agreement |
+| capabilities   | string[] | Capabilities of the service (optional)             |
 
 ### removeService
 
 ```solidity
-function removeService(string serviceName) public
+function removeService(bytes32 serviceHash) public
 ```
 
-Remove a service from the account by its name
+Removes a service from the account by its hash.
 
 ### removeAllServices
 
@@ -596,40 +622,39 @@ Remove a service from the account by its name
 function removeAllServices() public
 ```
 
-Remove all supported services from the account.
-This function retrieves all currently supported service names and removes them one by one.
+Removes all supported services from the account.
 
 ### setServiceRestrictedRate
 
 ```solidity
-function setServiceRestrictedRate(string serviceName, bool restrictedRate) public
+function setServiceRestrictedRate(bytes32 serviceHash, bool restrictedRate) public
 ```
 
-Set the restricted rate of a service by name
+Sets whether a service is offered at a restricted (non-rack) rate.
 
 ### setServiceCapabilities
 
 ```solidity
-function setServiceCapabilities(string serviceName, string[] capabilities) public
+function setServiceCapabilities(bytes32 serviceHash, string[] capabilities) public
 ```
 
-Set all capabilities for a service by name
+Replaces the capability list of a service.
 
 ### addServiceCapability
 
 ```solidity
-function addServiceCapability(string serviceName, string capability) public
+function addServiceCapability(bytes32 serviceHash, string capability) public
 ```
 
-Add a single capability to the service by name
+Adds a single capability to a service.
 
 ### removeServiceCapability
 
 ```solidity
-function removeServiceCapability(string serviceName, string capability) public
+function removeServiceCapability(bytes32 serviceHash, string capability) public
 ```
 
-Remove a single capability from the service by name
+Removes a single capability from a service.
 
 ### getSupportedServices
 

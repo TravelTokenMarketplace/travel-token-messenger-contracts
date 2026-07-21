@@ -17,21 +17,33 @@ import { shortAddress } from "../format";
 import { type ActivityEvent, type ActivitySource, type CatalogEntry } from "./types";
 
 // Helpers for rendering args. Logs are decoded by viem, so args carry their
-// solidity types: uint -> bigint, address -> string, bool -> boolean. Indexed
-// `string` params (e.g. a service name) arrive as a keccak hash, not the
-// original string. We render a short hash by default; useAccountActivity can
-// resolve the real name via the manager and inject it as `serviceLabel`, after
-// which renderSentence() is called again to upgrade the text.
+// solidity types: uint -> bigint, address -> string, bool -> boolean.
+//
+// Service events come in two shapes here: `ServiceAdded`/`ServiceRemoved`/
+// `ServiceRestrictedRateUpdated`/`ServiceCapabilitiesUpdated`/
+// `ServiceCapabilityAdded`/`ServiceCapabilityRemoved` carry an indexed
+// `bytes32 serviceHash` that viem decodes as-is. `WantedServiceAdded`/
+// `WantedServiceRemoved` still carry an indexed `string serviceName`, which
+// (being a dynamic type) viem can only surface as its keccak topic, not the
+// original string. Either way we render a short hash by default;
+// useAccountActivity resolves the real name via the manager and injects it as
+// `serviceLabel`, after which renderSentence() is called again to upgrade the
+// text.
 const addr = (v: unknown) => shortAddress(String(v));
 const id = (v: unknown) => `#${String(v)}`;
 const ether = (v: unknown) => formatEther(BigInt(v as bigint | number | string));
 const str = (v: unknown) => String(v);
 
+/** The service hash carried by an account service event, whichever field name it uses. */
+export function serviceHashArg(args: Record<string, unknown>): unknown {
+  return args.serviceHash ?? args.serviceName;
+}
+
 /** Human service label: the resolved name in quotes, else the short hash. */
 function serviceLabel(args: Record<string, unknown>): string {
   const name = args.serviceLabel as string | undefined;
   if (name) return `"${name}"`;
-  return `(${addr(args.serviceName)})`;
+  return `(${addr(serviceHashArg(args))})`;
 }
 
 // The catalog references events by name; the ABI surface itself is the single

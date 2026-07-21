@@ -48,20 +48,31 @@ describe("catalog rendering", () => {
   });
 
   it("falls back to a short service hash when the name isn't resolved", () => {
+    // ServiceAdded carries an indexed bytes32 `serviceHash` (Task 5), decoded as-is by viem.
     expect(
       render("account", "ServiceAdded", {
-        serviceName: "0xabcd000000000000000000000000000000000000000000000000000000001234",
+        serviceHash: "0xabcd000000000000000000000000000000000000000000000000000000001234",
       }),
     ).toBe("Supported service (0xabcd…1234) added");
   });
 
+  it("falls back to a short hash for events that still carry an indexed serviceName", () => {
+    // WantedServiceAdded (Task 6 territory) still carries an indexed `string serviceName`;
+    // viem can only surface its keccak topic, not the original string.
+    expect(
+      render("account", "WantedServiceAdded", {
+        serviceName: "0xabcd000000000000000000000000000000000000000000000000000000001234",
+      }),
+    ).toBe("Wanted service (0xabcd…1234) added");
+  });
+
   it("uses the resolved service name when injected via serviceLabel", () => {
-    expect(renderSentence("account", "ServiceAdded", { serviceName: "0xabcd…", serviceLabel: "ttm.x.v1.Foo" })).toBe(
+    expect(renderSentence("account", "ServiceAdded", { serviceHash: "0xabcd…", serviceLabel: "ttm.x.v1.Foo" })).toBe(
       'Supported service "ttm.x.v1.Foo" added',
     );
     expect(
       renderSentence("account", "ServiceCapabilityAdded", {
-        serviceName: "0xabcd…",
+        serviceHash: "0xabcd…",
         serviceLabel: "ttm.x.v1.Foo",
         capability: "luggage",
       }),

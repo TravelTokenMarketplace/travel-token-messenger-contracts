@@ -4,15 +4,18 @@ import { useReadContracts } from "wagmi";
 import { type ActivitySourceInput, useActivity } from "./useActivity";
 import { useBlockTimestamps } from "./useBlockTimestamps";
 import { useActiveContracts } from "./useActiveContracts";
-import { ACCOUNT_EVENTS, SERVICE_HASH_EVENTS, renderSentence } from "../lib/activity/catalog";
+import { ACCOUNT_EVENTS, SERVICE_HASH_EVENTS, serviceHashArg, renderSentence } from "../lib/activity/catalog";
 
 /**
  * All activity emitted by a single TTM Account proxy (bots, services, tokens,
  * pubkeys, funds, config). One address, so a single getLogs filter covers it.
  *
- * Service events carry only the keccak hash of the service name (it's an indexed
- * string). We resolve those hashes to human names via the manager's
- * getServiceNameByHash and re-render the affected sentences.
+ * Service events carry the keccak hash of the service name: `ServiceAdded` and
+ * its siblings carry it directly as an indexed `bytes32 serviceHash`;
+ * `WantedServiceAdded`/`WantedServiceRemoved` still carry an indexed `string
+ * serviceName`, which viem can only surface as its keccak topic. Either way we
+ * resolve those hashes to human names via the manager's getServiceNameByHash
+ * and re-render the affected sentences.
  */
 export function useAccountActivity(account: Address) {
   const { chainId, manager, managerAbi } = useActiveContracts();
@@ -29,8 +32,9 @@ export function useAccountActivity(account: Address) {
   const serviceHashes = useMemo(() => {
     const set = new Set<string>();
     for (const e of activity.events) {
-      if (SERVICE_HASH_EVENTS.has(e.eventName) && typeof e.args.serviceName === "string") {
-        set.add(e.args.serviceName);
+      const hash = SERVICE_HASH_EVENTS.has(e.eventName) ? serviceHashArg(e.args) : undefined;
+      if (typeof hash === "string") {
+        set.add(hash);
       }
     }
     return [...set];
@@ -61,7 +65,8 @@ export function useAccountActivity(account: Address) {
   const events = useMemo(
     () =>
       activity.events.map((e) => {
-        const serviceLabel = typeof e.args.serviceName === "string" ? nameByHash.get(e.args.serviceName) : undefined;
+        const hash = serviceHashArg(e.args);
+        const serviceLabel = typeof hash === "string" ? nameByHash.get(hash) : undefined;
         const sentence = serviceLabel ? renderSentence(e.source, e.eventName, { ...e.args, serviceLabel }) : e.sentence;
         return { ...e, timestamp: timestamps.get(e.blockNumber), sentence };
       }),
