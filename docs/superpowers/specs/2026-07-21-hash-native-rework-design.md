@@ -337,10 +337,31 @@ Plus section A's changes to `useMyAccounts.ts` and the deletion of
 The 22.5 KiB gate is the binding constraint in this repo. Post-hardening:
 `TTMAccountManager` 12.800, `TTMAccount` 21.371, `BookingToken` 21.552.
 
-Section C takes roughly 2 KiB off `TTMAccount`; section D's wrapper dedup takes
-roughly 1 KiB off `BookingToken`. Both currently sit within about 1 KiB of the
-gate, so this work is also the cheapest available relief on the constraint most
-likely to block the next feature.
+Measured before/after (initcode KiB, `yarn compile`'s size report, gate 22.5):
+
+| Contract             | Before (baseline) | After (measured) | Delta      |
+| --------------------- | ------------------ | ----------------- | ---------- |
+| `TTMAccountManager`   | 12.800              | 13.155             | +0.355 KiB |
+| `TTMAccount`          | 21.371              | 20.869             | −0.502 KiB |
+| `BookingToken`        | 21.552              | 20.966             | −0.586 KiB |
+
+**The estimate above was wrong; here is why.** This section originally predicted
+section C would take "roughly 2 KiB" off `TTMAccount`. The actual reduction is
+about a quarter of that — 0.502 KiB. Task 7's review reproduced the shortfall
+directly: deleting the name-resolution helpers and the string-keyed overloads
+saved 0.632 KiB, but the hash-native rework also *added* a getter that didn't
+exist before — `getSupportedServicesSlice` — which was required once services
+became hash-native, and that getter cost 0.566 KiB back. Net effect: roughly
+2 KiB of deletions, offset by a new getter almost as large, leaving ~0.5 KiB of
+real saving. A reviewer audited every remaining `ITTMAccountManager` reference
+during that task and confirmed nothing eligible for deletion was left behind —
+the shortfall is a real accounting result, not an incomplete cleanup.
+
+`BookingToken`'s reduction (section D's wrapper dedup, Task 9) came in close to
+plan at −0.586 KiB. `TTMAccountManager` was never a target of this rework's
+size work and grew slightly (+0.355 KiB), consistent with the small additions
+made along the way (e.g. surface for hash-native service lookups); it remains
+well clear of the 22.5 KiB gate at 13.155 KiB.
 
 The plan must record measured sizes before and after, not estimates.
 
