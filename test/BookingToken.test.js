@@ -90,6 +90,32 @@ describe("BookingToken", function () {
             expect(await bookingToken.getMinExpirationTimestampDiff()).to.be.equal(newMinExpirationTimestampDiff);
         });
 
+        it("should emit ManagerAddressUpdated when the manager is repointed", async function () {
+            await setupSigners();
+            const { bookingToken } = await loadFixture(deployAndConfigureAllFixture);
+
+            const oldManager = await bookingToken.getManagerAddress();
+            const newManager = signers.otherAccount1.address;
+
+            await expect(bookingToken.connect(signers.btAdmin).setManagerAddress(newManager))
+                .to.emit(bookingToken, "ManagerAddressUpdated")
+                .withArgs(oldManager, newManager);
+        });
+
+        it("should emit MinExpirationTimestampDiffUpdated when the mint rule changes", async function () {
+            await setupSigners();
+            const { bookingToken } = await loadFixture(deployAndConfigureAllFixture);
+
+            const MIN_EXPIRATION_ADMIN_ROLE = await bookingToken.MIN_EXPIRATION_ADMIN_ROLE();
+            await bookingToken.connect(signers.btAdmin).grantRole(MIN_EXPIRATION_ADMIN_ROLE, signers.btAdmin.address);
+
+            const oldDiff = await bookingToken.getMinExpirationTimestampDiff();
+
+            await expect(bookingToken.connect(signers.btAdmin).setMinExpirationTimestampDiff(120))
+                .to.emit(bookingToken, "MinExpirationTimestampDiffUpdated")
+                .withArgs(oldDiff, 120);
+        });
+
         it("should support ERC165", async function () {
             const { ttmAccountManager, supplierTTMAccount, distributorTTMAccount, bookingToken } =
                 await loadFixture(deployBookingTokenFixture);

@@ -1070,6 +1070,27 @@ Event emitted when a token is expired.
 | ------- | ------- | ----------- |
 | tokenId | uint256 | token id    |
 
+### ManagerAddressUpdated
+
+```solidity
+event ManagerAddressUpdated(address oldManager, address newManager)
+```
+
+Emitted when the manager address is changed.
+
+_This repoints the entire authorization oracle for this token - `isTTMAccount`
+resolves through the manager - so the change is worth an explicit log._
+
+### MinExpirationTimestampDiffUpdated
+
+```solidity
+event MinExpirationTimestampDiffUpdated(uint256 oldDiff, uint256 newDiff)
+```
+
+Emitted when the minimum expiration timestamp difference changes.
+
+_This is a mint-time validation rule; changing it changes which mints succeed._
+
 ### ExpirationTimestampTooSoon
 
 ```solidity

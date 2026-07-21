@@ -211,6 +211,21 @@ contract BookingToken is
      */
     event TokenReservationExpired(uint256 indexed tokenId);
 
+    /**
+     * @notice Emitted when the manager address is changed.
+     *
+     * @dev This repoints the entire authorization oracle for this token - `isTTMAccount`
+     * resolves through the manager - so the change is worth an explicit log.
+     */
+    event ManagerAddressUpdated(address indexed oldManager, address indexed newManager);
+
+    /**
+     * @notice Emitted when the minimum expiration timestamp difference changes.
+     *
+     * @dev This is a mint-time validation rule; changing it changes which mints succeed.
+     */
+    event MinExpirationTimestampDiffUpdated(uint256 oldDiff, uint256 newDiff);
+
     /***************************************************
      *                    ERRORS                       *
      ***************************************************/
@@ -719,7 +734,9 @@ contract BookingToken is
      */
     function setManagerAddress(address manager) public virtual onlyRole(DEFAULT_ADMIN_ROLE) {
         BookingTokenStorage storage $ = _getBookingTokenStorage();
+        address oldManager = $._manager;
         $._manager = manager;
+        emit ManagerAddressUpdated(oldManager, manager);
     }
 
     /**
@@ -739,7 +756,9 @@ contract BookingToken is
         uint256 minExpirationTimestampDiff
     ) public virtual onlyRole(MIN_EXPIRATION_ADMIN_ROLE) {
         BookingTokenStorage storage $ = _getBookingTokenStorage();
+        uint256 oldDiff = $._minExpirationTimestampDiff;
         $._minExpirationTimestampDiff = minExpirationTimestampDiff;
+        emit MinExpirationTimestampDiffUpdated(oldDiff, minExpirationTimestampDiff);
     }
 
     /**
