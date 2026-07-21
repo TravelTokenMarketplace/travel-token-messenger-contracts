@@ -19,6 +19,7 @@
 - **Everything under `docs/` must be prettier-formatted** — `yarn docgen` ends in `prettier --write docs/`, so an unformatted file there dirties the tree and fails both the `docs` job and `lint`.
 - **Go bindings embed bytecode**, so even a comment change shifts them via Solidity's metadata hash. They are regenerated **once**, in Task 11, because `scripts/generate_go_abi.sh` does its own `rm -rf node_modules && yarn install`. `/` is ~97% full — route `TMPDIR`, `GOCACHE`, `GOMODCACHE`, `GOTMPDIR`, and `YARN_CACHE_FOLDER` to `/hgst` before running it.
 - **`vars.get(NAME)` with no default throws at config load** (`HH1201`), breaking *every* Hardhat command. Never add one without a fallback.
+- **The Go bindings under `go/` are knowingly stale from Task 1 until Task 11 regenerates them.** This is deliberate sequencing, not an oversight: `scripts/generate_go_abi.sh` does its own `rm -rf node_modules && yarn install`, so running it per task is wasteful. Verified safe: `.github/workflows/ci.yaml` triggers only on `pull_request` and pushes to `dev`/`main`, so no CI runs on this feature branch in that window. **Do not open a PR before Task 11 completes** — the `go-bindings` job asserts a clean tree after regeneration and would fail.
 - **Verify comments against code before acting on them.** Stale comments have twice produced wrong conclusions in this repo. Treat every line number in the technical backlog as unverified — five of its claims were already found wrong.
 - **Solidity style:** 4-space indent, NatSpec on all public/external members. **JS tests:** 4-space indent, `describe`/`it`, fixtures from `test/utils/fixtures`. **UI:** 2-space indent, prettier-enforced.
 
@@ -246,14 +247,18 @@ Replace `getTTMAccountCreator` and `isTTMAccount` with:
             return new address[](0);
         }
 
-        uint256 end = offset + limit;
-        if (end > total) {
-            end = total;
+        // Clamp by subtraction, not by computing `offset + limit`: under checked
+        // arithmetic that sum reverts for a large `limit`, which would contradict
+        // the "an oversized limit is not an error" contract above. `offset < total`
+        // here, so `total - offset` cannot underflow.
+        uint256 remaining = total - offset;
+        if (limit > remaining) {
+            limit = remaining;
         }
 
-        accounts = new address[](end - offset);
-        for (uint256 i = offset; i < end; i++) {
-            accounts[i - offset] = ttmAccounts.at(i);
+        accounts = new address[](limit);
+        for (uint256 i = 0; i < limit; i++) {
+            accounts[i] = ttmAccounts.at(offset + i);
         }
     }
 ```
@@ -1314,16 +1319,20 @@ Delete `getRegisteredServiceHash`, `getServiceHash`, and `getServiceName` (`:527
             return (new bytes32[](0), new Service[](0));
         }
 
-        uint256 end = offset + limit;
-        if (end > total) {
-            end = total;
+        // Clamp by subtraction, not by computing `offset + limit`: under checked
+        // arithmetic that sum reverts for a large `limit`, which would contradict
+        // the "an oversized limit is not an error" contract above. `offset < total`
+        // here, so `total - offset` cannot underflow.
+        uint256 remaining = total - offset;
+        if (limit > remaining) {
+            limit = remaining;
         }
 
-        serviceHashes = new bytes32[](end - offset);
-        services = new Service[](end - offset);
-        for (uint256 i = offset; i < end; i++) {
-            serviceHashes[i - offset] = allHashes[i];
-            services[i - offset] = getService(allHashes[i]);
+        serviceHashes = new bytes32[](limit);
+        services = new Service[](limit);
+        for (uint256 i = 0; i < limit; i++) {
+            serviceHashes[i] = allHashes[offset + i];
+            services[i] = getService(allHashes[offset + i]);
         }
     }
 
