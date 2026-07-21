@@ -1,3 +1,4 @@
+const path = require("path");
 require("@nomicfoundation/hardhat-toolbox");
 
 const MANAGER_SCOPE = scope("manager", "TTM Account Manager Tasks");
@@ -73,7 +74,7 @@ async function handleRoles(taskArgs, hre, action, contractName) {
 function handleTransactionError(error, contract) {
     console.error("❌ Transaction failed!");
 
-    if (error.data.data && contract) {
+    if (error.data?.data && contract) {
         const decodedError = contract.interface.parseError(error.data.data);
         console.error("Message:", error.message);
         console.error(`Reason: ${decodedError?.name} (${decodedError?.args})`);
@@ -100,7 +101,7 @@ async function handleServices(taskArgs, hre, action) {
     if (taskArgs.service) {
         services = [taskArgs.service];
     } else if (taskArgs.json) {
-        const parsed = require(taskArgs.json);
+        const parsed = require(path.resolve(process.cwd(), taskArgs.json));
         if (!Array.isArray(parsed) || parsed.length === 0 || !parsed.every((s) => typeof s === "string")) {
             throw new Error("JSON file must be a non-empty array of strings.");
         }
