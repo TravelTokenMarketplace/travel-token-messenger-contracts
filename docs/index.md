@@ -337,14 +337,6 @@ error TTMAccountNoUpgradeNeeded(address oldImplementation, address newImplementa
 
 New implementation is the same as the current implementation, no update needed
 
-### PrefundNotSpentYet
-
-```solidity
-error PrefundNotSpentYet(uint256 withdrawableAmount, uint256 prefundLeft, uint256 amount)
-```
-
-Error to revert with if the prefund is not spent yet
-
 ### TransferToZeroAddress
 
 ```solidity
@@ -1142,23 +1134,6 @@ Token is reserved and can not be transferred.
 | tokenId     | uint256 | token id             |
 | reservedFor | address | reserved for address |
 
-### InsufficientAllowance
-
-```solidity
-error InsufficientAllowance(address sender, contract IERC20 paymentToken, uint256 price, uint256 allowance)
-```
-
-Insufficient allowance to transfer the ERC20 token to the supplier.
-
-#### Parameters
-
-| Name         | Type            | Description           |
-| ------------ | --------------- | --------------------- |
-| sender       | address         | msg.sender            |
-| paymentToken | contract IERC20 | payment token address |
-| price        | uint256         | price of the token    |
-| allowance    | uint256         | allowance amount      |
-
 ### InvalidTokenStatus
 
 ```solidity
@@ -1613,12 +1588,6 @@ event CancellationFinalized(uint256 tokenId)
 
 ```solidity
 error NotOwnerOrSupplier()
-```
-
-### CancellationProposalExists
-
-```solidity
-error CancellationProposalExists(uint256 tokenId)
 ```
 
 ### IncorrectRefundAmount
@@ -2546,12 +2515,6 @@ error PublicKeyAlreadyExists(address pubKeyAddress)
 
 ```solidity
 error PublicKeyDoesNotExist(address pubKeyAddress)
-```
-
-### InvalidPublicKeyUseType
-
-```solidity
-error InvalidPublicKeyUseType(uint8 use)
 ```
 
 ### PaymentTokenAdded
