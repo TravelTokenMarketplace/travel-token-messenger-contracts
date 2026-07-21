@@ -177,6 +177,11 @@ contract TTMAccountManager is
      */
     error InvalidBookingTokenAddress(address bookingToken);
 
+    /**
+     * @notice A required address parameter was the zero address.
+     */
+    error ZeroAddress();
+
     /***************************************************
      *                    FUNCS                        *
      ***************************************************/
@@ -192,6 +197,10 @@ contract TTMAccountManager is
         address upgrader, // can upgrade the manager (this contract)
         address versioner // can set TTMAccount implementation address
     ) public initializer {
+        if (defaultAdmin == address(0) || pauser == address(0) || upgrader == address(0) || versioner == address(0)) {
+            revert ZeroAddress();
+        }
+
         __Pausable_init();
         __AccessControl_init();
         __UUPSUpgradeable_init();

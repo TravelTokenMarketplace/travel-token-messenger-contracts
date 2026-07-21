@@ -269,6 +269,11 @@ contract BookingToken is
      */
     error UnexpectedNativePayment(uint256 amount);
 
+    /**
+     * @notice A required address parameter was the zero address.
+     */
+    error ZeroAddress();
+
     /***************************************************
      *                  MODIFIERS                      *
      ***************************************************/
@@ -286,6 +291,10 @@ contract BookingToken is
      ***************************************************/
 
     function initialize(address manager, address defaultAdmin, address upgrader) public initializer {
+        if (manager == address(0) || defaultAdmin == address(0) || upgrader == address(0)) {
+            revert ZeroAddress();
+        }
+
         __ERC721_init("BookingToken", "TRIP");
         __ERC721Enumerable_init();
         __ERC721URIStorage_init();

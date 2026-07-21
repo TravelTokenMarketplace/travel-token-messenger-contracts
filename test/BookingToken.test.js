@@ -1,7 +1,7 @@
 const { loadFixture } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
 const { expect } = require("chai");
 
-const { ethers } = require("hardhat");
+const { ethers, upgrades } = require("hardhat");
 
 const helpers = require("@nomicfoundation/hardhat-network-helpers");
 
@@ -3217,6 +3217,26 @@ describe("BookingToken", function () {
                 [supplier, distributor, bookingToken, supplierBookingOperator, distributorBookingOperator],
                 [0n, 0n, 0n, 0n, 0n], // Off chain payment, should not change any balances
             );
+        });
+    });
+
+    describe("Initializer validation", function () {
+        it("should reject a zero address for any constructor parameter", async function () {
+            await setupSigners();
+            const BookingToken = await ethers.getContractFactory("BookingToken");
+            const zero = ethers.ZeroAddress;
+            const ok = signers.btAdmin.address;
+
+            for (const args of [
+                [zero, ok, ok],
+                [ok, zero, ok],
+                [ok, ok, zero],
+            ]) {
+                await expect(upgrades.deployProxy(BookingToken, args, { kind: "uups" })).to.be.revertedWithCustomError(
+                    BookingToken,
+                    "ZeroAddress",
+                );
+            }
         });
     });
 });

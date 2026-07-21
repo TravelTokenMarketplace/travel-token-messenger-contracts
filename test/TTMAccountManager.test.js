@@ -372,4 +372,25 @@ describe("TTMAccountManager", function () {
             );
         });
     });
+
+    describe("Initializer validation", function () {
+        it("should reject a zero address for any role parameter", async function () {
+            await setupSigners();
+            const Manager = await ethers.getContractFactory("TTMAccountManager");
+            const zero = ethers.ZeroAddress;
+            const ok = signers.managerAdmin.address;
+
+            for (const args of [
+                [zero, ok, ok, ok],
+                [ok, zero, ok, ok],
+                [ok, ok, zero, ok],
+                [ok, ok, ok, zero],
+            ]) {
+                await expect(upgrades.deployProxy(Manager, args, { kind: "uups" })).to.be.revertedWithCustomError(
+                    Manager,
+                    "ZeroAddress",
+                );
+            }
+        });
+    });
 });

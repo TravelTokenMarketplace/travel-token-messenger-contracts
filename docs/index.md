@@ -360,6 +360,14 @@ error TransferToZeroAddress()
 
 Error to revert if transfer to zero address
 
+### ZeroAddress
+
+```solidity
+error ZeroAddress()
+```
+
+A required address parameter was the zero address.
+
 ### constructor
 
 ```solidity
@@ -1192,6 +1200,14 @@ Error for when there is unexpected native payment.
 | Name   | Type    | Description           |
 | ------ | ------- | --------------------- |
 | amount | uint256 | The unexpected amount |
+
+### ZeroAddress
+
+```solidity
+error ZeroAddress()
+```
+
+A required address parameter was the zero address.
 
 ### onlyTTMAccount
 
@@ -2270,6 +2286,14 @@ Invalid booking token address.
 | Name         | Type    | Description               |
 | ------------ | ------- | ------------------------- |
 | bookingToken | address | The booking token address |
+
+### ZeroAddress
+
+```solidity
+error ZeroAddress()
+```
+
+A required address parameter was the zero address.
 
 ### constructor
 

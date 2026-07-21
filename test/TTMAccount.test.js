@@ -3,7 +3,7 @@
  */
 const { loadFixture } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
 const { expect } = require("chai");
-const { ethers } = require("hardhat");
+const { ethers, upgrades } = require("hardhat");
 
 const {
     setupSigners,
@@ -570,6 +570,32 @@ describe("TTMAccount", function () {
             await expect(ttmAccount.connect(unauthorizedCaller).finalizeCancellation(0n, ethers.parseEther("0.05")))
                 .to.be.revertedWithCustomError(ttmAccount, "AccessControlUnauthorizedAccount")
                 .withArgs(unauthorizedCaller.address, BOOKING_OPERATOR_ROLE);
+        });
+    });
+
+    describe("Initializer validation", function () {
+        it("should reject a zero address for any constructor parameter", async function () {
+            await setupSigners();
+            const { ttmAccountManager } = await loadFixture(deployTTMAccountManagerFixture);
+            const zero = ethers.ZeroAddress;
+            const ok = signers.ttmAccountAdmin.address;
+            const mgr = await ttmAccountManager.getAddress();
+
+            const bookingTokenOperator = await ethers.deployContract("BookingTokenOperator");
+            const Account = await ethers.getContractFactory("TTMAccount", {
+                libraries: { BookingTokenOperator: await bookingTokenOperator.getAddress() },
+            });
+
+            for (const args of [
+                [zero, ok, ok, ok],
+                [mgr, zero, ok, ok],
+                [mgr, ok, zero, ok],
+                [mgr, ok, ok, zero],
+            ]) {
+                await expect(
+                    upgrades.deployProxy(Account, args, { kind: "uups", unsafeAllow: ["external-library-linking"] }),
+                ).to.be.revertedWithCustomError(Account, "ZeroAddress");
+            }
         });
     });
 });

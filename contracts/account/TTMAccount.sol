@@ -190,6 +190,11 @@ contract TTMAccount is
      */
     error TransferToZeroAddress();
 
+    /**
+     * @notice A required address parameter was the zero address.
+     */
+    error ZeroAddress();
+
     /***************************************************
      *         CONSTRUCTOR & INITIALIZATION            *
      ***************************************************/
@@ -206,6 +211,12 @@ contract TTMAccount is
         address defaultAdmin,
         address upgrader
     ) public initializer {
+        if (
+            manager == address(0) || bookingToken == address(0) || defaultAdmin == address(0) || upgrader == address(0)
+        ) {
+            revert ZeroAddress();
+        }
+
         __AccessControl_init();
         __UUPSUpgradeable_init();
         __ReentrancyGuard_init();
