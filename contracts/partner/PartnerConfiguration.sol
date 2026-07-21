@@ -79,6 +79,8 @@ abstract contract PartnerConfiguration is Initializable {
     error PublicKeyAlreadyExists(address pubKeyAddress);
     error PublicKeyDoesNotExist(address pubKeyAddress);
 
+    error CapabilityDoesNotExist(bytes32 serviceHash, string capability);
+
     /***************************************************
      *                    EVENTS                       *
      ***************************************************/
@@ -196,13 +198,15 @@ abstract contract PartnerConfiguration is Initializable {
         _checkServiceExists(serviceHash, $);
 
         string[] storage capabilities = $._supportedServices[serviceHash]._capabilities;
-        for (uint256 i = 0; i < capabilities.length; i++) {
+        uint256 length = capabilities.length;
+        for (uint256 i = 0; i < length; i++) {
             if (keccak256(abi.encodePacked(capabilities[i])) == keccak256(abi.encodePacked(capability))) {
-                capabilities[i] = capabilities[capabilities.length - 1];
+                capabilities[i] = capabilities[length - 1];
                 capabilities.pop();
-                break;
+                return;
             }
         }
+        revert CapabilityDoesNotExist(serviceHash, capability);
     }
 
     /**

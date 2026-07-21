@@ -2564,6 +2564,12 @@ error PublicKeyAlreadyExists(address pubKeyAddress)
 error PublicKeyDoesNotExist(address pubKeyAddress)
 ```
 
+### CapabilityDoesNotExist
+
+```solidity
+error CapabilityDoesNotExist(bytes32 serviceHash, string capability)
+```
+
 ### PaymentTokenAdded
 
 ```solidity

@@ -1,5 +1,21 @@
 [
   {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "serviceHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "string",
+        "name": "capability",
+        "type": "string"
+      }
+    ],
+    "name": "CapabilityDoesNotExist",
+    "type": "error"
+  },
+  {
     "inputs": [],
     "name": "InvalidInitialization",
     "type": "error"
