@@ -773,41 +773,45 @@ contract BookingToken is
      *              CANCELLATION LOGIC                 *
      ***************************************************/
 
+    /**
+     * @notice Requires that `tokenId` exists and is in the BOUGHT state, returning both
+     * parties to the booking.
+     *
+     * @dev Extracted from the six cancellation wrappers below, which each repeated this
+     * sequence verbatim.
+     *
+     * @param tokenId The booking token
+     * @return owner The current owner (the buyer)
+     * @return supplier The supplier that minted the reservation
+     */
+    function _requireBoughtAndParties(uint256 tokenId) private view returns (address owner, address supplier) {
+        // Revert if token does not exist
+        owner = _requireOwned(tokenId);
+
+        // Get storage
+        BookingTokenStorage storage $ = _getBookingTokenStorage();
+
+        // Revert if token is not BOUGHT
+        if ($._bookingStatus[tokenId] != BookingStatus.BOUGHT) {
+            revert InvalidTokenStatus(tokenId, $._bookingStatus[tokenId]);
+        }
+
+        supplier = $._reservations[tokenId].supplier;
+    }
+
     function initiateCancellation(
         uint256 tokenId,
         uint256 refundAmount,
         uint16 cancellationReason,
         uint16 cancellationReasonVersion
     ) external virtual onlyTTMAccount(msg.sender) {
-        // Revert if token does not exist
-        address owner = _requireOwned(tokenId);
-
-        // Get storage
-        BookingTokenStorage storage $ = _getBookingTokenStorage();
-
-        // Revert if token is not BOUGHT
-        if ($._bookingStatus[tokenId] != BookingStatus.BOUGHT) {
-            revert InvalidTokenStatus(tokenId, $._bookingStatus[tokenId]);
-        }
-
-        address supplier = $._reservations[tokenId].supplier;
+        (address owner, address supplier) = _requireBoughtAndParties(tokenId);
 
         _initiateCancellation(owner, supplier, tokenId, refundAmount, cancellationReason, cancellationReasonVersion);
     }
 
     function acceptCancellation(uint256 tokenId, uint256 refundAmount) external virtual onlyTTMAccount(msg.sender) {
-        // Revert if token does not exist
-        address owner = _requireOwned(tokenId);
-
-        // Get storage
-        BookingTokenStorage storage $ = _getBookingTokenStorage();
-
-        // Revert if token is not BOUGHT
-        if ($._bookingStatus[tokenId] != BookingStatus.BOUGHT) {
-            revert InvalidTokenStatus(tokenId, $._bookingStatus[tokenId]);
-        }
-
-        address supplier = $._reservations[tokenId].supplier;
+        (address owner, address supplier) = _requireBoughtAndParties(tokenId);
 
         _acceptCancellation(owner, supplier, tokenId, refundAmount);
     }
@@ -818,18 +822,7 @@ contract BookingToken is
         uint16 counterReason,
         uint16 counterReasonVersion
     ) external virtual onlyTTMAccount(msg.sender) {
-        // Revert if token does not exist
-        address owner = _requireOwned(tokenId);
-
-        // Get storage
-        BookingTokenStorage storage $ = _getBookingTokenStorage();
-
-        // Revert if token is not BOUGHT
-        if ($._bookingStatus[tokenId] != BookingStatus.BOUGHT) {
-            revert InvalidTokenStatus(tokenId, $._bookingStatus[tokenId]);
-        }
-
-        address supplier = $._reservations[tokenId].supplier;
+        (address owner, address supplier) = _requireBoughtAndParties(tokenId);
 
         _counterCancellation(owner, supplier, tokenId, refundAmount, counterReason, counterReasonVersion);
     }
@@ -839,18 +832,7 @@ contract BookingToken is
         uint16 withdrawalReason,
         uint16 withdrawalReasonVersion
     ) external virtual onlyTTMAccount(msg.sender) {
-        // Revert if token does not exist
-        address owner = _requireOwned(tokenId);
-
-        // Get storage
-        BookingTokenStorage storage $ = _getBookingTokenStorage();
-
-        // Revert if token is not BOUGHT
-        if ($._bookingStatus[tokenId] != BookingStatus.BOUGHT) {
-            revert InvalidTokenStatus(tokenId, $._bookingStatus[tokenId]);
-        }
-
-        address supplier = $._reservations[tokenId].supplier;
+        (address owner, address supplier) = _requireBoughtAndParties(tokenId);
 
         _withdrawCancellation(owner, supplier, tokenId, withdrawalReason, withdrawalReasonVersion);
     }
@@ -860,18 +842,7 @@ contract BookingToken is
         uint16 rejectionReason,
         uint16 rejectionReasonVersion
     ) external virtual onlyTTMAccount(msg.sender) {
-        // Revert if token does not exist
-        address owner = _requireOwned(tokenId);
-
-        // Get storage
-        BookingTokenStorage storage $ = _getBookingTokenStorage();
-
-        // Revert if token is not BOUGHT
-        if ($._bookingStatus[tokenId] != BookingStatus.BOUGHT) {
-            revert InvalidTokenStatus(tokenId, $._bookingStatus[tokenId]);
-        }
-
-        address supplier = $._reservations[tokenId].supplier;
+        (address owner, address supplier) = _requireBoughtAndParties(tokenId);
 
         _rejectCancellation(owner, supplier, tokenId, rejectionReason, rejectionReasonVersion);
     }
@@ -879,19 +850,10 @@ contract BookingToken is
     function finalizeCancellation(
         uint256 tokenId,
         uint256 checkRefundAmount
-    ) external payable virtual onlyTTMAccount(msg.sender) whenNotPaused {
-        // Revert if token does not exist
-        address owner = _requireOwned(tokenId);
+    ) external payable virtual nonReentrant onlyTTMAccount(msg.sender) whenNotPaused {
+        (address owner, address supplier) = _requireBoughtAndParties(tokenId);
 
-        // Get storage
         BookingTokenStorage storage $ = _getBookingTokenStorage();
-
-        // Revert if token is not BOUGHT
-        if ($._bookingStatus[tokenId] != BookingStatus.BOUGHT) {
-            revert InvalidTokenStatus(tokenId, $._bookingStatus[tokenId]);
-        }
-
-        address supplier = $._reservations[tokenId].supplier;
 
         uint256 refundAmount = _finalizeCancellation(supplier, tokenId, checkRefundAmount);
 
