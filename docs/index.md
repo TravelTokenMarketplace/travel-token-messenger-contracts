@@ -2194,16 +2194,12 @@ struct TTMAccountManagerStorage {
 ### TTMAccountCreated
 
 ```solidity
-event TTMAccountCreated(address account)
+event TTMAccountCreated(address account, address creator, address admin)
 ```
 
-TTM Account created event.
+Emitted when a TTM Account is created.
 
-#### Parameters
-
-| Name    | Type    | Description                       |
-| ------- | ------- | --------------------------------- |
-| account | address | The address of the new TTMAccount |
+_Carries creator and admin so indexers need no follow-up call per account._
 
 ### TTMAccountImplementationUpdated
 
@@ -2960,14 +2956,26 @@ struct ServiceRegistryStorage {
 ### ServiceRegistered
 
 ```solidity
-event ServiceRegistered(string serviceName, bytes32 serviceHash)
+event ServiceRegistered(bytes32 serviceHash, string serviceName)
 ```
+
+Emitted when a service is registered.
+
+_The hash is indexed for filtering; the name travels in the data section so
+consumers can build a complete name-to-hash map from logs alone, with no
+`eth_call`. This is the authoritative publication of that mapping - `TTMAccount`
+emits hashes only._
 
 ### ServiceUnregistered
 
 ```solidity
-event ServiceUnregistered(string serviceName, bytes32 serviceHash)
+event ServiceUnregistered(bytes32 serviceHash, string serviceName)
 ```
+
+Emitted when a service is unregistered.
+
+_Existing accounts can still resolve a deprecated name, so this is the only
+signal that a service was retired. See {\_unregisterServiceName}._
 
 ### ServiceAlreadyRegistered
 

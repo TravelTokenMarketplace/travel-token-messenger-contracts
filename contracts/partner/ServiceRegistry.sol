@@ -41,8 +41,23 @@ abstract contract ServiceRegistry is Initializable {
      *                    EVENTS                       *
      ***************************************************/
 
-    event ServiceRegistered(string serviceName, bytes32 serviceHash);
-    event ServiceUnregistered(string serviceName, bytes32 serviceHash);
+    /**
+     * @notice Emitted when a service is registered.
+     *
+     * @dev The hash is indexed for filtering; the name travels in the data section so
+     * consumers can build a complete name-to-hash map from logs alone, with no
+     * `eth_call`. This is the authoritative publication of that mapping - `TTMAccount`
+     * emits hashes only.
+     */
+    event ServiceRegistered(bytes32 indexed serviceHash, string serviceName);
+
+    /**
+     * @notice Emitted when a service is unregistered.
+     *
+     * @dev Existing accounts can still resolve a deprecated name, so this is the only
+     * signal that a service was retired. See {_unregisterServiceName}.
+     */
+    event ServiceUnregistered(bytes32 indexed serviceHash, string serviceName);
 
     /***************************************************
      *                    ERRORS                       *
@@ -93,7 +108,7 @@ abstract contract ServiceRegistry is Initializable {
         $._serviceNameByHash[serviceHash] = serviceName;
         $._hashByServiceName[serviceName] = serviceHash;
 
-        emit ServiceRegistered(serviceName, serviceHash);
+        emit ServiceRegistered(serviceHash, serviceName);
     }
 
     /**
@@ -114,7 +129,7 @@ abstract contract ServiceRegistry is Initializable {
             revert ServiceNotRegistered();
         }
 
-        emit ServiceUnregistered(serviceName, serviceHash);
+        emit ServiceUnregistered(serviceHash, serviceName);
     }
 
     /**

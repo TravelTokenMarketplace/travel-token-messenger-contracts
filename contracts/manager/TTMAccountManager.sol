@@ -124,10 +124,11 @@ contract TTMAccountManager is
      ***************************************************/
 
     /**
-     * @notice TTM Account created event.
-     * @param account The address of the new TTMAccount
+     * @notice Emitted when a TTM Account is created.
+     *
+     * @dev Carries creator and admin so indexers need no follow-up call per account.
      */
-    event TTMAccountCreated(address indexed account);
+    event TTMAccountCreated(address indexed account, address indexed creator, address indexed admin);
 
     /**
      * @notice TTM Account implementation address updated event.
@@ -274,7 +275,7 @@ contract TTMAccountManager is
         // [ETH] Send the msg.value to the TTMAccount
         payable(ttmAccountProxy).sendValue(msg.value);
 
-        emit TTMAccountCreated(address(ttmAccountProxy));
+        emit TTMAccountCreated(address(ttmAccountProxy), msg.sender, admin);
 
         return address(ttmAccountProxy);
     }

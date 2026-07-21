@@ -2,6 +2,7 @@
  * @dev TTMAccountManager tests
  */
 const { loadFixture } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
+const { anyValue } = require("@nomicfoundation/hardhat-chai-matchers/withArgs");
 const { expect } = require("chai");
 const { ethers, upgrades } = require("hardhat");
 
@@ -404,6 +405,19 @@ describe("TTMAccountManager", function () {
             expect(await ttmAccountManager.getTTMAccountCreator(account)).to.equal(signers.ttmAccountAdmin.address);
             expect(await ttmAccountManager.getTTMAccountCount()).to.equal(2);
             expect(await ttmAccountManager.getTTMAccounts()).to.deep.equal([existingAccount, account]);
+        });
+
+        it("should emit TTMAccountCreated with creator and admin", async function () {
+            await setupSigners();
+            const { ttmAccountManager } = await loadFixture(deployAndConfigureAllFixture);
+
+            await expect(
+                ttmAccountManager
+                    .connect(signers.ttmAccountAdmin)
+                    .createTTMAccount(signers.ttmAccountAdmin.address, signers.ttmAccountUpgrader.address),
+            )
+                .to.emit(ttmAccountManager, "TTMAccountCreated")
+                .withArgs(anyValue, signers.ttmAccountAdmin.address, signers.ttmAccountAdmin.address);
         });
 
         it("should report unknown addresses as not being TTM Accounts", async function () {

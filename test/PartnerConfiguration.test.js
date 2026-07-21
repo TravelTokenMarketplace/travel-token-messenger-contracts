@@ -36,7 +36,7 @@ describe("PartnerConfiguration", function () {
 
             await expect(ttmAccountManager.connect(signers.otherAccount1).registerService(serviceName))
                 .to.emit(ttmAccountManager, "ServiceRegistered")
-                .withArgs(serviceName, serviceHash);
+                .withArgs(serviceHash, serviceName);
 
             // get the SERVICE_ADMIN_ROLE
             const SERVICE_ADMIN_ROLE = await ttmAccount.SERVICE_ADMIN_ROLE();
@@ -86,7 +86,7 @@ describe("PartnerConfiguration", function () {
 
             await expect(ttmAccountManager.connect(signers.otherAccount1).registerService(serviceName))
                 .to.emit(ttmAccountManager, "ServiceRegistered")
-                .withArgs(serviceName, serviceHash);
+                .withArgs(serviceHash, serviceName);
 
             // get the SERVICE_ADMIN_ROLE
             const SERVICE_ADMIN_ROLE = await ttmAccount.SERVICE_ADMIN_ROLE();
@@ -149,13 +149,13 @@ describe("PartnerConfiguration", function () {
 
             await expect(ttmAccountManager.connect(signers.otherAccount1).registerService(serviceName1))
                 .to.emit(ttmAccountManager, "ServiceRegistered")
-                .withArgs(serviceName1, serviceHash1);
+                .withArgs(serviceHash1, serviceName1);
             await expect(ttmAccountManager.connect(signers.otherAccount1).registerService(serviceName2))
                 .to.emit(ttmAccountManager, "ServiceRegistered")
-                .withArgs(serviceName2, serviceHash2);
+                .withArgs(serviceHash2, serviceName2);
             await expect(ttmAccountManager.connect(signers.otherAccount1).registerService(serviceName3))
                 .to.emit(ttmAccountManager, "ServiceRegistered")
-                .withArgs(serviceName3, serviceHash3);
+                .withArgs(serviceHash3, serviceName3);
 
             // Get the SERVICE_ADMIN_ROLE
             const SERVICE_ADMIN_ROLE = await ttmAccount.SERVICE_ADMIN_ROLE();
@@ -240,7 +240,7 @@ describe("PartnerConfiguration", function () {
 
             await expect(ttmAccountManager.connect(signers.otherAccount1).registerService(serviceName))
                 .to.emit(ttmAccountManager, "ServiceRegistered")
-                .withArgs(serviceName, serviceHash);
+                .withArgs(serviceHash, serviceName);
 
             // get the SERVICE_ADMIN_ROLE
             const SERVICE_ADMIN_ROLE = await ttmAccount.SERVICE_ADMIN_ROLE();
@@ -540,7 +540,7 @@ describe("PartnerConfiguration", function () {
 
             await expect(ttmAccountManager.connect(signers.otherAccount1).registerService(serviceName))
                 .to.emit(ttmAccountManager, "ServiceRegistered")
-                .withArgs(serviceName, serviceHash);
+                .withArgs(serviceHash, serviceName);
 
             // get the SERVICE_ADMIN_ROLE
             const SERVICE_ADMIN_ROLE = await ttmAccount.SERVICE_ADMIN_ROLE();
@@ -566,7 +566,7 @@ describe("PartnerConfiguration", function () {
             // Unregister the service
             await expect(ttmAccountManager.connect(signers.otherAccount1).unregisterService(serviceName))
                 .to.emit(ttmAccountManager, "ServiceUnregistered")
-                .withArgs(serviceName, serviceHash);
+                .withArgs(serviceHash, serviceName);
 
             // Remove the service
             await expect(ttmAccount.connect(signers.otherAccount1).removeService(serviceName))
@@ -593,7 +593,7 @@ describe("PartnerConfiguration", function () {
 
             await expect(ttmAccountManager.connect(signers.otherAccount1).registerService(serviceName))
                 .to.emit(ttmAccountManager, "ServiceRegistered")
-                .withArgs(serviceName, serviceHash);
+                .withArgs(serviceHash, serviceName);
 
             // get the SERVICE_ADMIN_ROLE
             const SERVICE_ADMIN_ROLE = await ttmAccount.SERVICE_ADMIN_ROLE();
@@ -619,7 +619,7 @@ describe("PartnerConfiguration", function () {
             // Unregister the service on the manager
             await expect(ttmAccountManager.connect(signers.otherAccount1).unregisterService(serviceName))
                 .to.emit(ttmAccountManager, "ServiceUnregistered")
-                .withArgs(serviceName, serviceHash);
+                .withArgs(serviceHash, serviceName);
 
             // Try to get all services
             const servicesFromTTMAccount = await ttmAccount.getSupportedServices();
@@ -645,7 +645,7 @@ describe("PartnerConfiguration", function () {
 
             await expect(ttmAccountManager.connect(signers.otherAccount1).registerService(serviceName))
                 .to.emit(ttmAccountManager, "ServiceRegistered")
-                .withArgs(serviceName, serviceHash);
+                .withArgs(serviceHash, serviceName);
 
             // get the SERVICE_ADMIN_ROLE
             const SERVICE_ADMIN_ROLE = await ttmAccount.SERVICE_ADMIN_ROLE();
@@ -667,7 +667,7 @@ describe("PartnerConfiguration", function () {
             // Unregister the service on the manager
             await expect(ttmAccountManager.connect(signers.otherAccount1).unregisterService(serviceName))
                 .to.emit(ttmAccountManager, "ServiceUnregistered")
-                .withArgs(serviceName, serviceHash);
+                .withArgs(serviceHash, serviceName);
 
             // Try to get all wanted services
             const wantedServicesFromTTMAccount = await ttmAccount.getWantedServices();

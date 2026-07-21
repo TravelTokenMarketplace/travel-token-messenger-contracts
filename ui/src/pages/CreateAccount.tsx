@@ -49,7 +49,7 @@ export function CreateAccount() {
 
   function onConfirmed(receipt: TransactionReceipt) {
     const created = findCreatedAccount(receipt.logs, ttmAccountAbi as Abi);
-    if (created) navigate(`/account/${created}`);
+    if (created) navigate(`/account/${created.account}`);
   }
 
   if (!supported) return <Card title="Create TTM Account">Connect to a supported network.</Card>;
