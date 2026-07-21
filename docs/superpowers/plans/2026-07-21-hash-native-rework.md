@@ -1199,6 +1199,8 @@ Delete `getWantedServices()` (the name-resolving variant). `getWantedServiceHash
 Run: `yarn test`
 Expected: PASS after converting the remaining string-based wanted-service tests to hashes using the `serviceHash` helper from Task 5.
 
+> **State check after Task 5** (verified by review): `ui/src/lib/activity/catalog.test.ts:52-60` asserts the `serviceName`-keyed fallback arm of `serviceHashArg()` **using `WantedServiceAdded`** as its example event. Once you convert wanted services to `bytes32`, that arm has no real producer left. The test will still pass (the helper falls back), so it silently becomes a test of dead code rather than failing. Either repoint it at a genuine remaining producer or note it for Task 7, which collapses the fallback.
+
 - [ ] **Step 6: Update any UI wanted-service call sites**
 
 ```bash
@@ -1386,7 +1388,7 @@ Record the numbers. `TTMAccount` should have dropped meaningfully from 21.371 Ki
 
 This is where the old per-hash round-trip finally goes away.
 
-In `ui/src/hooks/useAccountActivity.ts`, delete the `serviceHashes` memo, the `useReadContracts` block that calls `getServiceNameByHash` per hash, and the `nameByHash` memo (`:28-53`). Replace with the Task 4 resolver. Note the event arg is now named `serviceHash`, not `serviceName`:
+In `ui/src/hooks/useAccountActivity.ts`, delete the `serviceHashes` memo, the `useReadContracts` block that calls `getServiceNameByHash` per hash (confirmed still present at `:43-49` after Task 5), and the `nameByHash` memo. Line numbers shifted by about +4 in Task 5 — locate by content. The file's docblock (`:9-19`) now describes the transitional two-shape situation and must be rewritten too, not just the code. Replace with the Task 4 resolver. Note the event arg is now named `serviceHash`, not `serviceName`:
 
 ```ts
   const { catalog } = useServiceCatalog();
@@ -1405,11 +1407,13 @@ In `ui/src/hooks/useAccountActivity.ts`, delete the `serviceHashes` memo, the `u
 
 In `ui/src/lib/activity/catalog.ts`:
 
-- Delete the `SERVICE_HASH_EVENTS` export (`:217-219`) — nothing needs to special-case which events carry hashes any more.
-- Update `serviceLabel()` (`:31-35`) to read `args.serviceHash` instead of `args.serviceName`.
-- Update the header comment (`:20-27`). It currently explains that indexed `string` params arrive as a keccak hash. That is no longer why hashes appear — the contracts now emit `bytes32` deliberately, and names come from the registry's own events. Rewrite it to say that.
+- Delete the `SERVICE_HASH_EVENTS` export (now at `:229-232`) — nothing needs to special-case which events carry hashes any more. Its consumers are `useAccountActivity.ts:7,35` and `catalog.test.ts:6,92-94`.
+- **Do NOT blindly delete `serviceHashArg(args)` (`:231-233`, `args.serviceHash ?? args.serviceName`) alongside it.** Task 5 added this helper and it has **three** consumers, not one: `catalog.ts:239` inside `serviceLabel()`, plus `useAccountActivity.ts:35` and `:68`. Deleting the `useReadContracts` batch removes two of the three; the `serviceLabel()` use must survive or be replaced.
+- By this point Task 6 has converted wanted services to `bytes32`, so the `?? args.serviceName` fallback arm is **dead**. Collapse `serviceHashArg` to a plain `args.serviceHash` read, or inline it — but verify no remaining event still carries a `serviceName` arg first (`ServiceRegistered`/`ServiceUnregistered` on the *manager* still do, deliberately; they are a different code path, so check which source each consumer handles).
+- Update `serviceLabel()` to read the hash arg rather than `args.serviceName`.
+- Update the header comment. It currently explains that indexed `string` params arrive as a keccak hash. That is no longer why hashes appear — the contracts now emit `bytes32` deliberately, and names come from the registry's own events. Also note `catalog.ts:228`'s comment still says "Account events whose indexed `serviceName` is a hash", which is stale.
 
-Update `ui/src/lib/activity/catalog.test.ts` to match.
+Update `ui/src/lib/activity/catalog.test.ts` to match — it is **11 tests** after Task 5, and `:92-94` holds the `SERVICE_HASH_EVENTS` assertions that must go with the export. Re-evaluate `:52-60` (see the Task 6 note): after Task 6 its example event no longer produces the shape it asserts.
 
 - [ ] **Step 9: Convert the UI's service reads**
 
