@@ -3065,31 +3065,3 @@ function getVersion() public pure returns (string)
 ```solidity
 constructor() public
 ```
-
-## ServiceFeeToken
-
-This contract is deprecated and removed as part of Milestone 1 service fee removal.
-
-### name
-
-```solidity
-function name() public pure returns (string)
-```
-
-### symbol
-
-```solidity
-function symbol() public pure returns (string)
-```
-
-### decimals
-
-```solidity
-function decimals() public pure returns (uint8)
-```
-
-### mint
-
-```solidity
-function mint(address, uint256) public
-```
