@@ -82,6 +82,55 @@ describe("TTMAccountManager", function () {
                 .to.be.revertedWithCustomError(ttmAccountManager, "InvalidBookingTokenAddress")
                 .withArgs(signers.otherAccount1.address);
         });
+
+        it("should emit BookingTokenAddressUpdated and TTMAccountImplementationUpdated", async function () {
+            await setupSigners();
+            const { ttmAccountManager, bookingToken } = await loadFixture(deployAndConfigureAllFixture);
+
+            // BookingTokenAddressUpdated: deploy a second BookingToken proxy so
+            // old != new. Re-setting the same address would make the event
+            // args assertion vacuously true even if the emitted args were
+            // swapped.
+            const oldToken = await ttmAccountManager.getBookingTokenAddress();
+            expect(oldToken).to.equal(await bookingToken.getAddress());
+
+            const BookingToken = await ethers.getContractFactory("BookingToken");
+            const bookingToken2 = await upgrades.deployProxy(
+                BookingToken,
+                [await ttmAccountManager.getAddress(), signers.btAdmin.address, signers.btUpgrader.address],
+                { kind: "uups" },
+            );
+            const newToken = await bookingToken2.getAddress();
+            expect(newToken).to.not.equal(oldToken);
+
+            await expect(ttmAccountManager.connect(signers.managerVersioner).setBookingTokenAddress(newToken))
+                .to.emit(ttmAccountManager, "BookingTokenAddressUpdated")
+                .withArgs(oldToken, newToken);
+
+            // TTMAccountImplementationUpdated: deploy a second TTMAccount
+            // implementation so old != new for the same reason. Deployed
+            // directly rather than via loadFixture(deployTTMAccountImplFixture):
+            // that fixture was already used once (nested inside
+            // deployAndConfigureAllFixture's dependency chain above), and a
+            // second loadFixture call for the same fixture function reverts to
+            // its cached snapshot instead of redeploying - which would quietly
+            // hand back the *original* implementation address, making this
+            // assertion vacuous.
+            const oldImpl = await ttmAccountManager.getAccountImplementation();
+            const BookingTokenOperator = await ethers.getContractFactory("BookingTokenOperator");
+            const bookingTokenOperator2 = await BookingTokenOperator.deploy();
+            const TTMAccount = await ethers.getContractFactory("TTMAccount", {
+                libraries: { BookingTokenOperator: await bookingTokenOperator2.getAddress() },
+            });
+            const newImplContract = await TTMAccount.deploy();
+            await newImplContract.waitForDeployment();
+            const newImpl = await newImplContract.getAddress();
+            expect(newImpl).to.not.equal(oldImpl);
+
+            await expect(ttmAccountManager.connect(signers.managerVersioner).setAccountImplementation(newImpl))
+                .to.emit(ttmAccountManager, "TTMAccountImplementationUpdated")
+                .withArgs(oldImpl, newImpl);
+        });
     });
 
     describe("Upgrades", function () {
@@ -371,6 +420,33 @@ describe("TTMAccountManager", function () {
             expect(await ttmAccountManager.getTTMAccountCreator(newTTMAccountAddress)).to.be.equal(
                 signers.managerAdmin.address,
             );
+        });
+
+        it("should let any address create a TTM Account (deliberately permissionless)", async function () {
+            await setupSigners();
+            // deployTTMAccountManagerWithTTMAccountImplFixture does not set the
+            // BookingToken address, so createTTMAccount would revert with
+            // InvalidBookingTokenAddress regardless of caller. Use the fully
+            // configured fixture so the only thing under test is *who* may call.
+            const { ttmAccountManager } = await loadFixture(deployAndConfigureAllFixture);
+
+            // signers.otherAccount3 holds no roles at all.
+            await expect(
+                ttmAccountManager
+                    .connect(signers.otherAccount3)
+                    .createTTMAccount(signers.otherAccount3.address, signers.otherAccount3.address),
+            ).to.not.be.reverted;
+
+            // IF THIS TEST FAILS, READ THIS BEFORE "FIXING" IT.
+            //
+            // Account creation being open to anyone is a deliberate, documented
+            // decision for testnet - see docs/decisions/2026-07-21-contract-design-decisions.md,
+            // Decision 1. Camino enforced KYC at the chain level; moving to Base
+            // removed that guarantee without any code change.
+            //
+            // A failure here means someone added an access control gate. If that
+            // was intentional (Decision 1 was resolved), update this test to assert
+            // the new gate. If it was not intentional, the gate is the bug.
         });
     });
 

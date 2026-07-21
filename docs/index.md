@@ -3190,3 +3190,19 @@ function getVersion() public pure returns (string)
 ```solidity
 constructor() public
 ```
+
+## RejectsEther
+
+A contract that cannot receive ETH: no `receive`, no `fallback`.
+
+_Used to exercise the cancellation refund path against a counterparty whose
+address rejects a plain transfer. See Decision 3 in
+docs/decisions/2026-07-21-contract-design-decisions.md._
+
+### ping
+
+```solidity
+function ping() external pure returns (bool)
+```
+
+Lets tests confirm the contract deployed and has code.

@@ -3223,6 +3223,94 @@ describe("BookingToken", function () {
         });
     });
 
+    describe("Refund payment model (Decision 3)", function () {
+        // See docs/decisions/2026-07-21-contract-design-decisions.md, Decision 3:
+        // the cancellation refund is *pushed* to whoever currently holds the
+        // booking token, in the same transaction that finalizes the
+        // cancellation. If that push cannot land, the whole cancellation fails.
+        //
+        // This test documents the observed behaviour when the current holder
+        // is a contract that cannot receive ETH. It does not fix anything -
+        // Decision 3 is an open business decision.
+        it("should document what happens when the refund recipient cannot receive ETH", async function () {
+            const {
+                supplierTTMAccount,
+                distributorTTMAccount,
+                bookingToken,
+                tokenWithNativePayment,
+                supplierBookingOperator,
+            } = await loadFixture(deployCancellationSupportFixture);
+
+            // A contract with no `receive`/`fallback`, standing in for a
+            // custody wrapper, vault, or misconfigured multisig - the kind of
+            // "ordinary composition" Decision 3 calls out, not malice.
+            const RejectsEther = await ethers.getContractFactory("RejectsEther");
+            const rejectsEther = await RejectsEther.deploy();
+            expect(await rejectsEther.ping()).to.equal(true);
+
+            // Move the BOUGHT token to the ETH-rejecting contract *before* any
+            // cancellation proposal exists. A transfer while a proposal is
+            // PENDING auto-rejects it (Decision 2), so this has to happen first
+            // - and it has to happen in two hops:
+            //   1. TTMAccount.transferERC721 uses safeTransferFrom, which would
+            //      itself revert against RejectsEther (no IERC721Receiver). An
+            //      EOA has no such check.
+            //   2. From the EOA, a plain (non-safe) transferFrom has no
+            //      receiver check either, so it reaches RejectsEther.
+            const WITHDRAWER_ROLE = await distributorTTMAccount.WITHDRAWER_ROLE();
+            await distributorTTMAccount
+                .connect(signers.ttmAccountAdmin)
+                .grantRole(WITHDRAWER_ROLE, signers.withdrawer.address);
+
+            await distributorTTMAccount
+                .connect(signers.withdrawer)
+                .transferERC721(await bookingToken.getAddress(), signers.otherAccount1.address, tokenWithNativePayment);
+
+            const rejectsEtherAddress = await rejectsEther.getAddress();
+            await bookingToken
+                .connect(signers.otherAccount1)
+                .transferFrom(signers.otherAccount1.address, rejectsEtherAddress, tokenWithNativePayment);
+
+            expect(await bookingToken.ownerOf(tokenWithNativePayment)).to.equal(rejectsEtherAddress);
+
+            // The supplier can still open a cancellation proposal against the
+            // token - `initiateCancellation` only requires the caller to be the
+            // owner or the supplier, and the supplier still qualifies.
+            const refundAmount = ethers.parseEther("0.045");
+            await expect(
+                supplierTTMAccount
+                    .connect(supplierBookingOperator)
+                    .initiateCancellation(tokenWithNativePayment, refundAmount, 42, 1),
+            ).to.not.be.reverted;
+
+            // OBSERVED BEHAVIOUR (verified by running this test): the call
+            // reverts, but *before* the refund push Decision 3 describes is
+            // ever attempted. `acceptCancellation` requires its caller to
+            // itself be a registered TTM Account (`onlyTTMAccount`), and
+            // RejectsEther is a plain contract, not one - so once the token
+            // has left the TTM Account ecosystem, `proposal.ownerAccepted` can
+            // never become true, and `finalizeCancellation` always reverts
+            // with `OwnerNotAcceptedCancellation` rather than a raw ETH-send
+            // failure. The practical effect Decision 3 warns about still
+            // holds: the booking can never be cancelled, and the refund
+            // amount never leaves the supplier's account - it is blocked one
+            // step earlier than the decision doc's push-failure framing, not
+            // avoided.
+            const finalizeTx = supplierTTMAccount
+                .connect(supplierBookingOperator)
+                .finalizeCancellation(tokenWithNativePayment, refundAmount);
+
+            await expect(finalizeTx).to.be.revertedWithCustomError(bookingToken, "OwnerNotAcceptedCancellation");
+
+            // Nothing moved: the transaction is atomic, so the would-be refund
+            // never leaves the supplier's account, and the booking is left
+            // permanently stuck in BOUGHT status - not cancellable, not
+            // resolved.
+            expect(await bookingToken.getBookingStatus(tokenWithNativePayment)).to.equal(3); // Bought == 3
+            expect(await ethers.provider.getBalance(rejectsEtherAddress)).to.equal(0n);
+        });
+    });
+
     describe("Initializer validation", function () {
         it("should reject a zero address for any initializer parameter", async function () {
             await setupSigners();
