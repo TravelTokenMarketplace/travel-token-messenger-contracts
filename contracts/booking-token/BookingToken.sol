@@ -303,7 +303,7 @@ contract BookingToken is
             revert ZeroAddress();
         }
 
-        __ERC721_init("BookingToken", "TRIP");
+        __ERC721_init("BookingToken", "BToken");
         __ERC721Enumerable_init();
         __ERC721URIStorage_init();
         __AccessControl_init();
@@ -317,23 +317,6 @@ contract BookingToken is
 
         $._manager = manager;
         $._minExpirationTimestampDiff = 60;
-    }
-
-    /***************************************************
-     *                  REINITIALIZE                   *
-     ***************************************************/
-
-    /**
-     * @notice This function allows reinitializing the contract to update the name and symbol
-     * @dev Only callable by DEFAULT_ADMIN_ROLE
-     * @param newName New token name
-     * @param newSymbol New token symbol
-     */
-    function reinitializeV2(
-        string memory newName,
-        string memory newSymbol
-    ) public reinitializer(2) onlyRole(DEFAULT_ADMIN_ROLE) {
-        __ERC721_init(newName, newSymbol);
     }
 
     /***************************************************

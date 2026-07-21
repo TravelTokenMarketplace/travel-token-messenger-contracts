@@ -38,32 +38,11 @@ describe("BookingToken", function () {
             expect(await bookingToken.version()).to.deep.equal([1, 0, 0]);
         });
 
-        it("should reinitialize correctly", async function () {
-            const { ttmAccountManager, supplierTTMAccount, distributorTTMAccount, bookingToken } =
-                await loadFixture(deployBookingTokenFixture);
+        it("should initialize name and symbol correctly", async function () {
+            const { bookingToken } = await loadFixture(deployBookingTokenFixture);
 
-            const currentName = expect(await bookingToken.name()).to.be.equal("BookingToken");
-            const currentSymbol = expect(await bookingToken.symbol()).to.be.equal("TRIP");
-
-            const newName = "New Name";
-            const newSymbol = "NEW";
-
-            // Try to re-init with unauthorized caller
-            await expect(
-                bookingToken.connect(signers.otherAccount1).reinitializeV2(newName, newSymbol),
-            ).to.be.revertedWithCustomError(bookingToken, "AccessControlUnauthorizedAccount");
-
-            // Reinitialize
-            await expect(bookingToken.connect(signers.btAdmin).reinitializeV2(newName, newSymbol)).to.not.reverted;
-
-            // Check new name and symbol
-            expect(await bookingToken.name()).to.be.equal(newName);
-            expect(await bookingToken.symbol()).to.be.equal(newSymbol);
-
-            // Try to re-init again, should revert
-            await expect(
-                bookingToken.connect(signers.btAdmin).reinitializeV2("New Name 2", "NEW2"),
-            ).to.be.revertedWithCustomError(bookingToken, "InvalidInitialization");
+            expect(await bookingToken.name()).to.be.equal("BookingToken");
+            expect(await bookingToken.symbol()).to.be.equal("BToken");
         });
 
         it("should set/get manager address correctly", async function () {
