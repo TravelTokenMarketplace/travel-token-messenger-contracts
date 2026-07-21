@@ -2180,34 +2180,14 @@ bytes32 SERVICE_REGISTRY_ADMIN_ROLE
 Service registry admin role can add and remove services to the service
 registry mapping. Implemented by {ServiceRegistry} contract.
 
-### TTMACCOUNT_ROLE
-
-```solidity
-bytes32 TTMACCOUNT_ROLE
-```
-
-This role is granted to the created TTM Accounts. It is used to keep
-an enumerable list of TTM Accounts.
-
-### TTMAccountInfo
-
-TTMAccount info struct, to keep track of created TTM Accounts and their
-creators.
-
-```solidity
-struct TTMAccountInfo {
-    bool isTTMAccount;
-    address creator;
-}
-```
-
 ### TTMAccountManagerStorage
 
 ```solidity
 struct TTMAccountManagerStorage {
   address _latestAccountImplementation;
   address _bookingToken;
-  mapping(address => struct TTMAccountManager.TTMAccountInfo) _ttmAccountInfo;
+  struct EnumerableSet.AddressSet _ttmAccounts;
+  mapping(address => address) _ttmAccountCreator;
 }
 ```
 
@@ -2356,19 +2336,14 @@ account. See docs/decisions/2026-07-21-contract-design-decisions.md
 
 _Emits a {TTMAccountCreated} event._
 
-### \_setTTMAccountInfo
-
-```solidity
-function _setTTMAccountInfo(address account, struct TTMAccountManager.TTMAccountInfo info) internal
-```
-
 ### getTTMAccountCreator
 
 ```solidity
 function getTTMAccountCreator(address account) public view returns (address)
 ```
 
-Returns the given account's creator.
+Returns the given account's creator, or the zero address if the
+address is not a TTM Account.
 
 #### Parameters
 
@@ -2382,13 +2357,52 @@ Returns the given account's creator.
 function isTTMAccount(address account) public view returns (bool)
 ```
 
-Check if an address is TTMAccount created by the manager.
+Returns whether the given address is a TTM Account created by this manager.
 
 #### Parameters
 
-| Name    | Type    | Description                  |
-| ------- | ------- | ---------------------------- |
-| account | address | The account address to check |
+| Name    | Type    | Description          |
+| ------- | ------- | -------------------- |
+| account | address | The address to check |
+
+### getTTMAccountCount
+
+```solidity
+function getTTMAccountCount() public view returns (uint256)
+```
+
+Returns the number of TTM Accounts created by this manager.
+
+### getTTMAccounts
+
+```solidity
+function getTTMAccounts() public view returns (address[])
+```
+
+Returns every TTM Account created by this manager.
+
+_Unbounded. Prefer {getTTMAccountsSlice} against a public RPC once the
+ecosystem grows past a few hundred accounts._
+
+### getTTMAccountsSlice
+
+```solidity
+function getTTMAccountsSlice(uint256 offset, uint256 limit) public view returns (address[] accounts)
+```
+
+Returns a bounded window of TTM Accounts, for callers that cannot
+afford an unbounded read.
+
+Returns an empty array if `offset` is at or past the end. The window is
+clamped to the end of the set, so a `limit` larger than the remainder is
+not an error.
+
+#### Parameters
+
+| Name   | Type    | Description                          |
+| ------ | ------- | ------------------------------------ |
+| offset | uint256 | Index to start at                    |
+| limit  | uint256 | Maximum number of accounts to return |
 
 ### getAccountImplementation
 

@@ -778,8 +778,8 @@ ACCOUNT_SCOPE.task("find", "Scan all TTM Accounts for roles of a given address")
     .addParam("address", "Address to search for")
     .setAction(async (taskArgs, hre) => {
         const manager = await getManager(hre);
-        const ttmAccountRole = await manager.TTMACCOUNT_ROLE();
-        const count = await manager.getRoleMemberCount(ttmAccountRole);
+        const ttmAccounts = await manager.getTTMAccounts();
+        const count = ttmAccounts.length;
 
         console.log(`🔍 Searching for address: ${bold(taskArgs.address)}`);
         console.log(`📡 Found ${bold(count)} TTM Accounts. Starting scan...\n`);
@@ -798,7 +798,7 @@ ACCOUNT_SCOPE.task("find", "Scan all TTM Accounts for roles of a given address")
         const findings = [];
 
         for (let i = 0; i < count; i++) {
-            const ttmAccountAddress = await manager.getRoleMember(ttmAccountRole, i);
+            const ttmAccountAddress = ttmAccounts[i];
 
             // Update progress on every account
             process.stdout.write(formatProgress(i + 1, count, ttmAccountAddress));

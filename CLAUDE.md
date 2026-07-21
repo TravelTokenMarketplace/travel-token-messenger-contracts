@@ -19,7 +19,7 @@ Solidity smart contracts for the Travel Token Messenger ecosystem, built with Ha
 
 ## Architecture notes
 
-- Contracts are **UUPS upgradeable** (OpenZeppelin upgradeable + `@openzeppelin/hardhat-upgrades`). `TTMAccountManager.createTTMAccount` deploys an `ERC1967Proxy` per account and grants it `TTMACCOUNT_ROLE`.
+- Contracts are **UUPS upgradeable** (OpenZeppelin upgradeable + `@openzeppelin/hardhat-upgrades`). `TTMAccountManager.createTTMAccount` deploys an `ERC1967Proxy` per account and records it (with its creator) in the manager's account registry (`isTTMAccount`/`getTTMAccounts`) — the only writer.
 - **Access control** is role-based (`AccessControlEnumerable`). `DEFAULT_ADMIN_ROLE` is `0x00…`; other roles are `keccak256(name)`. A "messenger bot" is an address granted three roles at once: `MESSENGER_BOT_ROLE`, `BOOKING_OPERATOR_ROLE`, `GAS_WITHDRAWER_ROLE`.
 - Services are referenced by name (`ttm.services.<package>.<version>.<Name>`) and must be registered in the manager's `ServiceRegistry` before an account can support/want them.
 

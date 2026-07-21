@@ -373,6 +373,91 @@ describe("TTMAccountManager", function () {
         });
     });
 
+    describe("Account registry", function () {
+        it("should record created accounts in the registry with their creator", async function () {
+            await setupSigners();
+            const { ttmAccountManager, ttmAccount } = await loadFixture(deployAndConfigureAllFixture);
+
+            // deployAndConfigureAllFixture already created one account (creator:
+            // the default signer, managerAdmin). Assert against that baseline
+            // rather than assuming an empty registry.
+            const existingAccount = await ttmAccount.getAddress();
+            expect(await ttmAccountManager.getTTMAccountCount()).to.equal(1);
+            expect(await ttmAccountManager.getTTMAccounts()).to.deep.equal([existingAccount]);
+
+            const tx = await ttmAccountManager
+                .connect(signers.ttmAccountAdmin)
+                .createTTMAccount(signers.ttmAccountAdmin.address, signers.ttmAccountUpgrader.address);
+            const receipt = await tx.wait();
+            const created = receipt.logs
+                .map((l) => {
+                    try {
+                        return ttmAccountManager.interface.parseLog(l);
+                    } catch {
+                        return null;
+                    }
+                })
+                .find((p) => p && p.name === "TTMAccountCreated");
+            const account = created.args.account;
+
+            expect(await ttmAccountManager.isTTMAccount(account)).to.be.true;
+            expect(await ttmAccountManager.getTTMAccountCreator(account)).to.equal(signers.ttmAccountAdmin.address);
+            expect(await ttmAccountManager.getTTMAccountCount()).to.equal(2);
+            expect(await ttmAccountManager.getTTMAccounts()).to.deep.equal([existingAccount, account]);
+        });
+
+        it("should report unknown addresses as not being TTM Accounts", async function () {
+            await setupSigners();
+            const { ttmAccountManager } = await loadFixture(deployAndConfigureAllFixture);
+
+            expect(await ttmAccountManager.isTTMAccount(signers.otherAccount1.address)).to.be.false;
+            expect(await ttmAccountManager.getTTMAccountCreator(signers.otherAccount1.address)).to.equal(
+                ethers.ZeroAddress,
+            );
+        });
+
+        it("should expose no external way to add an account to the registry", async function () {
+            await setupSigners();
+            const { ttmAccountManager } = await loadFixture(deployTTMAccountManagerWithTTMAccountImplFixture);
+
+            // The factory path is the only writer. Assert structurally: no ABI
+            // entry other than createTTMAccount can mutate account identity.
+            const mutators = ttmAccountManager.interface.fragments.filter(
+                (f) =>
+                    f.type === "function" &&
+                    f.stateMutability !== "view" &&
+                    f.stateMutability !== "pure" &&
+                    /ttmaccount/i.test(f.name) &&
+                    f.name !== "createTTMAccount",
+            );
+            expect(mutators.map((f) => f.name)).to.deep.equal([]);
+
+            // And TTMACCOUNT_ROLE is gone entirely, so it cannot be granted.
+            expect(ttmAccountManager.interface.fragments.some((f) => f.name === "TTMACCOUNT_ROLE")).to.be.false;
+        });
+
+        it("should paginate the account list", async function () {
+            await setupSigners();
+            const { ttmAccountManager } = await loadFixture(deployAndConfigureAllFixture);
+
+            // deployAndConfigureAllFixture already created one account, so we
+            // build the pagination assertions off the actual returned list
+            // rather than a hardcoded count.
+            for (let i = 0; i < 3; i++) {
+                await ttmAccountManager
+                    .connect(signers.ttmAccountAdmin)
+                    .createTTMAccount(signers.ttmAccountAdmin.address, signers.ttmAccountUpgrader.address);
+            }
+            const all = await ttmAccountManager.getTTMAccounts();
+            expect(all.length).to.equal(4);
+
+            expect(await ttmAccountManager.getTTMAccountsSlice(0, 2)).to.deep.equal([all[0], all[1]]);
+            expect(await ttmAccountManager.getTTMAccountsSlice(2, 2)).to.deep.equal([all[2], all[3]]);
+            expect(await ttmAccountManager.getTTMAccountsSlice(4, 1)).to.deep.equal([]);
+            expect(await ttmAccountManager.getTTMAccountsSlice(0, 100)).to.deep.equal(all);
+        });
+    });
+
     describe("Initializer validation", function () {
         it("should reject a zero address for any role parameter", async function () {
             await setupSigners();

@@ -58,7 +58,7 @@ Identity is a departures board crossed with a financial terminal — dense, legi
 
 ## Gotchas
 
-- **Don't use `eth_getLogs` over large ranges** (free-tier RPCs reject it). Enumerate accounts via `TTMACCOUNT_ROLE` members and lists via role members / array getters, not events.
+- **Don't use `eth_getLogs` over large ranges** (free-tier RPCs reject it). Enumerate accounts via the manager's `getTTMAccounts()` registry and other lists via role members / array getters, not events.
 - **viem overload ambiguity:** `getServiceRestrictedRate` / `getServiceCapabilities` are overloaded by `(string)` and `(bytes32)`. Use the explicit single-overload `bytes32` ABI fragments in `ServicesTab.tsx`.
 - **`getSupportedServices` tuple** doesn't decode reliably — list `getAllServiceHashes()` and resolve names via the manager + per-hash getters instead.
 - **Tests:** components using `useQueryClient`/`useTx`/wagmi need a `QueryClientProvider` (and usually mocked wagmi) in the test render — see existing `*.test.tsx`.
