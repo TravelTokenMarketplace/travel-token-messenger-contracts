@@ -3,6 +3,7 @@ require("@openzeppelin/hardhat-upgrades");
 require("hardhat-contract-sizer");
 require("solidity-docgen");
 require("hardhat-abi-exporter");
+const { vars } = require("hardhat/config");
 
 // Tasks
 require("./tasks/manager");
@@ -42,28 +43,7 @@ module.exports = {
         },
     },
     etherscan: {
-        apiKey: {
-            base_sepolia: vars.get("BASESCAN_API_KEY", "abc"),
-            base: vars.get("BASESCAN_API_KEY", "abc"),
-        },
-        customChains: [
-            {
-                network: "base_sepolia",
-                chainId: 84532,
-                urls: {
-                    apiURL: "https://api-sepolia.basescan.org/api",
-                    browserURL: "https://sepolia.basescan.org",
-                },
-            },
-            {
-                network: "base",
-                chainId: 8453,
-                urls: {
-                    apiURL: "https://api.basescan.org/api",
-                    browserURL: "https://basescan.org",
-                },
-            },
-        ],
+        apiKey: vars.get("ETHERSCAN_API_KEY"),
     },
     docgen: {
         path: "./docs",
