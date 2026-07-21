@@ -122,9 +122,7 @@ plus the divergence risk. Survivable, but this is the cheapest it will ever be.
 three-line shape:
 
 ```solidity
-function setServiceRestrictedRate(string memory serviceName, bool restrictedRate)
-    public onlyRole(SERVICE_ADMIN_ROLE)
-{
+function setServiceRestrictedRate(string memory serviceName, bool restrictedRate) public onlyRole(SERVICE_ADMIN_ROLE) {
     _setServiceRestrictedRate(getServiceHash(serviceName), restrictedRate);
     emit ServiceRestrictedRateUpdated(serviceName, restrictedRate);
 }
@@ -178,7 +176,7 @@ deliberately permissionless.
 registered set but **deliberately leaves both name mappings populated** so
 existing accounts can still resolve deprecated names.
 
-Effect: no *new* account can add the service, existing accounts advertise it
+Effect: no _new_ account can add the service, existing accounts advertise it
 indefinitely, and nothing tells the ecosystem it was deprecated. A bot querying
 `getSupportedServices()` on a partner cannot distinguish a live service from a
 deprecated one.
@@ -218,21 +216,21 @@ straightforward.
 
 The suite is solid — 120 passing, with `test/BookingToken.test.js` covering the
 cancellation state machine thoroughly, and `test/PartnerConfiguration.test.js`
-properly *rewritten* rather than gutted during the fee removal.
+properly _rewritten_ rather than gutted during the fee removal.
 
 But the fee removal deleted ~284 lines of manager tests and **replaced none of
 them**, and the behaviours that the removal made load-bearing were never
 backfilled:
 
-| # | Missing test | Why it matters |
-|---|---|---|
-| 1 | `createTTMAccount` access control — in either direction | The most consequential behavioural property of the manager on Base is untested. A test here would have caught the KYC-gate regression. |
-| 2 | Role/mapping divergence (§2) | No test grants `TTMACCOUNT_ROLE` directly and checks whether `BookingToken` accepts the address. |
-| 3 | `removeAllServices` (`TTMAccount.sol:464-471`) | The multi-service iteration path is unexercised. |
-| 4 | `BookingTokenAddressUpdated` / `TTMAccountImplementationUpdated` | Emitted but never asserted. |
-| 5 | Cancellation refund to a contract that cannot receive ETH | Would have caught the stuck-refund bug (Decision 3). |
+| #   | Missing test                                                     | Why it matters                                                                                                                         |
+| --- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `createTTMAccount` access control — in either direction          | The most consequential behavioural property of the manager on Base is untested. A test here would have caught the KYC-gate regression. |
+| 2   | Role/mapping divergence (§2)                                     | No test grants `TTMACCOUNT_ROLE` directly and checks whether `BookingToken` accepts the address.                                       |
+| 3   | `removeAllServices` (`TTMAccount.sol:464-471`)                   | The multi-service iteration path is unexercised.                                                                                       |
+| 4   | `BookingTokenAddressUpdated` / `TTMAccountImplementationUpdated` | Emitted but never asserted.                                                                                                            |
+| 5   | Cancellation refund to a contract that cannot receive ETH        | Would have caught the stuck-refund bug (Decision 3).                                                                                   |
 
-Note on the general lesson: several of these test the *absence* of a
+Note on the general lesson: several of these test the _absence_ of a
 restriction. Such tests do not catch bugs you already know about — they pin a
 property so that a future refactor, or an environment change like the Camino →
 Base migration, fails loudly instead of silently.

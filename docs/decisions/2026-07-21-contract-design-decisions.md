@@ -52,15 +52,15 @@ into the partner network.
 
 ### Options
 
-**A. Gate behind an `ACCOUNT_CREATOR_ROLE`** *(engineering recommendation)*
+**A. Gate behind an `ACCOUNT_CREATOR_ROLE`** _(engineering recommendation)_
 
 We hold a role; only role-holders may call `createTTMAccount`.
 
 Common misconception worth clearing up: **this does not mean we hold partner
 keys or operate their accounts.** The function already takes the partner's
-admin address as a parameter. We call it *with their address*, and they control
-the account from the first block. We gate who may *trigger* creation, not who
-*owns* the result.
+admin address as a parameter. We call it _with their address_, and they control
+the account from the first block. We gate who may _trigger_ creation, not who
+_owns_ the result.
 
 - Cost: one modifier. Onboarding is already a manual business process, so no
   operational change.
@@ -111,7 +111,7 @@ When a token with a pending cancellation proposal is transferred, the contract
 **auto-rejects the proposal** and lets the transfer through, emitting rejection
 reason `99`. But that only works when the transfer is initiated by the owner or
 the supplier directly. If the owner has approved a marketplace or custody
-contract and *it* initiates the transfer, the transaction **reverts**.
+contract and _it_ initiates the transfer, the transaction **reverts**.
 
 So: same intent, two different outcomes depending on who submits the
 transaction. The inconsistency is accidental.
@@ -124,7 +124,7 @@ improvisation. That materially raises the bar for Option A below.
 
 ### Options
 
-**A. Block transfers while a proposal is pending** *(engineering recommendation)*
+**A. Block transfers while a proposal is pending** _(engineering recommendation)_
 
 An explicit revert. Consistent for owners, suppliers, and approved operators
 alike.
@@ -138,7 +138,7 @@ alike.
   retiring that code path and the enum value with it, which is a protocol-level
   change, not just a contract one.
 
-**B. Allow transfer, resolve the proposal, fix the operator case** *(engineering recommendation)*
+**B. Allow transfer, resolve the proposal, fix the operator case** _(engineering recommendation)_
 
 Keep the designed behaviour and fix only the defect: authorize against the true
 owner (`ownerOf` / `getApproved` / `isApprovedForAll`) rather than the
@@ -148,7 +148,7 @@ transaction sender, so marketplace and custody transfers stop failing.
 - Keeps reason 99 working as the protocol intends.
 - Smaller change: one authorization check, no protocol coordination.
 - Trade-off: keeps a rule that surprises people — transferring an asset cancels
-  a negotiation in progress. That surprise is at least *documented* in the
+  a negotiation in progress. That surprise is at least _documented_ in the
   protocol enum.
 
 ### Recommendation
@@ -160,8 +160,8 @@ intentional design and option B simply repairs the operator-authorization bug
 underneath it.
 
 The question for this meeting is still worth asking, because it is the thing
-that would change the answer: *do we expect booking tokens to be traded on
-marketplaces or held in custody contracts?* If yes, B is clearly right. If they
+that would change the answer: _do we expect booking tokens to be traded on
+marketplaces or held in custody contracts?_ If yes, B is clearly right. If they
 only ever move between known partner accounts, A becomes defensible as a
 simplification — but it costs a protocol change, so it should be a deliberate
 product decision rather than a cleanup.
@@ -192,7 +192,7 @@ partner's account.
 
 ### Options
 
-**A. Pull payment for refunds only** *(engineering recommendation)*
+**A. Pull payment for refunds only** _(engineering recommendation)_
 
 Mark the booking cancelled, credit the refund to the recipient's balance, and
 let them withdraw when they choose.
@@ -241,7 +241,7 @@ decoration.
 
 ### Options
 
-**A. Enforce on-chain** *(engineering recommendation)*
+**A. Enforce on-chain** _(engineering recommendation)_
 
 Reject mints priced in a token the supplier has not declared.
 
@@ -333,7 +333,7 @@ a single address.
 
 ### Options
 
-**A. Safe multisig for privileged roles** *(engineering recommendation)*
+**A. Safe multisig for privileged roles** _(engineering recommendation)_
 
 `DEFAULT_ADMIN`, `UPGRADER`, `VERSIONER` move to a Safe. `PAUSER` stays on a hot
 operations key so incident response does not need a signing threshold.
@@ -369,14 +369,14 @@ Concrete questions for this meeting:
 
 ## Summary
 
-| # | Decision | Blocks mainnet? | Engineering recommendation |
-|---|---|---|---|
-| 1 | Who may create an account | **Yes** | `ACCOUNT_CREATOR_ROLE` |
-| 2 | Transfers during pending cancellation | No | Keep auto-rejection; fix operator authorization |
-| 3 | Refund payment model | No | Pull payment, refund leg only |
-| 4 | Enforce payment-token allowlist | No | Enforce, with onboarding change |
-| 5 | Bot key policy | No | Lower default, split roles later |
-| 6 | Admin key custody | **Yes** | Safe multisig; timelock before mainnet |
+| #   | Decision                              | Blocks mainnet? | Engineering recommendation                      |
+| --- | ------------------------------------- | --------------- | ----------------------------------------------- |
+| 1   | Who may create an account             | **Yes**         | `ACCOUNT_CREATOR_ROLE`                          |
+| 2   | Transfers during pending cancellation | No              | Keep auto-rejection; fix operator authorization |
+| 3   | Refund payment model                  | No              | Pull payment, refund leg only                   |
+| 4   | Enforce payment-token allowlist       | No              | Enforce, with onboarding change                 |
+| 5   | Bot key policy                        | No              | Lower default, split roles later                |
+| 6   | Admin key custody                     | **Yes**         | Safe multisig; timelock before mainnet          |
 
 Decisions 1 and 6 should be settled before Base mainnet. The rest can follow
 testnet experience — and testnet is a good place to learn which of them
