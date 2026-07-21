@@ -24,10 +24,10 @@
 
 ## Deliberately NOT in scope
 
-The hash-native direction of Tasks 4–6 does **not** generalise to everything, and two nearby changes are rejected on purpose. Do not implement them "for consistency":
+The hash-native direction of Tasks 5–7 does **not** generalise to everything, and two nearby changes are rejected on purpose. Do not implement them "for consistency":
 
 - **Do not make `capabilities` a `bytes32[]`** (`contracts/partner/PartnerConfiguration.sol:26-33`). It would let the `Service` struct pack and turn the O(n) `keccak256` comparison in `_removeServiceCapability` into a word compare. But capabilities are arbitrary partner-typed strings, rendered and edited directly in `ui/src/pages/tabs/ServicesTab.tsx:156,213`, and — unlike service names — they have **no registry**, so there is nothing to resolve a hash back against. Hashing them makes them permanently unreadable to save one storage slot. The presence of a registry is exactly what makes hashing safe for service names and unsafe here.
-- **Do not resolve Decision 1 by adding an access-control gate to `createTTMAccount`.** Task 9 adds a test that pins the current permissionless behaviour on purpose. Changing it is a business decision that has not been made — see `docs/decisions/2026-07-21-contract-design-decisions.md`.
+- **Do not resolve Decision 1 by adding an access-control gate to `createTTMAccount`.** Task 10 adds a test that pins the current permissionless behaviour on purpose. Changing it is a business decision that has not been made — see `docs/decisions/2026-07-21-contract-design-decisions.md`.
 - **Do not build a `TTMLens` contract.** The technical backlog §3 proposes one; the spec withdraws it after measuring what it would actually buy the bot (one `eth_call`, once, at startup).
 
 ---
@@ -628,21 +628,195 @@ git commit -m "feat(booking-token): emit events for manager and expiration-rule 
 
 ---
 
-### Task 4: Hash-native service CRUD on TTMAccount
+### Task 4: UI service catalog resolver
+
+Built **before** the contract changes, because Tasks 5–7 each fix their own UI call sites and need this to exist. It is a pure addition against the current ABI — nothing breaks, nothing is removed yet.
+
+**Files:**
+
+- Create: `ui/src/lib/serviceCatalog.ts`, `ui/src/lib/serviceCatalog.test.ts`
+- Create or modify: `ui/src/hooks/useServiceCatalog.ts` (see Step 5)
+
+**Interfaces:**
+
+- Consumes: `getAllRegisteredServiceNames()` on the manager — already public, unchanged by this plan.
+- Produces: `hashServiceName(name: string): \`0x${string}\``, `buildServiceCatalog(names: string[]): ServiceCatalog`, `serviceNameForHash(catalog: ServiceCatalog, hash: string): string | undefined`, `type ServiceCatalog = { nameByHash: Map<string, string>; hashByName: Map<string, \`0x${string}\`> }`, and hook `useServiceCatalog(): { catalog: ServiceCatalog; isLoading: boolean }`. Tasks 5, 6 and 7 all consume these.
+
+- [ ] **Step 1: Write the failing test**
+
+Create `ui/src/lib/serviceCatalog.test.ts`:
+
+```ts
+import { describe, expect, it } from "vitest";
+import { keccak256, toBytes } from "viem";
+import { buildServiceCatalog, hashServiceName, serviceNameForHash } from "./serviceCatalog";
+
+describe("serviceCatalog", () => {
+  const name = "ttm.services.accommodation.v1alpha.AccommodationSearchService";
+
+  it("hashes a service name the same way the contracts do", () => {
+    // Contracts use keccak256(abi.encodePacked(serviceName)), which for a lone
+    // string argument is just the keccak of its UTF-8 bytes.
+    expect(hashServiceName(name)).toBe(keccak256(toBytes(name)));
+  });
+
+  it("builds a bidirectional map", () => {
+    const catalog = buildServiceCatalog([name]);
+    const hash = hashServiceName(name);
+
+    expect(catalog.nameByHash.get(hash.toLowerCase())).toBe(name);
+    expect(catalog.hashByName.get(name)).toBe(hash);
+  });
+
+  it("resolves a hash regardless of its casing", () => {
+    const catalog = buildServiceCatalog([name]);
+    const hash = hashServiceName(name);
+
+    expect(serviceNameForHash(catalog, hash.toUpperCase().replace("0X", "0x"))).toBe(name);
+  });
+
+  it("returns undefined for an unknown hash", () => {
+    const catalog = buildServiceCatalog([name]);
+
+    expect(serviceNameForHash(catalog, hashServiceName("ttm.services.nope.v1.NopeService"))).toBeUndefined();
+  });
+
+  it("returns empty maps for an empty catalog", () => {
+    const catalog = buildServiceCatalog([]);
+
+    expect(catalog.nameByHash.size).toBe(0);
+    expect(catalog.hashByName.size).toBe(0);
+  });
+});
+```
+
+- [ ] **Step 2: Run it to verify it fails**
+
+Run: `cd ui && yarn test serviceCatalog`
+Expected: FAIL — the module does not exist.
+
+- [ ] **Step 3: Implement the resolver**
+
+Create `ui/src/lib/serviceCatalog.ts`:
+
+```ts
+import { keccak256, toBytes } from "viem";
+
+/**
+ * Service names and hashes are two views of one thing. Contracts store and emit
+ * `bytes32` hashes; people read names. The registry is the only authority that
+ * knows both, so we seed from it once and resolve locally thereafter — which is
+ * why `TTMAccount` needs no name-resolution code and its reads cost no extra
+ * cross-contract calls.
+ */
+export interface ServiceCatalog {
+  /** Keyed by lowercase hash, because callers get hashes from several sources. */
+  nameByHash: Map<string, string>;
+  hashByName: Map<string, `0x${string}`>;
+}
+
+/**
+ * Mirrors `keccak256(abi.encodePacked(serviceName))` in ServiceRegistry. For a
+ * single string argument, `encodePacked` is just the raw UTF-8 bytes.
+ */
+export function hashServiceName(name: string): `0x${string}` {
+  return keccak256(toBytes(name));
+}
+
+/** Builds the bidirectional map from the registry's list of registered names. */
+export function buildServiceCatalog(names: string[]): ServiceCatalog {
+  const nameByHash = new Map<string, string>();
+  const hashByName = new Map<string, `0x${string}`>();
+
+  for (const name of names) {
+    const hash = hashServiceName(name);
+    nameByHash.set(hash.toLowerCase(), name);
+    hashByName.set(name, hash);
+  }
+
+  return { nameByHash, hashByName };
+}
+
+/** Resolves a hash to its registered name, or undefined if it is unknown. */
+export function serviceNameForHash(catalog: ServiceCatalog, hash: string): string | undefined {
+  return catalog.nameByHash.get(hash.toLowerCase());
+}
+```
+
+- [ ] **Step 4: Run the test to verify it passes**
+
+Run: `cd ui && yarn test serviceCatalog`
+Expected: PASS, 5 tests.
+
+- [ ] **Step 5: Add the hook**
+
+Create `ui/src/hooks/useServiceCatalog.ts` — check how `ui/src/hooks/useMyAccounts.ts` imports `useActiveContracts`, `useActiveChain` and `useReadContract`, and match it exactly:
+
+```ts
+import { useMemo } from "react";
+import { type Abi } from "viem";
+import { useReadContract } from "wagmi";
+import { useActiveContracts } from "./useActiveContracts";
+import { useActiveChain } from "../wallet/activeChain";
+import { buildServiceCatalog } from "../lib/serviceCatalog";
+
+/**
+ * Reads the registry's full service list once and derives the name↔hash map
+ * locally. One eth_call replaces the per-hash resolution round-trips the
+ * activity feed used to make.
+ */
+export function useServiceCatalog() {
+  const { manager, managerAbi } = useActiveContracts();
+  const { activeChainId } = useActiveChain();
+
+  const { data, isLoading } = useReadContract({
+    chainId: activeChainId,
+    address: manager,
+    abi: managerAbi as Abi,
+    functionName: "getAllRegisteredServiceNames",
+    query: { enabled: Boolean(manager) },
+  });
+
+  const catalog = useMemo(() => buildServiceCatalog((data as string[]) ?? []), [data]);
+
+  return { catalog, isLoading };
+}
+```
+
+- [ ] **Step 6: Verify and commit**
+
+```bash
+cd ui && yarn test && yarn build && yarn lint:format
+```
+
+Expected: all green — this task adds code and removes none.
+
+```bash
+git add -A
+git commit -m "feat(ui): add the service catalog resolver
+
+Seeds a bidirectional name/hash map from one getAllRegisteredServiceNames()
+read. Groundwork for the hash-native contract API."
+```
+
+---
+
+### Task 5: Hash-native service CRUD on TTMAccount
 
 The core of the rework. Service write functions take `bytes32`, and the service events become hash-only — these cannot be separated, because a hash-native function has no name to emit without reintroducing the very staticcall this removes.
 
 **Files:**
 
 - Modify: `contracts/account/TTMAccount.sol` (events `:164-166,170-174`, `addService` `:439-447`, `removeService` `:460-463`, `removeAllServices` `:469-476`, `setServiceRestrictedRate`, `addServiceCapability`, `removeServiceCapability`, `setServiceCapabilities` — all in `:427-635`)
+- Modify: `ui/src/pages/tabs/ServicesTab.tsx` (write call sites)
 - Test: `test/TTMAccount.test.js`, `test/PartnerConfiguration.test.js`
 
 **Interfaces:**
 
-- Consumes: `ServiceRegistry`'s `getRegisteredServiceNameByHash(bytes32) → string` from `ITTMAccountManager` (used for the registration check in Step 4).
+- Consumes: `ServiceRegistry`'s `getRegisteredServiceNameByHash(bytes32) → string` from `ITTMAccountManager` (used for the registration check in Step 4); Task 4's `useServiceCatalog` / `hashServiceName` for the UI step.
 - Produces: `addService(bytes32 serviceHash, bool restrictedRate, string[] capabilities)`, `removeService(bytes32)`, `removeAllServices()`, `setServiceRestrictedRate(bytes32, bool)`, `addServiceCapability(bytes32, string)`, `removeServiceCapability(bytes32, string)`, `setServiceCapabilities(bytes32, string[])`. Events: `ServiceAdded(bytes32 indexed)`, `ServiceRemoved(bytes32 indexed)`, `ServiceRestrictedRateUpdated(bytes32 indexed, bool)`, `ServiceCapabilitiesUpdated(bytes32 indexed)`, `ServiceCapabilityAdded(bytes32 indexed, string)`, `ServiceCapabilityRemoved(bytes32 indexed, string)`.
 
-> `contracts/manager/ITTMAccountManager.sol` **already declares** `getRegisteredServiceNameByHash(bytes32) → string` (verified 2026-07-21), so no interface change is needed here. Task 6 trims the now-unused declarations.
+> `contracts/manager/ITTMAccountManager.sol` **already declares** `getRegisteredServiceNameByHash(bytes32) → string` (verified 2026-07-21), so no interface change is needed here. Task 7 trims the now-unused declarations.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -756,7 +930,7 @@ In `contracts/account/TTMAccount.sol`, replace the six service events at `:164-1
     event ServiceCapabilityRemoved(bytes32 indexed serviceHash, string capability);
 ```
 
-Leave `WantedServiceAdded` / `WantedServiceRemoved` (`:167-168`) for Task 5.
+Leave `WantedServiceAdded` / `WantedServiceRemoved` (`:167-168`) for Task 6.
 
 - [ ] **Step 4: Rewrite the write functions**
 
@@ -884,12 +1058,36 @@ const serviceHash = (name) => ethers.keccak256(ethers.toUtf8Bytes(name));
 
 Import and use it rather than repeating the expression. **Adapt every failing test; delete none.**
 
-- [ ] **Step 7: Regenerate, verify, and commit**
+- [ ] **Step 7: Convert the UI's service writes to hashes**
+
+`ui/src/pages/tabs/ServicesTab.tsx` currently passes service **names** to `addService`, `removeService`, `setServiceRestrictedRate`, `addServiceCapability` and `removeServiceCapability`. Each must now pass a hash.
+
+Use the Task 4 resolver:
+
+```ts
+import { useServiceCatalog } from "../../hooks/useServiceCatalog";
+import { hashServiceName } from "../../lib/serviceCatalog";
+```
+
+Inside the component, `const { catalog } = useServiceCatalog();`. For each write call site, replace the name argument with `catalog.hashByName.get(service.name) ?? hashServiceName(service.name)`.
+
+The fallback matters: a service the account supports but the registry has since unregistered will be missing from `hashByName`, and hashing the name directly still yields the correct hash for a `remove` call. Extract it to one local helper rather than repeating the expression at five call sites:
+
+```ts
+const hashFor = (name: string) => catalog.hashByName.get(name) ?? hashServiceName(name);
+```
+
+**Capability strings are unchanged** — they stay plain text in both the ABI and the UI.
+
+Read the file before editing; the call sites go through a `run(label, functionName, args)` wrapper (see `:224`, `:245`, `:259`), so the change is to the `args` array in each.
+
+- [ ] **Step 8: Regenerate, verify, and commit**
 
 ```bash
 yarn hardhat clean && yarn compile && yarn docgen && yarn hardhat export-abi
 (cd ui && yarn sync)
 yarn test && yarn lint
+(cd ui && yarn test && yarn build)
 git add -A
 git commit -m "refactor(account)!: hash-native service CRUD and hash-only service events
 
@@ -898,22 +1096,23 @@ setServiceCapabilities, addServiceCapability and removeServiceCapability take
 bytes32 service hashes. The six service events carry the hash, not the name."
 ```
 
-Note: the UI will not build yet — `ServicesTab.tsx` still passes strings. Task 10 fixes it. Do not run the UI build in this task's verification.
+Both the contract suite and the UI build must be green before this task is done.
 
 ---
 
-### Task 5: Hash-native wanted services
+### Task 6: Hash-native wanted services
 
 The two events the technical backlog's §1.1 miscount missed.
 
 **Files:**
 
 - Modify: `contracts/account/TTMAccount.sol` (events `:167-168`, `addWantedServices`, `removeWantedServices`, `getWantedServices`)
+- Modify: any UI wanted-service call sites found in Step 6
 - Test: `test/TTMAccount.test.js`
 
 **Interfaces:**
 
-- Consumes: `_requireRegisteredService(bytes32)` from Task 4.
+- Consumes: `_requireRegisteredService(bytes32)` from Task 5.
 - Produces: `addWantedServices(bytes32[] serviceHashes)`, `removeWantedServices(bytes32[] serviceHashes)`, `event WantedServiceAdded(bytes32 indexed serviceHash)`, `event WantedServiceRemoved(bytes32 indexed serviceHash)`. `getWantedServices()` returning names is **deleted**; `getWantedServiceHashes()` already exists and remains.
 
 - [ ] **Step 1: Write the failing test**
@@ -994,14 +1193,23 @@ Delete `getWantedServices()` (the name-resolving variant). `getWantedServiceHash
 - [ ] **Step 5: Run the full suite and fix callers**
 
 Run: `yarn test`
-Expected: PASS after converting the remaining string-based wanted-service tests to hashes using the `serviceHash` helper from Task 4.
+Expected: PASS after converting the remaining string-based wanted-service tests to hashes using the `serviceHash` helper from Task 5.
 
-- [ ] **Step 6: Regenerate and commit**
+- [ ] **Step 6: Update any UI wanted-service call sites**
+
+```bash
+grep -rn "WantedService\|wantedService\|getWantedServices" ui/src
+```
+
+Convert each write to pass `bytes32[]` using the Task 4 resolver's `hashFor` pattern, and each read from `getWantedServices()` to `getWantedServiceHashes()` plus `serviceNameForHash` for display. **If the grep returns nothing, the UI does not surface wanted services — record that in the report and skip this step rather than inventing a call site.**
+
+- [ ] **Step 7: Regenerate and commit**
 
 ```bash
 yarn hardhat clean && yarn compile && yarn docgen && yarn hardhat export-abi
 (cd ui && yarn sync)
 yarn test && yarn lint
+(cd ui && yarn test && yarn build)
 git add -A
 git commit -m "refactor(account)!: hash-native wanted services
 
@@ -1011,18 +1219,20 @@ getWantedServices() is removed; use getWantedServiceHashes()."
 
 ---
 
-### Task 6: Hash-native read surface and helper removal
+### Task 7: Hash-native read surface and helper removal
 
 Deletes the manager staticcalls from every read path and the ~200 lines of name-resolution scaffolding.
 
 **Files:**
 
 - Modify: `contracts/account/TTMAccount.sol` (`getRegisteredServiceHash`/`getServiceHash`/`getServiceName` `:527-551`, `getSupportedServices` `:553-565`, `isServiceSupported` `:576-578`, plus any remaining string-typed getters in `:427-635`)
-- Test: `test/TTMAccount.test.js`, `test/PartnerConfiguration.test.js`
+- Modify: `contracts/manager/ITTMAccountManager.sol` (Step 5)
+- Modify: `ui/src/hooks/useAccountActivity.ts:28-53`, `ui/src/lib/activity/catalog.ts:20-35,217-219`, `ui/src/pages/tabs/ServicesTab.tsx` (read call sites)
+- Test: `test/TTMAccount.test.js`, `test/PartnerConfiguration.test.js`, `ui/src/lib/activity/catalog.test.ts`
 
 **Interfaces:**
 
-- Consumes: Task 4's hash-native writes.
+- Consumes: Task 5's hash-native writes; Task 4's `useServiceCatalog` and `serviceNameForHash`.
 - Produces: `getSupportedServices() → (bytes32[] serviceHashes, Service[] services)`, `getSupportedServicesSlice(uint256 offset, uint256 limit) → (bytes32[], Service[])`, `isServiceSupported(bytes32) → bool`, `getServiceCapabilities(bytes32) → string[]`, `getServiceRestrictedRate(bytes32) → bool`. The `string`-typed overloads of all of these are **deleted**, as are the three private resolution helpers.
 
 - [ ] **Step 1: Write the failing test**
@@ -1064,7 +1274,7 @@ Expected: FAIL — `getSupportedServicesSlice` does not exist.
 
 - [ ] **Step 3: Delete the resolution helpers**
 
-Delete `getRegisteredServiceHash`, `getServiceHash`, and `getServiceName` (`:527-551`) entirely, along with the `SERVICES WITH RESOLVED NAMES` section header comment. `_requireRegisteredService` from Task 4 is the only remaining manager call.
+Delete `getRegisteredServiceHash`, `getServiceHash`, and `getServiceName` (`:527-551`) entirely, along with the `SERVICES WITH RESOLVED NAMES` section header comment. `_requireRegisteredService` from Task 5 is the only remaining manager call.
 
 - [ ] **Step 4: Rewrite the read surface**
 
@@ -1164,12 +1374,55 @@ Expected: PASS after adapting the remaining string-based tests. Expected total: 
 Run: `yarn compile 2>&1 | grep -E "TTMAccount |BookingToken |TTMAccountManager "`
 Record the numbers. `TTMAccount` should have dropped meaningfully from 21.371 KiB. **If it did not drop, stop and investigate before continuing** — the change did not do what it was supposed to.
 
-- [ ] **Step 8: Regenerate and commit**
+- [ ] **Step 8: Rewrite the activity feed's hash resolution**
+
+This is where the old per-hash round-trip finally goes away.
+
+In `ui/src/hooks/useAccountActivity.ts`, delete the `serviceHashes` memo, the `useReadContracts` block that calls `getServiceNameByHash` per hash, and the `nameByHash` memo (`:28-53`). Replace with the Task 4 resolver. Note the event arg is now named `serviceHash`, not `serviceName`:
+
+```ts
+  const { catalog } = useServiceCatalog();
+
+  const events = useMemo(
+    () =>
+      activity.events.map((e) => {
+        const hash = e.args.serviceHash;
+        const serviceLabel = typeof hash === "string" ? serviceNameForHash(catalog, hash) : undefined;
+        const sentence = serviceLabel ? renderSentence(e.source, e.eventName, { ...e.args, serviceLabel }) : e.sentence;
+        return { ...e, timestamp: timestamps.get(e.blockNumber), sentence };
+      }),
+    [activity.events, timestamps, catalog],
+  );
+```
+
+In `ui/src/lib/activity/catalog.ts`:
+
+- Delete the `SERVICE_HASH_EVENTS` export (`:217-219`) — nothing needs to special-case which events carry hashes any more.
+- Update `serviceLabel()` (`:31-35`) to read `args.serviceHash` instead of `args.serviceName`.
+- Update the header comment (`:20-27`). It currently explains that indexed `string` params arrive as a keccak hash. That is no longer why hashes appear — the contracts now emit `bytes32` deliberately, and names come from the registry's own events. Rewrite it to say that.
+
+Update `ui/src/lib/activity/catalog.test.ts` to match.
+
+- [ ] **Step 9: Convert the UI's service reads**
+
+`ServicesTab.tsx` reads `getSupportedServices()`, which now returns hashes. Map each hash through `serviceNameForHash(catalog, hash)` for display, falling back to a shortened hash when the name is unknown (a service unregistered after the account added it). Keep the existing `groupServicesByPackage` / `parseServiceName` grouping from `ui/src/lib/serviceName.ts` — it takes names, so it operates on the resolved values.
+
+- [ ] **Step 10: Verify the whole UI is clean**
+
+```bash
+cd ui && yarn test && yarn build && yarn lint:format
+grep -rn "SERVICE_HASH_EVENTS\|getServiceNameByHash\|TTMACCOUNT_ROLE" src
+```
+
+Expected: tests and build pass; the grep returns nothing.
+
+- [ ] **Step 11: Regenerate and commit**
 
 ```bash
 yarn hardhat clean && yarn compile && yarn docgen && yarn hardhat export-abi
 (cd ui && yarn sync)
 yarn test && yarn lint
+(cd ui && yarn test && yarn build)
 git add -A
 git commit -m "refactor(account)!: hash-native reads, drop name-resolution helpers
 
@@ -1183,7 +1436,7 @@ string-typed overloads and getServiceHash/getServiceName are removed."
 
 ---
 
-### Task 7: recordExpiration posture and supportsInterface
+### Task 8: recordExpiration posture and supportsInterface
 
 Two small independent corrections.
 
@@ -1287,7 +1540,7 @@ gate protected nothing - BookingToken.recordExpiration is public and correctly s
 
 ---
 
-### Task 8: Collapse the cancellation wrappers
+### Task 9: Collapse the cancellation wrappers
 
 Six near-identical wrappers, each repeating the same three checks.
 
@@ -1392,7 +1645,7 @@ with buyReservedToken."
 
 ---
 
-### Task 9: Remaining test coverage
+### Task 10: Remaining test coverage
 
 The gaps the fee removal left, headed by the one that pins an accepted risk.
 
@@ -1511,198 +1764,6 @@ git commit -m "test: backfill coverage the fee removal left behind
 
 Pins createTTMAccount being permissionless, asserts the two setter events, and
 documents the cancellation refund path against a contract that rejects ETH."
-```
-
----
-
-### Task 10: UI service catalog resolver
-
-One shared resolver replaces the per-event special case, and every string-based call site moves to hashes.
-
-**Files:**
-
-- Create: `ui/src/lib/serviceCatalog.ts`, `ui/src/lib/serviceCatalog.test.ts`
-- Modify: `ui/src/pages/tabs/ServicesTab.tsx`, `ui/src/hooks/useAccountActivity.ts:28-70`, `ui/src/lib/activity/catalog.ts:20-35,217-219`
-- Test: `ui/src/lib/serviceCatalog.test.ts`, existing `ui/src/lib/activity/catalog.test.ts`
-
-**Interfaces:**
-
-- Consumes: `getAllRegisteredServiceNames()` on the manager; the hash-native ABI from Tasks 4–6.
-- Produces: `hashServiceName(name: string): \`0x${string}\``, `buildServiceCatalog(names: string[]): ServiceCatalog`, `type ServiceCatalog = { nameByHash: Map<string, string>; hashByName: Map<string, \`0x${string}\`> }`, and hook `useServiceCatalog(): { catalog: ServiceCatalog; isLoading: boolean }`.
-
-- [ ] **Step 1: Write the failing test**
-
-Create `ui/src/lib/serviceCatalog.test.ts`:
-
-```ts
-import { describe, expect, it } from "vitest";
-import { keccak256, toBytes } from "viem";
-import { buildServiceCatalog, hashServiceName } from "./serviceCatalog";
-
-describe("serviceCatalog", () => {
-  const name = "ttm.services.accommodation.v1alpha.AccommodationSearchService";
-
-  it("hashes a service name the same way the contracts do", () => {
-    // Contracts use keccak256(abi.encodePacked(serviceName)), which for a lone
-    // string is just the keccak of its UTF-8 bytes.
-    expect(hashServiceName(name)).toBe(keccak256(toBytes(name)));
-  });
-
-  it("builds a bidirectional map", () => {
-    const catalog = buildServiceCatalog([name]);
-    const hash = hashServiceName(name);
-
-    expect(catalog.nameByHash.get(hash)).toBe(name);
-    expect(catalog.hashByName.get(name)).toBe(hash);
-  });
-
-  it("looks up case-consistently regardless of hash casing", () => {
-    const catalog = buildServiceCatalog([name]);
-    const hash = hashServiceName(name);
-
-    expect(catalog.nameByHash.get(hash.toLowerCase())).toBe(name);
-  });
-
-  it("returns empty maps for an empty catalog", () => {
-    const catalog = buildServiceCatalog([]);
-    expect(catalog.nameByHash.size).toBe(0);
-    expect(catalog.hashByName.size).toBe(0);
-  });
-});
-```
-
-- [ ] **Step 2: Run it to verify it fails**
-
-Run: `cd ui && yarn test serviceCatalog`
-Expected: FAIL — the module does not exist.
-
-- [ ] **Step 3: Implement the resolver**
-
-Create `ui/src/lib/serviceCatalog.ts`:
-
-```ts
-import { keccak256, toBytes } from "viem";
-
-/**
- * Service names and hashes are two views of one thing. Contracts store and emit
- * `bytes32` hashes; people read names. The registry is the only authority that
- * knows both, so we seed from it once and resolve locally thereafter — which is
- * why `TTMAccount` needs no name-resolution code and reads cost no extra calls.
- */
-export interface ServiceCatalog {
-  /** Keyed by lowercase hash. */
-  nameByHash: Map<string, string>;
-  hashByName: Map<string, `0x${string}`>;
-}
-
-/**
- * Mirrors `keccak256(abi.encodePacked(serviceName))` in ServiceRegistry. For a
- * single string argument, `encodePacked` is the raw UTF-8 bytes.
- */
-export function hashServiceName(name: string): `0x${string}` {
-  return keccak256(toBytes(name));
-}
-
-/** Builds the bidirectional map from the registry's list of names. */
-export function buildServiceCatalog(names: string[]): ServiceCatalog {
-  const nameByHash = new Map<string, string>();
-  const hashByName = new Map<string, `0x${string}`>();
-
-  for (const name of names) {
-    const hash = hashServiceName(name);
-    nameByHash.set(hash.toLowerCase(), name);
-    hashByName.set(name, hash);
-  }
-
-  return { nameByHash, hashByName };
-}
-
-/** Resolves a hash to its name, falling back to a short hash for display. */
-export function serviceNameForHash(catalog: ServiceCatalog, hash: string): string | undefined {
-  return catalog.nameByHash.get(hash.toLowerCase());
-}
-```
-
-- [ ] **Step 4: Run the test to verify it passes**
-
-Run: `cd ui && yarn test serviceCatalog`
-Expected: PASS, 4 tests.
-
-- [ ] **Step 5: Add the hook**
-
-Append to `ui/src/lib/serviceCatalog.ts` — or create `ui/src/hooks/useServiceCatalog.ts` if the codebase keeps hooks separate (check the existing convention and follow it):
-
-```ts
-/**
- * Reads the registry's full service list once and derives the map locally.
- * One eth_call replaces the per-hash resolution round-trips the activity feed
- * used to make.
- */
-export function useServiceCatalog() {
-  const { manager, managerAbi } = useActiveContracts();
-  const { activeChainId } = useActiveChain();
-
-  const { data, isLoading } = useReadContract({
-    chainId: activeChainId,
-    address: manager,
-    abi: managerAbi as Abi,
-    functionName: "getAllRegisteredServiceNames",
-    query: { enabled: Boolean(manager) },
-  });
-
-  const catalog = useMemo(() => buildServiceCatalog((data as string[]) ?? []), [data]);
-  return { catalog, isLoading };
-}
-```
-
-Add the imports it needs (`useMemo`, `type Abi`, `useReadContract`, `useActiveContracts`, `useActiveChain`), matching how `useMyAccounts.ts` imports them.
-
-- [ ] **Step 6: Rewrite the activity feed's resolution**
-
-In `ui/src/hooks/useAccountActivity.ts`, delete the `serviceHashes` memo, the `useReadContracts` block, and the `nameByHash` memo (`:28-53`). Replace with `useServiceCatalog()` and resolve from `catalog.nameByHash`. The event arg is now named `serviceHash`, not `serviceName`:
-
-```ts
-  const { catalog } = useServiceCatalog();
-
-  const events = useMemo(
-    () =>
-      activity.events.map((e) => {
-        const hash = e.args.serviceHash;
-        const serviceLabel = typeof hash === "string" ? serviceNameForHash(catalog, hash) : undefined;
-        const sentence = serviceLabel ? renderSentence(e.source, e.eventName, { ...e.args, serviceLabel }) : e.sentence;
-        return { ...e, timestamp: timestamps.get(e.blockNumber), sentence };
-      }),
-    [activity.events, timestamps, catalog],
-  );
-```
-
-In `ui/src/lib/activity/catalog.ts`, delete the `SERVICE_HASH_EVENTS` export (`:217-219`) and update `serviceLabel()` (`:31-35`) to read `args.serviceHash` instead of `args.serviceName`. Update the header comment (`:20-27`) — indexed strings are no longer the reason hashes appear; the contracts now emit hashes deliberately.
-
-Update `ui/src/lib/activity/catalog.test.ts` accordingly.
-
-- [ ] **Step 7: Convert ServicesTab to hashes**
-
-In `ui/src/pages/tabs/ServicesTab.tsx`, every write (`addService`, `removeService`, `addServiceCapability`, `removeServiceCapability`, `setServiceRestrictedRate`) now takes a hash. Use `catalog.hashByName.get(service.name)` from `useServiceCatalog()`, and read the supported list from `getSupportedServices()`'s hashes, mapping each back through `serviceNameForHash` for display.
-
-Capability strings are unchanged — they stay plain text in both the ABI and the UI.
-
-- [ ] **Step 8: Verify the whole UI**
-
-```bash
-cd ui && yarn test && yarn build && yarn lint:format
-grep -rn "TTMACCOUNT_ROLE\|SERVICE_HASH_EVENTS\|getServiceNameByHash" src
-```
-
-Expected: tests and build pass; the grep returns nothing.
-
-- [ ] **Step 9: Commit**
-
-```bash
-git add -A
-git commit -m "feat(ui): shared service catalog resolver, hash-native call sites
-
-Replaces the per-hash resolution round-trip in the activity feed with one
-getAllRegisteredServiceNames() read and a local keccak map."
 ```
 
 ---
