@@ -943,6 +943,15 @@ bytes32 MIN_EXPIRATION_ADMIN_ROLE
 
 This role can set the mininum allowed expiration timestamp difference.
 
+### PAUSER_ROLE
+
+```solidity
+bytes32 PAUSER_ROLE
+```
+
+Pauser role can pause the contract, halting minting, buying, and
+cancellation finalization.
+
 ### NATIVE_PAYMENT
 
 ```solidity
@@ -1247,6 +1256,22 @@ function _authorizeUpgrade(address newImplementation) internal virtual
 ```
 
 Function to authorize an upgrade for UUPS proxy.
+
+### pause
+
+```solidity
+function pause() external
+```
+
+Pauses minting, buying, and cancellation finalization.
+
+### unpause
+
+```solidity
+function unpause() external
+```
+
+Resumes normal operation.
 
 ### safeMintWithReservation
 

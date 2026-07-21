@@ -22,6 +22,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 
 // Cancellable
 import { BookingTokenCancellable, CancellationProposalStatus } from "./BookingTokenCancellable.sol";
@@ -45,6 +46,7 @@ contract BookingToken is
     ERC721EnumerableUpgradeable,
     ERC721URIStorageUpgradeable,
     AccessControlUpgradeable,
+    PausableUpgradeable,
     ReentrancyGuardUpgradeable,
     UUPSUpgradeable,
     BookingTokenCancellable
@@ -87,6 +89,12 @@ contract BookingToken is
      * @notice This role can set the mininum allowed expiration timestamp difference.
      */
     bytes32 public constant MIN_EXPIRATION_ADMIN_ROLE = keccak256("MIN_EXPIRATION_ADMIN_ROLE");
+
+    /**
+     * @notice Pauser role can pause the contract, halting minting, buying, and
+     * cancellation finalization.
+     */
+    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
     /**
      * @dev Special address for native payments.
@@ -299,6 +307,7 @@ contract BookingToken is
         __ERC721Enumerable_init();
         __ERC721URIStorage_init();
         __AccessControl_init();
+        __Pausable_init();
         __UUPSUpgradeable_init();
 
         _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
@@ -337,6 +346,20 @@ contract BookingToken is
     function _authorizeUpgrade(address newImplementation) internal virtual override onlyRole(UPGRADER_ROLE) {}
 
     /**
+     * @notice Pauses minting, buying, and cancellation finalization.
+     */
+    function pause() external onlyRole(PAUSER_ROLE) {
+        _pause();
+    }
+
+    /**
+     * @notice Resumes normal operation.
+     */
+    function unpause() external onlyRole(PAUSER_ROLE) {
+        _unpause();
+    }
+
+    /**
      * @notice Mints a new token with a reservation for a specific address.
      *
      * @param reservedFor The TTM Account address that can buy the token
@@ -355,7 +378,7 @@ contract BookingToken is
         IERC20 paymentToken,
         uint256 offchainPaymentCurrency,
         bool cancellable
-    ) public virtual onlyTTMAccount(msg.sender) {
+    ) public virtual onlyTTMAccount(msg.sender) whenNotPaused {
         // Require reservedFor to be a TTM Account
         requireTTMAccount(reservedFor);
 
@@ -445,7 +468,9 @@ contract BookingToken is
      *
      * @param tokenId The token id
      */
-    function buyReservedToken(uint256 tokenId) public payable virtual nonReentrant onlyTTMAccount(msg.sender) {
+    function buyReservedToken(
+        uint256 tokenId
+    ) public payable virtual nonReentrant whenNotPaused onlyTTMAccount(msg.sender) {
         BookingTokenStorage storage $ = _getBookingTokenStorage();
 
         // Get the reservation for the token
@@ -823,7 +848,7 @@ contract BookingToken is
     function finalizeCancellation(
         uint256 tokenId,
         uint256 checkRefundAmount
-    ) external payable virtual onlyTTMAccount(msg.sender) {
+    ) external payable virtual onlyTTMAccount(msg.sender) whenNotPaused {
         // Revert if token does not exist
         address owner = _requireOwned(tokenId);
 

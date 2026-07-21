@@ -11,6 +11,7 @@ const {
     deployTTMAccountImplFixture,
     deployTTMAccountManagerWithTTMAccountImplFixture,
     deployAndConfigureAllFixture,
+    deployAndConfigureAllWithRegisteredServicesFixture,
     deployTTMAccountWithDepositFixture,
     deployBookingTokenFixture,
     deployBookingTokenWithNullUSDFixture,
@@ -3237,6 +3238,60 @@ describe("BookingToken", function () {
                     "ZeroAddress",
                 );
             }
+        });
+    });
+
+    describe("Pausable", function () {
+        it("should not let a non-pauser pause", async function () {
+            const { bookingToken } = await loadFixture(deployBookingTokenFixture);
+            await expect(bookingToken.connect(signers.otherAccount1).pause()).to.be.revertedWithCustomError(
+                bookingToken,
+                "AccessControlUnauthorizedAccount",
+            );
+        });
+
+        it("should let the pauser pause and unpause", async function () {
+            const { bookingToken } = await loadFixture(deployBookingTokenFixture);
+            await bookingToken
+                .connect(signers.btAdmin)
+                .grantRole(await bookingToken.PAUSER_ROLE(), signers.btAdmin.address);
+
+            await bookingToken.connect(signers.btAdmin).pause();
+            expect(await bookingToken.paused()).to.be.true;
+
+            await bookingToken.connect(signers.btAdmin).unpause();
+            expect(await bookingToken.paused()).to.be.false;
+        });
+
+        it("should block minting while paused", async function () {
+            const { ttmAccountManager, ttmAccount } = await loadFixture(
+                deployAndConfigureAllWithRegisteredServicesFixture,
+            );
+            const bookingToken = await ethers.getContractAt(
+                "BookingToken",
+                await ttmAccountManager.getBookingTokenAddress(),
+            );
+            await bookingToken
+                .connect(signers.btAdmin)
+                .grantRole(await bookingToken.PAUSER_ROLE(), signers.btAdmin.address);
+            await bookingToken.connect(signers.btAdmin).pause();
+
+            // Grant the bot the BOOKING_OPERATOR_ROLE it needs to mint
+            await ttmAccount
+                .connect(signers.ttmAccountAdmin)
+                .grantRole(await ttmAccount.BOOKING_OPERATOR_ROLE(), signers.chequeOperator.address);
+
+            await expect(
+                ttmAccount.connect(signers.chequeOperator).mintBookingToken(
+                    await ttmAccount.getAddress(),
+                    "https://example.com/token",
+                    (await helpers.time.latest()) + 3600,
+                    100n,
+                    ethers.ZeroAddress,
+                    0,
+                    false,
+                ),
+            ).to.be.revertedWithCustomError(bookingToken, "EnforcedPause");
         });
     });
 });
