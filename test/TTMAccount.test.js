@@ -572,7 +572,7 @@ describe("TTMAccount", function () {
     });
 
     describe("Initializer validation", function () {
-        it("should reject a zero address for any constructor parameter", async function () {
+        it("should reject a zero address for any initializer parameter", async function () {
             await setupSigners();
             const { ttmAccountManager } = await loadFixture(deployTTMAccountManagerFixture);
             const zero = ethers.ZeroAddress;

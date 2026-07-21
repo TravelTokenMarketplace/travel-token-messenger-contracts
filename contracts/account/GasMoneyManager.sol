@@ -121,7 +121,7 @@ abstract contract GasMoneyManager is Initializable {
 
         // Update the withdrawn amount. Safe: the sum was just checked against
         // limit, which is itself a uint128.
-        withdrawal.amount = uint128(uint256(withdrawal.amount) + amount);
+        withdrawal.amount = _toUint128(uint256(withdrawal.amount) + amount, limit, $._withdrawalPeriod);
         $._withdrawals[msg.sender] = withdrawal;
 
         // Transfer the gas money

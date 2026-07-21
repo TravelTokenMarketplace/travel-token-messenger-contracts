@@ -43,7 +43,7 @@ module.exports = {
         },
     },
     etherscan: {
-        apiKey: vars.get("ETHERSCAN_API_KEY"),
+        apiKey: vars.get("ETHERSCAN_API_KEY", ""),
     },
     docgen: {
         path: "./docs",

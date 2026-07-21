@@ -116,6 +116,12 @@ contract BookingToken is
      * Mirrors REJECTION_REASON_TRANSFER_ON_CHAIN in the messenger protocol.
      */
     uint16 private constant REJECTION_REASON_TRANSFER_ON_CHAIN = 99;
+
+    /**
+     * @notice Version of the rejection reason schema used when emitting
+     * REJECTION_REASON_TRANSFER_ON_CHAIN, so consumers can interpret the
+     * reason code correctly if it is ever revised.
+     */
     uint16 private constant REJECTION_REASON_VERSION = 1;
 
     /***************************************************
@@ -338,6 +344,11 @@ contract BookingToken is
 
     /**
      * @notice Pauses minting, buying, and cancellation finalization.
+     *
+     * @dev Pausing halts commerce (minting, buying, and cancellation
+     * finalization), not custody: ERC-721 transfers are unaffected, so a
+     * pending cancellation can still be auto-resolved by a transfer while
+     * paused. This is deliberate.
      */
     function pause() external onlyRole(PAUSER_ROLE) {
         _pause();

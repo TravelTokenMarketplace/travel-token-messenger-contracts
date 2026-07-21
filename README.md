@@ -54,7 +54,7 @@ services can be registered until roles are granted. Follow every step.
 # 1. Configuration
 yarn hardhat vars set BASE_SEPOLIA_DEPLOYER_PRIVATE_KEY
 yarn hardhat vars set ETHERSCAN_API_KEY
-export BASE_SEPOLIA_URL=<your-rpc-url>      # optional; a public default exists
+yarn hardhat vars set BASE_SEPOLIA_URL       # optional; a public default exists
 
 # 2. Deploy
 yarn hardhat ignition deploy ignition/modules/messenger.js \
@@ -85,9 +85,19 @@ separate manual step in the Basescan UI.
 > `bookingUpgrader` each default to **account 0 — the deployer key** —
 > independently of `managerAdmin`.
 >
-> If you point `managerAdmin` at a Safe and forget the other five, those roles
+> If you point `managerAdmin` at a Safe and forget the others, those roles
 > silently stay on the deployer key. Nothing in the dry-run or deploy output
-> warns you. **Set all six explicitly in `base_sepolia_parameters.json`** if they
+> warns you.
+>
+> **`managerVersioner` is the one exception — leave it as the deployer.** The
+> module itself calls `setAccountImplementation` and `setBookingTokenAddress`,
+> both `onlyRole(VERSIONER_ROLE)`, and both execute as account 0 during the
+> deploy. Pointing `managerVersioner` at a Safe in the parameters file makes
+> those calls revert mid-module, leaving a partially-configured manager on
+> chain. Transfer `VERSIONER_ROLE` to the Safe in the role-handoff step (step 8) instead, after the module has finished running.
+>
+> **Set `managerPauser`, `managerUpgrader`, `bookingAdmin`, and
+> `bookingUpgrader` explicitly in `base_sepolia_parameters.json`** if they
 > should differ from the deployer, and verify role membership on-chain after
 > deploying, before step 8.
 

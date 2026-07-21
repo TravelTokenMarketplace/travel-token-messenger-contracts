@@ -3201,7 +3201,7 @@ describe("BookingToken", function () {
     });
 
     describe("Initializer validation", function () {
-        it("should reject a zero address for any constructor parameter", async function () {
+        it("should reject a zero address for any initializer parameter", async function () {
             await setupSigners();
             const BookingToken = await ethers.getContractFactory("BookingToken");
             const zero = ethers.ZeroAddress;
@@ -3272,6 +3272,69 @@ describe("BookingToken", function () {
                         0,
                         false,
                     ),
+            ).to.be.revertedWithCustomError(bookingToken, "EnforcedPause");
+        });
+
+        it("should block buying a reserved token while paused", async function () {
+            const { bookingToken, distributorTTMAccount, distributorBookingOperator, tokenWithoutBuying } =
+                await loadFixture(deployCancellationSupportFixture);
+
+            // Fetch the real price/paymentToken so the call gets past the
+            // BookingTokenOperator price checks and actually reaches the
+            // whenNotPaused-gated buyReservedToken function.
+            const [price, paymentToken] = await bookingToken.getReservationPrice(tokenWithoutBuying);
+
+            await bookingToken
+                .connect(signers.btAdmin)
+                .grantRole(await bookingToken.PAUSER_ROLE(), signers.btAdmin.address);
+            await bookingToken.connect(signers.btAdmin).pause();
+
+            await expect(
+                distributorTTMAccount
+                    .connect(distributorBookingOperator)
+                    .buyBookingToken(tokenWithoutBuying, price, paymentToken),
+            ).to.be.revertedWithCustomError(bookingToken, "EnforcedPause");
+        });
+
+        it("should block finalizing a cancellation while paused", async function () {
+            const {
+                supplierTTMAccount,
+                distributorTTMAccount,
+                bookingToken,
+                tokenWithNativePayment,
+                supplierBookingOperator,
+                distributorBookingOperator,
+            } = await loadFixture(deployCancellationSupportFixture);
+
+            const refundAmount = ethers.parseEther("0.045");
+            const cancellationReason = 42;
+            const cancellationReasonVersion = 1;
+
+            // Bring the proposal all the way to ACCEPTED, exactly as in the
+            // successful finalize-cancellation test, so pausing is the only
+            // thing standing between this call and success.
+            await supplierTTMAccount
+                .connect(supplierBookingOperator)
+                .initiateCancellation(
+                    tokenWithNativePayment,
+                    refundAmount,
+                    cancellationReason,
+                    cancellationReasonVersion,
+                );
+
+            await distributorTTMAccount
+                .connect(distributorBookingOperator)
+                .acceptCancellation(tokenWithNativePayment, refundAmount);
+
+            await bookingToken
+                .connect(signers.btAdmin)
+                .grantRole(await bookingToken.PAUSER_ROLE(), signers.btAdmin.address);
+            await bookingToken.connect(signers.btAdmin).pause();
+
+            await expect(
+                supplierTTMAccount
+                    .connect(supplierBookingOperator)
+                    .finalizeCancellation(tokenWithNativePayment, refundAmount),
             ).to.be.revertedWithCustomError(bookingToken, "EnforcedPause");
         });
     });

@@ -4,7 +4,7 @@ Solidity smart contracts for the Travel Token Messenger ecosystem, built with Ha
 
 ## Layout
 
-- `contracts/` — Solidity sources (Solidity 0.8.24, optimizer `runs: 1`, `evmVersion: paris`)
+- `contracts/` — Solidity sources (Solidity 0.8.24, optimizer `runs: 1000`, `evmVersion: cancun`)
     - `manager/` — `TTMAccountManager` (factory + registry + roles), `ITTMAccountManager`
     - `account/` — `TTMAccount` (per-partner account: bots, tokens, services, pubkeys, withdrawals), `GasMoneyManager`, `ITTMAccount`
     - `booking-token/` — `BookingToken` (ERC-721) + cancellable/operator extensions

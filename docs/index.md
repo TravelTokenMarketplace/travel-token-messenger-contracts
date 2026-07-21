@@ -1250,6 +1250,11 @@ function pause() external
 
 Pauses minting, buying, and cancellation finalization.
 
+_Pausing halts commerce (minting, buying, and cancellation
+finalization), not custody: ERC-721 transfers are unaffected, so a
+pending cancellation can still be auto-resolved by a transfer while
+paused. This is deliberate._
+
 ### unpause
 
 ```solidity
