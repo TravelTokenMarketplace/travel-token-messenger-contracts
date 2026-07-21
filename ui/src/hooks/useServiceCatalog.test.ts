@@ -78,6 +78,15 @@ describe("useResolvedServiceNames", () => {
     expect(result.current.resolve(deprecatedHash)).toBe(deprecatedName);
     expect(lastFallbackContracts).toHaveLength(1);
     expect(lastFallbackEnabled).toBe(true);
+    // Pin the exact call: it must be the unconditional getServiceNameByHash, not the
+    // sibling getRegisteredServiceNameByHash, which reverts with ServiceNotRegistered
+    // for a service that was unregistered after an account adopted it — exactly the
+    // deprecated-service case this fallback exists to handle. Swapping the two would
+    // silently reinstate that regression while every other assertion here stayed green.
+    expect(lastFallbackContracts[0]).toMatchObject({
+      functionName: "getServiceNameByHash",
+      args: [deprecatedHash],
+    });
   });
 
   it("returns undefined for a hash neither the catalog nor the fallback batch resolves", () => {

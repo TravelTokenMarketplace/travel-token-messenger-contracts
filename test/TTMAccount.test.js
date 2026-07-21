@@ -824,15 +824,18 @@ describe("TTMAccount", function () {
                 expect(pageServices).to.deep.equal([]);
             });
 
-            it("does not revert for an oversized limit at offset 0", async function () {
+            it("does not revert for an oversized limit at a non-zero offset", async function () {
                 const { ttmAccount, hashes } = await threeServicesFixture();
 
                 // A naive `offset + limit` bound check reverts under Solidity 0.8 checked
-                // arithmetic when `limit` is this large; clamping by subtraction (total -
-                // offset) must not. This pins the exact overflow shape Task 1 shipped.
+                // arithmetic when that sum overflows uint256; clamping by subtraction
+                // (total - offset) must not. Offset must be non-zero here: at offset 0,
+                // `0 + limit` never overflows regardless of how large `limit` is, so that
+                // case can't distinguish the additive form from the subtractive one. This
+                // pins the exact overflow shape Task 1 shipped.
                 const maxUint256 = 2n ** 256n - 1n;
-                const [pageHashes] = await ttmAccount.getSupportedServicesSlice(0, maxUint256);
-                expect(pageHashes).to.deep.equal(hashes);
+                const [pageHashes] = await ttmAccount.getSupportedServicesSlice(1, maxUint256);
+                expect(pageHashes).to.deep.equal(hashes.slice(1));
             });
         });
     });
