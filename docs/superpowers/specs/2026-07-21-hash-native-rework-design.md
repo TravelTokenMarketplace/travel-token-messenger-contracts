@@ -348,30 +348,55 @@ The plan must record measured sizes before and after, not estimates.
 
 ## G. Consumer migration deliverable
 
-Two files, written as the **final task** of implementation, from the merged
-ABI:
+### Only the bot is a real consumer
 
-| File | Audience |
-| ---- | -------- |
-| `BOT-MIGRATION.md` | a fresh `travel-token-messenger-bot` session |
-| `APP-SERVICE-MIGRATION.md` | a fresh `travel-token-matrix-app-service` session |
+`CONTRACTS-NEXT.md` states that "the bot and matrix-app-service pin the
+contracts Go module". That is **false for the app-service**, and the error
+would have produced a migration document for a repo that needs none.
 
-Both live in the **local workspace parent folder**, alongside `REBRANDING.md`,
-`TODOS.md`, and `CONTRACTS-NEXT.md`, and are **not committed to any repo** —
-same rationale as those files: they reference the multi-repo layout.
+`travel-token-matrix-app-service/go.mod` requires
+`github.com/TravelTokenMarketplace/travel-token-messenger-bot/v13` and does
+**not** require the contracts module at all. `github.com/ethereum/go-ethereum`
+appears only in its `// indirect` block, pulled transitively through the bot.
+Grepping its Go sources finds no contract call sites, no binding imports, and
+no `common.Address`.
 
-They are written at the end, not from this design, because a migration guide
+So the app-service's entire exposure to this work is transitive: once the bot
+ships a migrated release, the app-service bumps its bot dependency and
+rebuilds. That is a `go get` and a green build, not a migration session.
+
+### The deliverable
+
+One file, written as the **final task** of implementation, from the merged ABI:
+
+| File               | Audience                                         |
+| ------------------ | ------------------------------------------------ |
+| `BOT-MIGRATION.md` | a fresh `travel-token-messenger-bot` session     |
+
+It lives in the **local workspace parent folder**, alongside `REBRANDING.md`,
+`TODOS.md`, and `CONTRACTS-NEXT.md`, and is **not committed to any repo** —
+same rationale as those files: it references the multi-repo layout.
+
+It is written at the end, not from this design, because a migration guide
 predicted from a spec drifts during implementation, and a fresh session has no
-way to tell a stale instruction from a live one. Each must contain the exact
-final signatures, the Go binding type names as generated, the module version to
-pin, and a checklist of call sites in that repo.
+way to tell a stale instruction from a live one. It must contain the exact
+final signatures, the Go binding type names as generated, the contracts module
+version to pin, and a checklist of call sites.
 
-Known call sites to cover for the bot: `pkg/ttm_accounts/ttm_accounts.go:189`
-(`IsServiceSupported` — becomes hash-based, hash cached at startup),
-`internal/messaging/service_registry.go:38` (`GetSupportedServices` — now
-returns hashes, needs a local resolver seeded from the manager),
-`internal/eventlistener/subscriber/subscriber.go:127` (`WatchServiceAdded` —
-new event shape), and `tests/e2e/blockchain/client.go:163,191`.
+Call sites to cover, inventoried from the bot's sources:
+
+| Site                                                | Change |
+| --------------------------------------------------- | ------ |
+| `pkg/ttm_accounts/ttm_accounts.go:189`              | `IsServiceSupported` becomes hash-based; hash the service name once at startup and cache it, rather than per message |
+| `internal/messaging/service_registry.go:38`         | `GetSupportedServices` returns hashes; needs a local resolver seeded from the manager's `getAllRegisteredServiceNames()` |
+| `internal/eventlistener/subscriber/subscriber.go:127` | `WatchServiceAdded` — new event shape, name no longer in the topic |
+| `tests/e2e/blockchain/client.go:163,191`            | `AddService` and account-creation helpers take hashes |
+
+The bot's migration must also add a **closing step**: bump
+`travel-token-matrix-app-service`'s `travel-token-messenger-bot/v13`
+requirement to the migrated bot version and confirm the build is green. That is
+the app-service's whole involvement, and recording it here is what keeps it
+from being forgotten once no `APP-SERVICE-MIGRATION.md` exists to carry it.
 
 ---
 
