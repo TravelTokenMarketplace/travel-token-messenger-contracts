@@ -530,7 +530,19 @@ Buys booking token.
 function recordExpiration(uint256 tokenId) external
 ```
 
-Record expiration status if the token is expired
+Marks an expired reservation as expired on the BookingToken.
+
+_Deliberately permissionless. The underlying `BookingToken.recordExpiration`
+is public and unrestricted, so a role gate here would protect nothing - it only
+created the false impression that one was needed. The operation is objective
+housekeeping: it succeeds only once `block.timestamp` has genuinely passed the
+reservation's expiry, so there is nothing for an attacker to gain._
+
+#### Parameters
+
+| Name    | Type    | Description                       |
+| ------- | ------- | --------------------------------- |
+| tokenId | uint256 | The booking token to mark expired |
 
 ### onERC721Received
 
@@ -541,6 +553,18 @@ function onERC721Received(address, address, uint256, bytes) public virtual retur
 Always returns `IERC721Receiver.onERC721Received.selector`.
 
 _See {IERC721Receiver-onERC721Received}._
+
+### supportsInterface
+
+```solidity
+function supportsInterface(bytes4 interfaceId) public view virtual returns (bool)
+```
+
+See {IERC165-supportsInterface}.
+
+_This contract implements {IERC721Receiver}, so it must say so - counterparties
+that capability-detect before transferring an NFT would otherwise conclude it
+cannot receive one._
 
 ### transferERC20
 

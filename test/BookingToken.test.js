@@ -1722,20 +1722,17 @@ describe("BookingToken", function () {
             await network.provider.send("evm_increaseTime", [24 * 60 * 60]);
             await network.provider.send("evm_mine");
 
-            // Try to expire with non-auth address
-            await expect(
-                supplierTTMAccount.connect(signers.otherAccount1).recordExpiration(0n),
-            ).to.be.revertedWithCustomError(bookingToken, "AccessControlUnauthorizedAccount");
-
-            // Expire the token
-            await expect(supplierTTMAccount.connect(signers.btAdmin).recordExpiration(0n))
+            // recordExpiration is deliberately permissionless - an account with no role
+            // at all can expire it, since the only real gate is whether the reservation
+            // has genuinely passed its expiration timestamp (which it now has).
+            await expect(supplierTTMAccount.connect(signers.otherAccount1).recordExpiration(0n))
                 .to.emit(bookingToken, "TokenReservationExpired")
                 .withArgs(0n);
 
             // Check token booking status
             expect(await bookingToken.getBookingStatus(0n)).to.equal(2); // Expired == 2
 
-            // Try to expire the token again
+            // Try to expire the token again, should revert since it's already expired
             await expect(supplierTTMAccount.connect(signers.btAdmin).recordExpiration(0n))
                 .to.be.revertedWithCustomError(bookingToken, "InvalidTokenStatus")
                 .withArgs(0n, 2); // RESERVATION_EXPIRED == 2

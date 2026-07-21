@@ -394,9 +394,17 @@ contract TTMAccount is
     }
 
     /**
-     * @notice Record expiration status if the token is expired
+     * @notice Marks an expired reservation as expired on the BookingToken.
+     *
+     * @dev Deliberately permissionless. The underlying `BookingToken.recordExpiration`
+     * is public and unrestricted, so a role gate here would protect nothing - it only
+     * created the false impression that one was needed. The operation is objective
+     * housekeeping: it succeeds only once `block.timestamp` has genuinely passed the
+     * reservation's expiry, so there is nothing for an attacker to gain.
+     *
+     * @param tokenId The booking token to mark expired
      */
-    function recordExpiration(uint256 tokenId) external onlyRole(BOOKING_OPERATOR_ROLE) {
+    function recordExpiration(uint256 tokenId) external {
         BookingTokenOperator.recordExpiration(getBookingTokenAddress(), tokenId);
     }
 
@@ -407,6 +415,19 @@ contract TTMAccount is
      */
     function onERC721Received(address, address, uint256, bytes memory) public virtual returns (bytes4) {
         return this.onERC721Received.selector;
+    }
+
+    /**
+     * @notice See {IERC165-supportsInterface}.
+     *
+     * @dev This contract implements {IERC721Receiver}, so it must say so - counterparties
+     * that capability-detect before transferring an NFT would otherwise conclude it
+     * cannot receive one.
+     */
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view virtual override(AccessControlEnumerableUpgradeable) returns (bool) {
+        return interfaceId == type(IERC721Receiver).interfaceId || super.supportsInterface(interfaceId);
     }
 
     /***************************************************

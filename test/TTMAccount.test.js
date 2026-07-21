@@ -3,7 +3,7 @@
  */
 const { loadFixture } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
 const { expect } = require("chai");
-const { ethers, upgrades } = require("hardhat");
+const { ethers, upgrades, network } = require("hardhat");
 
 const {
     setupSigners,
@@ -279,6 +279,32 @@ describe("TTMAccount", function () {
         });
     });
 
+    describe("ERC165", function () {
+        it("should report IERC721Receiver support without breaking pre-existing interfaces", async function () {
+            await setupSigners();
+            const { ttmAccount } = await loadFixture(deployAndConfigureAllFixture);
+
+            const IERC165_INTERFACE_ID = "0x01ffc9a7";
+            // bytes4(keccak256("onERC721Received(address,address,uint256,bytes)"))
+            const IERC721_RECEIVER_INTERFACE_ID = "0x150b7a02";
+            const IACCESSCONTROL_INTERFACE_ID = "0x7965db0b";
+            const IACCESSCONTROLENUMERABLE_INTERFACE_ID = "0x5a05180f";
+
+            // Pre-existing interfaces must still be reported - an override that forgets
+            // `super.supportsInterface` would silently break these.
+            expect(await ttmAccount.supportsInterface(IERC165_INTERFACE_ID)).to.be.true;
+            expect(await ttmAccount.supportsInterface(IACCESSCONTROL_INTERFACE_ID)).to.be.true;
+            expect(await ttmAccount.supportsInterface(IACCESSCONTROLENUMERABLE_INTERFACE_ID)).to.be.true;
+
+            // The new interface this task adds.
+            expect(await ttmAccount.supportsInterface(IERC721_RECEIVER_INTERFACE_ID)).to.be.true;
+
+            // A bogus id must not be reported as supported - guards against an override
+            // that returns true unconditionally instead of checking interfaceId.
+            expect(await ttmAccount.supportsInterface("0xaaaaaaaa")).to.be.false;
+        });
+    });
+
     describe("Messenger Bot", function () {
         it("should add messenger bot correctly", async function () {
             const { ttmAccount } = await loadFixture(deployAndConfigureAllFixture);
@@ -493,6 +519,58 @@ describe("TTMAccount", function () {
                     .connect(signers.otherAccount1)
                     .transferERC721(await bookingToken.getAddress(), signers.otherAccount2.address, 0n),
             ).to.be.revertedWithCustomError(supplierTTMAccount, "AccessControlUnauthorizedAccount");
+        });
+    });
+
+    describe("recordExpiration", function () {
+        it("should let an account with no roles genuinely expire a reservation once it has passed", async function () {
+            await setupSigners();
+            const { supplierTTMAccount, distributorTTMAccount, bookingToken } = await loadFixture(
+                deployBookingTokenWithNullUSDFixture,
+            );
+
+            const tokenURI =
+                "data:application/json;base64,eyJuYW1lIjoiQ2FtaW5vIE1lc3NlbmdlciBCb29raW5nVG9rZW4gVGVzdCJ9Cg==";
+            const expirationTimestamp = Math.floor(Date.now() / 1000) + 120;
+            const price = ethers.parseEther("0.05");
+
+            // Grant BOOKING_OPERATOR_ROLE to mint the reservation, as usual.
+            const BOOKING_OPERATOR_ROLE = await supplierTTMAccount.BOOKING_OPERATOR_ROLE();
+            await expect(
+                supplierTTMAccount
+                    .connect(signers.ttmAccountAdmin)
+                    .grantRole(BOOKING_OPERATOR_ROLE, signers.btAdmin.address),
+            ).to.not.reverted;
+
+            await supplierTTMAccount.connect(signers.btAdmin).mintBookingToken(
+                distributorTTMAccount.getAddress(),
+                tokenURI,
+                expirationTimestamp,
+                price,
+                ethers.ZeroAddress, // native coin
+                0,
+                false,
+            );
+
+            // The caller below holds no role at all on this TTMAccount - not
+            // BOOKING_OPERATOR_ROLE, not anything else.
+            expect(await supplierTTMAccount.hasRole(BOOKING_OPERATOR_ROLE, signers.otherAccount3.address)).to.be.false;
+
+            expect(await bookingToken.getBookingStatus(0n)).to.equal(1); // Reserved
+
+            // Advance past the expiration timestamp.
+            await network.provider.send("evm_setNextBlockTimestamp", [expirationTimestamp + 1]);
+            await network.provider.send("evm_mine");
+
+            // An unprivileged caller reaches the real BookingToken logic and genuinely
+            // mutates state - this is not a mere "does not revert" check. If the role
+            // gate were still in place, this call would revert with
+            // AccessControlUnauthorizedAccount instead of emitting and updating status.
+            await expect(supplierTTMAccount.connect(signers.otherAccount3).recordExpiration(0n))
+                .to.emit(bookingToken, "TokenReservationExpired")
+                .withArgs(0n);
+
+            expect(await bookingToken.getBookingStatus(0n)).to.equal(2); // Expired
         });
     });
 
