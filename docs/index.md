@@ -229,7 +229,6 @@ Service admin role can add & remove supported & wanted services.
 struct TTMAccountStorage {
     address _manager;
     address _bookingToken;
-    uint256 _unused;
 }
 ```
 

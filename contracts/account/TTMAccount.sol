@@ -116,10 +116,6 @@ contract TTMAccount is
          * @dev Address of the BookingToken contract
          */
         address _bookingToken;
-        /**
-         * @dev Prefund amount
-         */
-        uint256 _unused; // Not used, but do not remove. Previously used to store the prefund amount.
     }
 
     // keccak256(abi.encode(uint256(keccak256("traveltoken.messenger.storage.TTMAccount")) - 1)) & ~bytes32(uint256(0xff));
