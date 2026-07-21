@@ -31,9 +31,11 @@ import { GasMoneyManager } from "./GasMoneyManager.sol";
  * Bot can also have `GAS_WITHDRAWER_ROLE` and `BOOKING_OPERATOR_ROLE`.
  *
  * `GAS_WITHDRAWER_ROLE` enables a bot to withdraw native coins (ETH) from the
- * contract to be used as gas money. This restricted with a `limit`
- * (wei) and `period` (seconds) by the `BOT_ADMIN_ROLE`. Default starting
- * values are 10 ETH per 24 hours.
+ * contract to be used as gas money. This is restricted with a `limit` (wei)
+ * and `period` (seconds) set by the `BOT_ADMIN_ROLE`. The limit and period
+ * apply per bot address: each bot tracks its own withdrawals against the
+ * same limit, independently of every other bot on the account. Default
+ * starting values are 10 ETH per 24 hours.
  *
  * `BOOKING_OPERATOR_ROLE` enables a bot to mint and buy Booking Tokens by
  * calling the corresponding functions on the {BookingToken} contract. The buy
@@ -204,7 +206,6 @@ contract TTMAccount is
         _disableInitializers();
     }
 
-    // `uint256 prefundAmount` is removed as it is no longer used in the contract @2025-08-28
     function initialize(
         address manager,
         address bookingToken,

@@ -32,7 +32,7 @@ RPC URLs and deployer keys come from Hardhat configuration variables:
 ```bash
 yarn hardhat vars set BASE_SEPOLIA_DEPLOYER_PRIVATE_KEY
 yarn hardhat vars set BASE_SEPOLIA_URL        # optional, has a default
-yarn hardhat vars set BASESCAN_API_KEY        # for contract verification
+yarn hardhat vars set ETHERSCAN_API_KEY       # for contract verification
 ```
 
 ### Common commands
@@ -55,8 +55,8 @@ yarn hardhat ignition deploy ignition/modules/messenger.js \
 
 - **`TTMAccountManager`** — factory + registry + role management. Creates
   `ERC1967Proxy` instances of `TTMAccount` and tracks the canonical
-  implementation, booking token address, developer fee, and the service
-  registry (services are referenced by `ttm.services.<package>.<version>.<Name>`).
+  implementation, booking token address, and the service registry
+  (services are referenced by `ttm.services.<package>.<version>.<Name>`).
 - **`TTMAccount`** — a Travel Token Messenger account: manages funds,
   messenger bots, supported/wanted services, payment tokens, public keys,
   gas-money withdrawals, and minting/buying of Booking Tokens.

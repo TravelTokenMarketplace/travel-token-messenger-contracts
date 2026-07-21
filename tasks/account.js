@@ -50,8 +50,6 @@ async function getTTMAccount(ttmAccountAddress) {
     return await ethers.getContractAt("TTMAccount", ttmAccountAddress);
 }
 
-// ServiceFeeToken helper removed as service fees are deprecated
-
 async function handleRoles(taskArgs, hre, action) {
     const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
     console.log("TTMAccount:", taskArgs.ttmAccount);
@@ -1107,8 +1105,6 @@ ACCOUNT_SCOPE.task("service:remove-all", "Remove all supported services from TTM
             handleTransactionError(error, ttmAccount);
         }
     });
-
-// service:set-fee task removed as service fees are deprecated
 
 ACCOUNT_SCOPE.task("service:set-restricted-rate", "Set the restricted rate property of a supported service")
     .addOptionalParam(

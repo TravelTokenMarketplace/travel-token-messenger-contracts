@@ -134,7 +134,7 @@ describe("TTMAccount", function () {
             const { ttmAccountManager, ttmAccount } = await loadFixture(deployAndConfigureAllFixture);
 
             const MESSENGER_BOT_ROLE = await ttmAccount.MESSENGER_BOT_ROLE();
-            const botAddr = signers.chequeOperator.address;
+            const botAddr = signers.botOperator.address;
 
             // Grant MESSENGER_BOT_ROLE
             await expect(ttmAccount.connect(signers.ttmAccountAdmin).grantRole(MESSENGER_BOT_ROLE, botAddr))

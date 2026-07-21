@@ -49,8 +49,6 @@ async function getBookingToken(hre) {
     return await ethers.getContractAt("BookingToken", addresses["TravelTokenMessengerModule#BookingTokenProxy"]);
 }
 
-// ServiceFeeToken helper removed as service fees are deprecated
-
 async function handleRoles(taskArgs, hre, action, contractName) {
     let contract;
 
@@ -261,8 +259,6 @@ MANAGER_SCOPE.task("account:set-implementation", "Set TTMAccount implementation 
         const txReceipt = await tx.wait();
         console.log("Tx:", txReceipt.hash);
     });
-
-// Obsolete developer fee and prefund set tasks removed
 
 MANAGER_SCOPE.task("btoken:set", "Set Booking Token address on the manager contract")
     .addParam("address", "Booking Token address")

@@ -3258,10 +3258,10 @@ describe("BookingToken", function () {
             // Grant the bot the BOOKING_OPERATOR_ROLE it needs to mint
             await ttmAccount
                 .connect(signers.ttmAccountAdmin)
-                .grantRole(await ttmAccount.BOOKING_OPERATOR_ROLE(), signers.chequeOperator.address);
+                .grantRole(await ttmAccount.BOOKING_OPERATOR_ROLE(), signers.botOperator.address);
 
             await expect(
-                ttmAccount.connect(signers.chequeOperator).mintBookingToken(
+                ttmAccount.connect(signers.botOperator).mintBookingToken(
                     await ttmAccount.getAddress(),
                     "https://example.com/token",
                     (await helpers.time.latest()) + 3600,

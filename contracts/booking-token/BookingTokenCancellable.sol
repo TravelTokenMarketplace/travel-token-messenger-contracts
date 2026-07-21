@@ -41,7 +41,7 @@ abstract contract BookingTokenCancellable is Initializable {
         mapping(uint256 tokenId => Proposal proposal) _proposals;
     }
 
-    // keccak256(abi.encode(uint256(keccak256("traveltoken.messenger.storage.BookingTokenCancellableV2")) - 1)) & ~bytes32(uint256(0xff));
+    // keccak256(abi.encode(uint256(keccak256("traveltoken.messenger.storage.BookingTokenCancellable")) - 1)) & ~bytes32(uint256(0xff));
     bytes32 private constant BookingTokenCancellableStorageLocation =
         0x1973af827d98d3fe49ea0c9179b69c8f267978d372df89173953530663b72200;
 

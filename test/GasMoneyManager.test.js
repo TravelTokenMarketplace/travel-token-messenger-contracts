@@ -19,7 +19,7 @@ describe("GasMoneyManager", function () {
         it("should initialize gas money manager correctly", async function () {
             const { ttmAccount } = await loadFixture(deployAndConfigureAllFixture);
 
-            const expectedLimit = ethers.parseEther("10"); // 10 CAM
+            const expectedLimit = ethers.parseEther("10"); // 10 ETH
             const expectedPeriod = 24 * 60 * 60; // 24 hours
 
             expect(await ttmAccount.getGasMoneyWithdrawal()).to.be.deep.equal([expectedLimit, expectedPeriod]);
@@ -29,13 +29,13 @@ describe("GasMoneyManager", function () {
         it("should set gas money limit and period correctly", async function () {
             const { ttmAccount } = await loadFixture(deployAndConfigureAllFixture);
 
-            const expectedLimit = ethers.parseEther("10"); // 10 CAM
+            const expectedLimit = ethers.parseEther("10"); // 10 ETH
             const expectedPeriod = 24 * 60 * 60; // 24 hours
 
             expect(await ttmAccount.getGasMoneyWithdrawal()).to.be.deep.equal([expectedLimit, expectedPeriod]);
             //expect(await ttmAccount.getGasMoneyWithdrawalPeriod()).to.be.equal(expectedPeriod);
 
-            const newLimit = ethers.parseEther("20"); // 20 CAM
+            const newLimit = ethers.parseEther("20"); // 20 ETH
             const newPeriod = 48 * 60 * 60; // 48 hours
 
             await expect(ttmAccount.connect(signers.ttmAccountAdmin).setGasMoneyWithdrawal(newLimit, newPeriod))
@@ -60,7 +60,6 @@ describe("GasMoneyManager", function () {
 
             const withdrawer = signers.withdrawer;
 
-            // Add more funds to the ttmAccount so we are not under the prefund spent
             const depositAmount = ethers.parseEther("100");
 
             const depositTx = {
@@ -94,7 +93,6 @@ describe("GasMoneyManager", function () {
 
             const withdrawer = signers.withdrawer;
 
-            // Add more funds to the ttmAccount so we are not under the prefund spent
             const depositAmount = ethers.parseEther("100");
 
             const depositTx = {
@@ -120,7 +118,6 @@ describe("GasMoneyManager", function () {
 
             const withdrawer = signers.withdrawer;
 
-            // Add more funds to the ttmAccount so we are not under the prefund spent
             const depositAmount = ethers.parseEther("100");
 
             const depositTx = {
@@ -131,7 +128,7 @@ describe("GasMoneyManager", function () {
             const txResponse = await signers.depositor.sendTransaction(depositTx);
             await txResponse.wait();
 
-            const expectedLimit = ethers.parseEther("10"); // 10 CAM
+            const expectedLimit = ethers.parseEther("10"); // 10 ETH
 
             // Register withdrawer as a bot
             await expect(ttmAccount.connect(signers.ttmAccountAdmin).addMessengerBot(withdrawer.address, 0n))
@@ -139,7 +136,7 @@ describe("GasMoneyManager", function () {
                 .withArgs(withdrawer.address);
 
             // Withdraw
-            const withdrawAmount = ethers.parseEther("11"); // 11 CAM, over the limit
+            const withdrawAmount = ethers.parseEther("11"); // 11 ETH, over the limit
 
             await expect(ttmAccount.connect(withdrawer).withdrawGasMoney(withdrawAmount))
                 .to.revertedWithCustomError(ttmAccount, "WithdrawalLimitExceeded")
@@ -151,7 +148,6 @@ describe("GasMoneyManager", function () {
 
             const withdrawer = signers.withdrawer;
 
-            // Add more funds to the ttmAccount so we are not under the prefund spent
             const depositAmount = ethers.parseEther("100");
 
             const depositTx = {
@@ -162,7 +158,7 @@ describe("GasMoneyManager", function () {
             const txResponse = await signers.depositor.sendTransaction(depositTx);
             await txResponse.wait();
 
-            const expectedLimit = ethers.parseEther("10"); // 10 CAM
+            const expectedLimit = ethers.parseEther("10"); // 10 ETH
 
             // Register withdrawer as a bot
             await expect(ttmAccount.connect(signers.ttmAccountAdmin).addMessengerBot(withdrawer.address, 0n))
@@ -170,7 +166,7 @@ describe("GasMoneyManager", function () {
                 .withArgs(withdrawer.address);
 
             // Withdraw
-            const withdrawAmount = ethers.parseEther("1"); // Start with 1 CAM
+            const withdrawAmount = ethers.parseEther("1"); // Start with 1 ETH
 
             const withdrawTx1 = ttmAccount.connect(withdrawer).withdrawGasMoney(withdrawAmount);
             await expect(withdrawTx1).to.changeEtherBalances(
@@ -185,7 +181,7 @@ describe("GasMoneyManager", function () {
                 .to.emit(ttmAccount, "GasMoneyWithdrawal")
                 .withArgs(withdrawer.address, withdrawAmount);
 
-            const withdrawAmount2 = ethers.parseEther("7"); // Withdraw 7 CAM, total 8
+            const withdrawAmount2 = ethers.parseEther("7"); // Withdraw 7 ETH, total 8
 
             const withdrawTx2 = ttmAccount.connect(withdrawer).withdrawGasMoney(withdrawAmount2);
             await expect(withdrawTx2).to.changeEtherBalances(
@@ -196,7 +192,7 @@ describe("GasMoneyManager", function () {
                 .to.emit(ttmAccount, "GasMoneyWithdrawal")
                 .withArgs(withdrawer.address, withdrawAmount2);
 
-            const withdrawAmount3 = ethers.parseEther("3"); // Withdraw 3 CAM, total 11, over the limit
+            const withdrawAmount3 = ethers.parseEther("3"); // Withdraw 3 ETH, total 11, over the limit
 
             await expect(ttmAccount.connect(withdrawer).withdrawGasMoney(withdrawAmount3))
                 .to.revertedWithCustomError(ttmAccount, "WithdrawalLimitExceededForPeriod")
@@ -205,7 +201,7 @@ describe("GasMoneyManager", function () {
             // Get withdrawal details for the withdrawer
             expect(await ttmAccount.getGasMoneyWithdrawalForAccount(withdrawer.address)).to.be.deep.equal([
                 block.timestamp, // withdrawal start time (the first block that we withdrew)
-                ethers.parseEther("8"), // We withdrawn 8 CAM
+                ethers.parseEther("8"), // We withdrawn 8 ETH
             ]);
         });
 
@@ -214,7 +210,6 @@ describe("GasMoneyManager", function () {
 
             const withdrawer = signers.withdrawer;
 
-            // Add more funds to the ttmAccount so we are not under the prefund spent
             const depositAmount = ethers.parseEther("100");
 
             const depositTx = {
@@ -225,7 +220,7 @@ describe("GasMoneyManager", function () {
             const txResponse = await signers.depositor.sendTransaction(depositTx);
             await txResponse.wait();
 
-            const expectedLimit = ethers.parseEther("10"); // 10 CAM
+            const expectedLimit = ethers.parseEther("10"); // 10 ETH
 
             // Register withdrawer as a bot
             await expect(ttmAccount.connect(signers.ttmAccountAdmin).addMessengerBot(withdrawer.address, 0n))
@@ -233,7 +228,7 @@ describe("GasMoneyManager", function () {
                 .withArgs(withdrawer.address);
 
             // Withdraw
-            const withdrawAmount = ethers.parseEther("10"); // withdraw all 10 CAM
+            const withdrawAmount = ethers.parseEther("10"); // withdraw all 10 ETH
 
             const withdrawTx1 = ttmAccount.connect(withdrawer).withdrawGasMoney(withdrawAmount);
             await expect(withdrawTx1).to.changeEtherBalances(
@@ -244,7 +239,7 @@ describe("GasMoneyManager", function () {
                 .to.emit(ttmAccount, "GasMoneyWithdrawal")
                 .withArgs(withdrawer.address, withdrawAmount);
 
-            const withdrawAmount2 = ethers.parseEther("3"); // Try to withdraw 3 CAM, over the limit
+            const withdrawAmount2 = ethers.parseEther("3"); // Try to withdraw 3 ETH, over the limit
 
             await expect(ttmAccount.connect(withdrawer).withdrawGasMoney(withdrawAmount2))
                 .to.revertedWithCustomError(ttmAccount, "WithdrawalLimitExceededForPeriod")

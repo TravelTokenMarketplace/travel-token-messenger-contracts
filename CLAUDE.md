@@ -25,7 +25,7 @@ Solidity smart contracts for the Travel Token Messenger ecosystem, built with Ha
 
 ## Commands
 
-- `yarn compile` — compile contracts (also runs `contract-sizer`)
+- `yarn compile` — compile contracts (also runs `contract-sizer` and `docgen`)
 - `yarn test` — run the Hardhat test suite (`REPORT_GAS=true`)
 - `yarn lint` — Prettier + ESLint + Solhint; `yarn format` to auto-fix with Prettier
 - `yarn docgen` — regenerate `docs/`
@@ -34,7 +34,7 @@ Solidity smart contracts for the Travel Token Messenger ecosystem, built with Ha
 
 ## Networks
 
-Defined in `hardhat.config.js`: `base` (8453), `base_sepolia` (84532), plus `localhost`. RPC URLs and deployer keys come from Hardhat **configuration variables** (`vars.get(...)`), e.g. `BASE_SEPOLIA_DEPLOYER_PRIVATE_KEY`, `BASE_SEPOLIA_URL`, `BASESCAN_API_KEY` — set them with `yarn hardhat vars set <NAME>`.
+Defined in `hardhat.config.js`: `base` (8453), `base_sepolia` (84532), plus `localhost`. RPC URLs and deployer keys come from Hardhat **configuration variables** (`vars.get(...)`), e.g. `BASE_SEPOLIA_DEPLOYER_PRIVATE_KEY`, `BASE_SEPOLIA_URL`, `ETHERSCAN_API_KEY` — set them with `yarn hardhat vars set <NAME>`.
 
 ## ABIs (important)
 

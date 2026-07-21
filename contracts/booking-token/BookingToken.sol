@@ -110,6 +110,14 @@ contract BookingToken is
      */
     address public constant OFFCHAIN_PAYMENT = address(1);
 
+    /**
+     * @notice Protocol rejection reason emitted when a pending cancellation is
+     * automatically resolved because the token was transferred on-chain.
+     * Mirrors REJECTION_REASON_TRANSFER_ON_CHAIN in the messenger protocol.
+     */
+    uint16 private constant REJECTION_REASON_TRANSFER_ON_CHAIN = 99;
+    uint16 private constant REJECTION_REASON_VERSION = 1;
+
     /***************************************************
      *                   STORAGE                       *
      ***************************************************/
@@ -591,11 +599,21 @@ contract BookingToken is
 
             // Check if the current proposer is the owner
             if (msg.sender != currentProposer) {
-                // FIXME: Define a reason in the Travel Token Messenger Protocol and update this
-                _rejectCancellation(owner, supplier, tokenId, 99, 1);
+                _rejectCancellation(
+                    owner,
+                    supplier,
+                    tokenId,
+                    REJECTION_REASON_TRANSFER_ON_CHAIN,
+                    REJECTION_REASON_VERSION
+                );
             } else {
-                // FIXME: Define a reason in the Travel Token Messenger Protocol and update this
-                _withdrawCancellation(owner, supplier, tokenId, 99, 1);
+                _withdrawCancellation(
+                    owner,
+                    supplier,
+                    tokenId,
+                    REJECTION_REASON_TRANSFER_ON_CHAIN,
+                    REJECTION_REASON_VERSION
+                );
             }
         }
 

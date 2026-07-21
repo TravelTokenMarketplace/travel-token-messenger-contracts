@@ -163,9 +163,11 @@ Registering bots is done by role based access control. Bot's with
 Bot can also have `GAS_WITHDRAWER_ROLE` and `BOOKING_OPERATOR_ROLE`.
 
 `GAS_WITHDRAWER_ROLE` enables a bot to withdraw native coins (ETH) from the
-contract to be used as gas money. This restricted with a `limit`
-(wei) and `period` (seconds) by the `BOT_ADMIN_ROLE`. Default starting
-values are 10 ETH per 24 hours.
+contract to be used as gas money. This is restricted with a `limit` (wei)
+and `period` (seconds) set by the `BOT_ADMIN_ROLE`. The limit and period
+apply per bot address: each bot tracks its own withdrawals against the
+same limit, independently of every other bot on the account. Default
+starting values are 10 ETH per 24 hours.
 
 `BOOKING_OPERATOR_ROLE` enables a bot to mint and buy Booking Tokens by
 calling the corresponding functions on the {BookingToken} contract. The buy
@@ -2122,14 +2124,9 @@ address.
 
 Create TTM Account: Users who want to create an account should call
 `createTTMAccount(address admin, address upgrader)` function with addresses of
-the accounts admin and upgrader roles and they also need to approve the service
-fee token with the amount of prefund.
+the accounts admin and upgrader roles.
 
 When the manager contract is paused, account creation is stopped.
-
-Developer Fee: This contracts also keeps the info about the developer wallet
-and fee basis points. Which are used during the cheque cash in to pay for the
-developer fee.
 
 Service Registry: {TTMAccountManager} also acts as a registry for the services
 that {TTMAccount} contracts add as a supported or wanted service. Registry
@@ -2346,13 +2343,11 @@ Authorization for the TTMAccountManager contract upgrade.
 function createTTMAccount(address admin, address upgrader) external payable returns (address)
 ```
 
-Creates TTMAccount by deploying a ERC1967Proxy with the TTMAccount
-implementation from the manager.
+Creates a new TTMAccount.
 
-Because this function is deploying a contract, it reverts if the caller is
-not KYC or KYB verified. (For EOAs only)
-
-Caller must approve the pre-fund amount before calling this function.
+This function is currently permissionless: any address may create an
+account. See docs/decisions/2026-07-21-contract-design-decisions.md
+(Decision 1) -- gating must be resolved before Base mainnet.
 
 _Emits a {TTMAccountCreated} event._
 
