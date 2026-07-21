@@ -837,7 +837,7 @@ describe("BookingToken", function () {
                 params: [await distributorTTMAccount.getAddress()],
             });
 
-            // Give it some CAM balance
+            // Give it some ETH balance
             await network.provider.send("hardhat_setBalance", [
                 await distributorTTMAccount.getAddress(),
                 ethers.toBeHex(price + ethers.parseEther("100")),
@@ -846,7 +846,7 @@ describe("BookingToken", function () {
             // Get the impersonated signer
             const impersonatedSigner = await ethers.getSigner(await distributorTTMAccount.getAddress());
 
-            // Try to buy the token with CAM - should revert
+            // Try to buy the token with ETH - should revert
             await expect(bookingToken.connect(impersonatedSigner).buyReservedToken(0n, { value: price }))
                 .to.be.revertedWithCustomError(bookingToken, "UnexpectedNativePayment")
                 .withArgs(price);
@@ -923,7 +923,7 @@ describe("BookingToken", function () {
                 .withArgs(0n, distributorTTMAccount.getAddress());
 
             // Check balances
-            // CAM
+            // ETH
             await expect(buyTx).to.changeEtherBalances([supplierTTMAccount, distributorTTMAccount], [0, 0]);
             // Token: NullUSD
             await expect(buyTx).to.changeTokenBalances(
@@ -995,7 +995,7 @@ describe("BookingToken", function () {
                 params: [await distributorTTMAccount.getAddress()],
             });
 
-            // Give it some CAM balance
+            // Give it some ETH balance
             await network.provider.send("hardhat_setBalance", [
                 await distributorTTMAccount.getAddress(),
                 ethers.toBeHex(price + ethers.parseEther("100")),
@@ -1004,7 +1004,7 @@ describe("BookingToken", function () {
             // Get the impersonated signer
             const impersonatedSigner = await ethers.getSigner(await distributorTTMAccount.getAddress());
 
-            // Try to buy the token with CAM - should revert
+            // Try to buy the token with ETH - should revert
             await expect(bookingToken.connect(impersonatedSigner).buyReservedToken(0n, { value: price }))
                 .to.be.revertedWithCustomError(bookingToken, "UnexpectedNativePayment")
                 .withArgs(price);
@@ -1081,7 +1081,7 @@ describe("BookingToken", function () {
                 .withArgs(0n, distributorTTMAccount.getAddress());
 
             // Check balances
-            // CAM
+            // ETH
             await expect(buyTx).to.changeEtherBalances([supplierTTMAccount, distributorTTMAccount], [0, 0]);
             // Token: NullUSD
             await expect(buyTx).to.changeTokenBalances(

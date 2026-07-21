@@ -206,12 +206,11 @@ describe("TTMAccount", function () {
                 .withArgs(withdrawer.address, WITHDRAWER_ROLE);
         });
 
-        it("should withdraw all amount (removed prefund checkPrefundCheck)", async function () {
+        it("should withdraw all amount", async function () {
             const { ttmAccount } = await loadFixture(deployTTMAccountWithDepositFixture);
 
             const withdrawer = signers.withdrawer;
-            // Try to withdraw allowed amount. ttmAccount has 100 CAM prefund and 1
-            // CAM deposit initially. So max 1 cam is withdrawable.
+            // Withdraw 1 ETH from initial deposit of 1 ETH
             const withdrawAmount = ethers.parseEther("1");
 
             // Try withdraw
@@ -224,10 +223,9 @@ describe("TTMAccount", function () {
                 [-withdrawAmount, withdrawAmount],
             );
 
-            // Update @2025-08-28: We have removed checkPrefund check, so we can withdraw all amount
+            // Full balance is withdrawable
 
-            // Try to withdraw all amount. We withdrawn 1 CAM above, so now
-            // ttmAccount has 100 CAM left.
+            // Withdraw all remaining 100 ETH
             const withdrawAmount2 = ethers.parseEther("100");
 
             // Try withdraw
@@ -320,7 +318,7 @@ describe("TTMAccount", function () {
 
             const bot = signers.otherAccount1;
 
-            const withdrawAmount = ethers.parseEther("25"); // Big amount, we removed checkPrefundCheck.
+            const withdrawAmount = ethers.parseEther("25"); // Withdraw 25 ETH to the bot.
 
             // Register bot
             const withdrawTx = ttmAccount
