@@ -485,8 +485,8 @@ function WantedServices({
   registered: string[];
 }) {
   const { writeContractAsync } = useWriteContract();
-  const { catalog } = useServiceCatalog();
-  const { items: hashes, isLoading, refetch } = useContractList(account, abi, "getWantedServiceHashes");
+  const { catalog, isLoading: catalogLoading } = useServiceCatalog();
+  const { items: hashes, isLoading: hashesLoading, refetch } = useContractList(account, abi, "getWantedServiceHashes");
   const [name, setName] = useState("");
   // The catalog covers currently-registered names; falling back to hashing the
   // name directly still yields the correct hash if the registry doesn't have it
@@ -501,6 +501,11 @@ function WantedServices({
     return { hash, name: resolved ?? shortAddress(hash, 10, 8), resolved: resolved !== undefined };
   });
   const groups = groupServicesByPackage(wanted);
+  // Gate on the catalog too: while it's still loading, rows would render as
+  // short hashes and then flip to names, and the Autocomplete below would
+  // briefly offer services this account already wants (mirrors
+  // SupportedServices' isLoading gate above).
+  const isLoading = hashesLoading || catalogLoading;
 
   return (
     <Card title="Wanted Services">

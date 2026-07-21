@@ -578,7 +578,7 @@ ACCOUNT_SCOPE.task("wanted:list", "List all wanted service from TTMAccount")
         try {
             console.log("Listing all wanted services from TTMAccount...");
 
-            const manager = await getManager(hre);
+            const manager = await ethers.getContractAt("TTMAccountManager", await ttmAccount.getManagerAddress());
             const wantedServiceHashes = await ttmAccount.getWantedServiceHashes();
             console.log("Wanted Services:");
             for (const serviceHash of wantedServiceHashes) {
