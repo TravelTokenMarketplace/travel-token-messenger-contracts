@@ -30,7 +30,7 @@ Solidity smart contracts for the Travel Token Messenger ecosystem, built with Ha
 - `yarn lint` — Prettier + ESLint + Solhint; `yarn format` to auto-fix with Prettier
 - `yarn docgen` — regenerate `docs/`
 - `yarn hardhat export-abi` — regenerate `abi/` (see below)
-- Deploy with Hardhat Ignition, e.g. `yarn hardhat ignition deploy ignition/modules/messenger.js --network <name> --parameters ignition/<network>_parameters.json`
+- Deploy with Hardhat Ignition — the single deploy command is **not** sufficient by itself; it leaves the system inert (no roles granted beyond DEFAULT_ADMIN/PAUSER/UPGRADER/VERSIONER, zero services registered). Follow the full runbook in the README's [Deploy (Hardhat Ignition)](README.md#deploy-hardhat-ignition) section, including role grants, service registration, and the `managerAdmin`-does-not-cascade caveat.
 
 ## Networks
 
