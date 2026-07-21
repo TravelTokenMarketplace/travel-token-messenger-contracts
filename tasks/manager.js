@@ -239,7 +239,7 @@ MANAGER_SCOPE.task("role:members", "List role members")
     });
 
 MANAGER_SCOPE.task("role:all", "List all roles").setAction(async (taskArgs, hre) => {
-    const manager = await getManager(hre);
+    await getManager(hre); // validate the manager is deployed on this network before iterating roles
     for (const role of ROLES) {
         console.log(`🛡️  ${bold(role)}`);
         console.log(`${bold("=".repeat(48))}`);

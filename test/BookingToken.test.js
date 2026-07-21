@@ -3261,15 +3261,17 @@ describe("BookingToken", function () {
                 .grantRole(await ttmAccount.BOOKING_OPERATOR_ROLE(), signers.botOperator.address);
 
             await expect(
-                ttmAccount.connect(signers.botOperator).mintBookingToken(
-                    await ttmAccount.getAddress(),
-                    "https://example.com/token",
-                    (await helpers.time.latest()) + 3600,
-                    100n,
-                    ethers.ZeroAddress,
-                    0,
-                    false,
-                ),
+                ttmAccount
+                    .connect(signers.botOperator)
+                    .mintBookingToken(
+                        await ttmAccount.getAddress(),
+                        "https://example.com/token",
+                        (await helpers.time.latest()) + 3600,
+                        100n,
+                        ethers.ZeroAddress,
+                        0,
+                        false,
+                    ),
             ).to.be.revertedWithCustomError(bookingToken, "EnforcedPause");
         });
     });

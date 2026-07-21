@@ -25,3 +25,6 @@ yarn.lock
 
 # Ignore license file
 LICENSE.md
+
+# Ignore superpowers plan/task docs (not repo source style)
+/.superpowers/

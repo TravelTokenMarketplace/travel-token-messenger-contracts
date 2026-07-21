@@ -604,9 +604,7 @@ describe("TTMAccount", function () {
             const { ttmAccount } = await loadFixture(deployAndConfigureAllFixture);
             const amount = ethers.parseEther("1.5");
 
-            await expect(
-                signers.otherAccount1.sendTransaction({ to: await ttmAccount.getAddress(), value: amount }),
-            )
+            await expect(signers.otherAccount1.sendTransaction({ to: await ttmAccount.getAddress(), value: amount }))
                 .to.emit(ttmAccount, "Deposit")
                 .withArgs(signers.otherAccount1.address, amount);
         });
