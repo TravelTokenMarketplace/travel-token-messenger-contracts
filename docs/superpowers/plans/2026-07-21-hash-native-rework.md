@@ -1415,6 +1415,12 @@ In `ui/src/lib/activity/catalog.ts`:
 
 Update `ui/src/lib/activity/catalog.test.ts` to match — it is **11 tests** after Task 5, and `:92-94` holds the `SERVICE_HASH_EVENTS` assertions that must go with the export. Re-evaluate `:52-60` (see the Task 6 note): after Task 6 its example event no longer produces the shape it asserts.
 
+> **Known gap you must close, found in the Task 6 review.** `useServiceCatalog` seeds from `getAllRegisteredServiceNames()`, which returns only **currently registered** services. `ServiceRegistry._unregisterServiceName` deliberately leaves the name mappings populated so existing accounts can still resolve a deprecated service (`ServiceRegistry.sol`, and `test/PartnerConfiguration.test.js:642` pins this). The old per-hash `getServiceNameByHash` path therefore resolved deprecated names; the catalog alone does **not**, so a service unregistered after an account adopted it renders as a raw hash.
+>
+> Do not accept that regression. Keep the common path at one call, and add a **bounded fallback**: collect the hashes the catalog could not resolve, and issue a single `useReadContracts` batch of `getServiceNameByHash` for just those. In practice that set is empty, so the batch stays disabled. Merge the two sources into one lookup used by the feed and by `ServicesTab`.
+>
+> `ui/src/pages/tabs/ServicesTab.tsx`'s `WantedServices` component already has this regression as of Task 6 — fix it in the same pass rather than leaving two behaviours in one file.
+
 - [ ] **Step 9: Convert the UI's service reads**
 
 `ServicesTab.tsx` reads `getSupportedServices()`, which now returns hashes. Map each hash through `serviceNameForHash(catalog, hash)` for display, falling back to a shortened hash when the name is unknown (a service unregistered after the account added it). Keep the existing `groupServicesByPackage` / `parseServiceName` grouping from `ui/src/lib/serviceName.ts` — it takes names, so it operates on the resolved values.
