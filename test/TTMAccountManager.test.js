@@ -413,11 +413,11 @@ describe("TTMAccountManager", function () {
 
             await expect(
                 ttmAccountManager
-                    .connect(signers.ttmAccountAdmin)
+                    .connect(signers.otherAccount1)
                     .createTTMAccount(signers.ttmAccountAdmin.address, signers.ttmAccountUpgrader.address),
             )
                 .to.emit(ttmAccountManager, "TTMAccountCreated")
-                .withArgs(anyValue, signers.ttmAccountAdmin.address, signers.ttmAccountAdmin.address);
+                .withArgs(anyValue, signers.otherAccount1.address, signers.ttmAccountAdmin.address);
         });
 
         it("should report unknown addresses as not being TTM Accounts", async function () {
