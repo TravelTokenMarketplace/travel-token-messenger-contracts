@@ -3223,16 +3223,20 @@ describe("BookingToken", function () {
         });
     });
 
-    describe("Refund payment model (Decision 3)", function () {
-        // See docs/decisions/2026-07-21-contract-design-decisions.md, Decision 3:
-        // the cancellation refund is *pushed* to whoever currently holds the
-        // booking token, in the same transaction that finalizes the
-        // cancellation. If that push cannot land, the whole cancellation fails.
+    describe("Cancellation blocked by a non-TTM-Account holder", function () {
+        // See docs/decisions/2026-07-21-contract-design-decisions.md, Decision 3,
+        // and its 2026-07-22 correction: the real blocker here is not the
+        // refund push described in the original Decision 3 write-up. It is
+        // that `ownerAccepted` can only be set by the current owner calling
+        // in, and every entry point requires the caller to be a registered
+        // TTM Account. Once the token leaves the TTM Account ecosystem -
+        // whether to a contract that rejects ETH or to a perfectly ordinary
+        // EOA - cancellation can never be finalized.
         //
-        // This test documents the observed behaviour when the current holder
-        // is a contract that cannot receive ETH. It does not fix anything -
-        // Decision 3 is an open business decision.
-        it("should document what happens when the refund recipient cannot receive ETH", async function () {
+        // This test documents the observed behaviour and pins it as a known,
+        // pre-existing limitation. It does not fix anything - the fix (or
+        // accepted trade-off) is a business decision to be made separately.
+        it("should document that cancellation can never finalize once the token leaves the TTM Account ecosystem", async function () {
             const {
                 supplierTTMAccount,
                 distributorTTMAccount,
@@ -3285,17 +3289,27 @@ describe("BookingToken", function () {
 
             // OBSERVED BEHAVIOUR (verified by running this test): the call
             // reverts, but *before* the refund push Decision 3 describes is
-            // ever attempted. `acceptCancellation` requires its caller to
-            // itself be a registered TTM Account (`onlyTTMAccount`), and
-            // RejectsEther is a plain contract, not one - so once the token
-            // has left the TTM Account ecosystem, `proposal.ownerAccepted` can
-            // never become true, and `finalizeCancellation` always reverts
-            // with `OwnerNotAcceptedCancellation` rather than a raw ETH-send
-            // failure. The practical effect Decision 3 warns about still
-            // holds: the booking can never be cancelled, and the refund
-            // amount never leaves the supplier's account - it is blocked one
-            // step earlier than the decision doc's push-failure framing, not
-            // avoided.
+            // ever attempted. The real gate is that `ownerAccepted` can only
+            // be set by the current owner calling in (BookingTokenCancellable.sol
+            // :226, :299, :352), and every public entry point on BookingToken
+            // is `onlyTTMAccount(msg.sender)` - so the owner must itself be a
+            // registered TTM Account or it can never accept, and
+            // `finalizeCancellation` always reverts with
+            // `OwnerNotAcceptedCancellation` rather than a raw ETH-send
+            // failure. This is NOT specific to RejectsEther or to contracts
+            // that reject ETH: an ordinary EOA holder trips the exact same
+            // gate, since an EOA is never a registered TTM Account either.
+            // RejectsEther is used here only because it is a convenient way
+            // to land the token outside the TTM Account ecosystem; a
+            // perfectly ordinary, willing EOA would hit the identical revert.
+            // The practical effect Decision 3 warns about still holds: the
+            // booking can never be cancelled, and the refund amount never
+            // leaves the supplier's account - it is blocked one step earlier
+            // than the decision doc's push-failure framing, not avoided.
+            const supplierTTMAccountAddress = await supplierTTMAccount.getAddress();
+            const supplierBalanceBeforeFinalize = await ethers.provider.getBalance(supplierTTMAccountAddress);
+            const ownerBalanceBeforeFinalize = await ethers.provider.getBalance(rejectsEtherAddress);
+
             const finalizeTx = supplierTTMAccount
                 .connect(supplierBookingOperator)
                 .finalizeCancellation(tokenWithNativePayment, refundAmount);
@@ -3305,9 +3319,15 @@ describe("BookingToken", function () {
             // Nothing moved: the transaction is atomic, so the would-be refund
             // never leaves the supplier's account, and the booking is left
             // permanently stuck in BOUGHT status - not cancellable, not
-            // resolved.
+            // resolved. Assert this directly, rather than just checking the
+            // recipient's balance is zero (which would hold trivially even if
+            // the revert never happened, since the recipient never had any
+            // ETH to begin with): both the supplier's and the would-be
+            // recipient's balances must be exactly what they were right
+            // before the reverted call.
             expect(await bookingToken.getBookingStatus(tokenWithNativePayment)).to.equal(3); // Bought == 3
-            expect(await ethers.provider.getBalance(rejectsEtherAddress)).to.equal(0n);
+            expect(await ethers.provider.getBalance(supplierTTMAccountAddress)).to.equal(supplierBalanceBeforeFinalize);
+            expect(await ethers.provider.getBalance(rejectsEtherAddress)).to.equal(ownerBalanceBeforeFinalize);
         });
     });
 

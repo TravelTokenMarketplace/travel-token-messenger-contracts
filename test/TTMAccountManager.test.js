@@ -431,11 +431,31 @@ describe("TTMAccountManager", function () {
             const { ttmAccountManager } = await loadFixture(deployAndConfigureAllFixture);
 
             // signers.otherAccount3 holds no roles at all.
-            await expect(
-                ttmAccountManager
-                    .connect(signers.otherAccount3)
-                    .createTTMAccount(signers.otherAccount3.address, signers.otherAccount3.address),
-            ).to.not.be.reverted;
+            const tx = await ttmAccountManager
+                .connect(signers.otherAccount3)
+                .createTTMAccount(signers.otherAccount3.address, signers.otherAccount3.address);
+            const receipt = await tx.wait();
+
+            // Parse event to get the TTMAccount address (this is the UUPS proxy address)
+            const event = receipt.logs.find((log) => {
+                try {
+                    return ttmAccountManager.interface.parseLog(log).name === "TTMAccountCreated";
+                } catch (e) {
+                    return false;
+                }
+            });
+
+            const parsedEvent = ttmAccountManager.interface.parseLog(event);
+            const newAccountAddress = parsedEvent.args.account;
+
+            // Not reverting is necessary but not sufficient - confirm the
+            // call actually did what it claims: a real account was created
+            // and registered, with the unprivileged caller recorded as its
+            // creator.
+            expect(await ttmAccountManager.isTTMAccount(newAccountAddress)).to.be.true;
+            expect(await ttmAccountManager.getTTMAccountCreator(newAccountAddress)).to.equal(
+                signers.otherAccount3.address,
+            );
 
             // IF THIS TEST FAILS, READ THIS BEFORE "FIXING" IT.
             //
