@@ -195,6 +195,8 @@ contract TTMAccountManager is
         __Pausable_init();
         __AccessControl_init();
         __UUPSUpgradeable_init();
+        __ReentrancyGuard_init();
+        __ServiceRegistry_init();
 
         _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
         _grantRole(PAUSER_ROLE, pauser);

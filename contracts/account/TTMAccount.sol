@@ -209,6 +209,7 @@ contract TTMAccount is
         __AccessControl_init();
         __UUPSUpgradeable_init();
         __ReentrancyGuard_init();
+        __PartnerConfiguration_init();
 
         _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
         _grantRole(SERVICE_ADMIN_ROLE, defaultAdmin);
