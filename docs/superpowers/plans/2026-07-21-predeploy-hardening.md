@@ -27,13 +27,14 @@
   | 8 | 127 | +3 zero-address |
   | 9 | 130 | +3 pausable |
   | 10 | 131 | +1 deposit |
-  | 11 | 128 | −3 removed `reinitializeV2` tests |
-  | 12 | 129 | +1 capability |
+  | 11 | 131 | ±0 — one `it` block replaced by one (see below) |
+  | 12 | 132 | +1 capability |
 
   If a count does not match, stop and find out why before continuing — a
   silently skipped or double-counted test is a real problem.
 - Do NOT run `yarn install` unless a task explicitly says to. Disk is tight on this machine.
 - Never use `git checkout`, `git stash`, or `git reset` to undo work — the repo has uncommitted docs on this branch.
+- **All `file:line` references in this plan were captured before any task ran and drift as earlier tasks add and remove lines.** Locate every target by its content — the symbol name, the comment text, the code shape — and treat the line number as a hint only. If content and line number disagree, the content wins. Confirm you changed the right thing before editing.
 - Commit after every task. Work happens on branch `docs/predeploy-hardening-spec` or a branch created from it.
 
 ### Disk-space environment (this machine)
@@ -51,7 +52,20 @@ export GOMODCACHE=/hgst/work/.ttm-scratch/gomod
 
 `scripts/generate_go_abi.sh` does its own `rm -rf node_modules && yarn install`, which is slow and disk-heavy. Therefore:
 
-- Contract-changing tasks regenerate **`abi/` and `docs/` only** (fast: `yarn compile` runs docgen automatically; `yarn hardhat export-abi` is quick).
+- Contract-changing tasks regenerate **`abi/` and `docs/` only**.
+
+  > **`yarn compile` does NOT reliably run docgen.** Despite
+  > `docgen.runOnCompile: true`, Hardhat's compilation cache short-circuits it,
+  > so `docs/` silently goes stale. This bit Task 3. Any task that adds or
+  > removes a contract symbol must run:
+  >
+  > ```sh
+  > yarn hardhat clean && yarn compile && yarn docgen && yarn hardhat export-abi
+  > ```
+  >
+  > then confirm `git status --porcelain` is empty **and** that `docs/index.md`
+  > no longer mentions any symbol the task removed. CI's `docs` job asserts a
+  > clean tree after regenerating, so stale docs fail the build.
 - **Go bindings are regenerated once, in Task 17.**
 - Intermediate commits will therefore have a stale `go/contracts/`. This is expected and is resolved by Task 17 before any PR is opened.
 
@@ -592,14 +606,17 @@ Expected: the two overflow tests FAIL (no `GasMoneyValueOutOfRange` error exists
     /**
      * @notice Per-account withdrawal accounting, packed into a single slot.
      */
-    struct GasMoneyWithdrawal {
+    struct GasMoneyWithdrawalRecord {
         uint128 amount; // wei withdrawn in the current period
         uint64 periodStart; // unix timestamp of the current period start
     }
+    // NOTE: named ...Record, not ...Withdrawal -- `event GasMoneyWithdrawal`
+    // already exists in this file and the bare name is a compile error
+    // (DeclarationError: Identifier already declared).
 
     /// @custom:storage-location erc7201:traveltoken.messenger.storage.GasMoneyManager
     struct GasMoneyStorage {
-        mapping(address => GasMoneyWithdrawal) _withdrawals;
+        mapping(address => GasMoneyWithdrawalRecord) _withdrawals;
         uint128 _withdrawalLimit;
         uint64 _withdrawalPeriod;
     }
@@ -660,7 +677,7 @@ Replace the body of `_withdrawGasMoney` (lines 89-119):
             revert WithdrawalLimitExceeded(limit, amount);
         }
 
-        GasMoneyWithdrawal memory withdrawal = $._withdrawals[msg.sender];
+        GasMoneyWithdrawalRecord memory withdrawal = $._withdrawals[msg.sender];
         uint256 currentTime = block.timestamp;
 
         // Reset the withdrawn amount if a new period has started. If more time than
@@ -717,7 +734,7 @@ Replace lines 153-158:
         address account
     ) public view returns (uint256 periodStart, uint256 withdrawnAmount) {
         GasMoneyStorage storage $ = _getGasMoneyStorage();
-        GasMoneyWithdrawal memory withdrawal = $._withdrawals[account];
+        GasMoneyWithdrawalRecord memory withdrawal = $._withdrawals[account];
         return (uint256(withdrawal.periodStart), uint256(withdrawal.amount));
     }
 ```
@@ -1272,8 +1289,8 @@ sender/amount, so no UI change is needed."
 
 **Files:**
 - Modify: `contracts/booking-token/BookingToken.sol:299`, delete `:314-330` (the REINITIALIZE section)
-- Modify: `test/BookingToken.test.js:45`, delete `:52,56,64` assertions
-- Modify: `ui/src/pages/tabs/BookingTokenTab.test.tsx:11,49`
+- Modify: `test/BookingToken.test.js` — replace the `it("should reinitialize correctly")` block (see Step 5)
+- Modify: `ui/src/pages/tabs/BookingTokenTab.test.tsx` (two `"TRIP"` occurrences)
 
 **Interfaces:**
 - Consumes: nothing
@@ -1324,9 +1341,27 @@ Remove the entire `REINITIALIZE` section from `contracts/booking-token/BookingTo
     }
 ```
 
-- [ ] **Step 5: Delete the three reinitializeV2 tests**
+- [ ] **Step 5: Replace the reinitializeV2 test block — do not simply delete it**
 
-In `test/BookingToken.test.js`, remove the assertions at (originally) lines 52, 56, and 64 — the non-admin revert test, the happy-path rename, and the double-reinitialize revert. Delete the enclosing `it(...)` blocks entirely, and the `newName`/`newSymbol` constants if they become unused.
+There is **one** `it("should reinitialize correctly")` block, not three, and it contains two unrelated things:
+
+1. The **only** assertions anywhere in the suite that the token's initialized name and symbol are correct. This is exactly what this task changes, so the coverage must survive.
+2. The `reinitializeV2` lifecycle assertions (unauthorized-caller revert, happy-path rename, double-reinit revert), which die with the function.
+
+Replace the whole block with:
+
+```javascript
+        it("should initialize name and symbol correctly", async function () {
+            const { bookingToken } = await loadFixture(deployBookingTokenFixture);
+
+            expect(await bookingToken.name()).to.be.equal("BookingToken");
+            expect(await bookingToken.symbol()).to.be.equal("BToken");
+        });
+```
+
+This also drops the meaningless `const currentName =` / `const currentSymbol =` bindings (`expect()` returns an assertion object), the three unused fixture destructures, and the now-unused `newName`/`newSymbol` constants.
+
+One block replaced by one block, so **the suite count does not change**.
 
 - [ ] **Step 6: Update the UI test**
 
@@ -1340,7 +1375,7 @@ Do **not** run the UI test suite (it needs its own install, and disk is tight). 
 yarn compile && yarn test
 ```
 
-Expected: `128 passing` (three fewer than after Task 10).
+Expected: `131 passing` — unchanged, because Step 5 replaces one block with one block.
 
 - [ ] **Step 8: Confirm reinitializeV2 is gone from the ABI**
 
@@ -1445,7 +1480,7 @@ Expected: PASS.
 
 - [ ] **Step 6: Run the full suite and commit**
 
-Expected: `129 passing`.
+Expected: `132 passing`.
 
 ```bash
 yarn test && yarn hardhat export-abi
@@ -1578,6 +1613,11 @@ Delete the four "removed as service fees are deprecated" / "Obsolete developer f
 
 - `README.md:59-62` — remove "developer fee" from the `TTMAccountManager` description
 - `CLAUDE.md` — remove the same claim; correct "`yarn compile` also runs `contract-sizer`" to mention docgen as well
+- **`README.md:35` and `CLAUDE.md:37`** — both still instruct `yarn hardhat vars set BASESCAN_API_KEY`. Task 1 renamed the variable to `ETHERSCAN_API_KEY` and removed the fallback, so anyone following these literally sets the wrong name and hits a deliberate hard failure. Update both. Verify none remain:
+
+  ```bash
+  grep -rn "BASESCAN_API_KEY" README.md CLAUDE.md hardhat.config.js || echo "clean"
+  ```
 
 - [ ] **Step 11: Compile, test, commit**
 
@@ -2004,6 +2044,19 @@ yarn hardhat ignition verify chain-84532
 Marking the two `ERC1967Proxy` addresses as **proxies** on Basescan is a
 separate manual step in the Basescan UI.
 
+> **Overriding `managerAdmin` does NOT cascade to the other roles.** Hardhat
+> Ignition 0.15.8 cannot resolve a module parameter used as another parameter's
+> default (`_resolveDefaultValue` only recurses into `AccountRuntimeValue`), so
+> `managerPauser`, `managerUpgrader`, `managerVersioner`, `bookingAdmin`, and
+> `bookingUpgrader` each default to **account 0 — the deployer key** —
+> independently of `managerAdmin`.
+>
+> If you point `managerAdmin` at a Safe and forget the other five, those roles
+> silently stay on the deployer key. Nothing in the dry-run or deploy output
+> warns you. **Set all six explicitly in `base_sepolia_parameters.json`** if they
+> should differ from the deployer, and verify role membership on-chain after
+> deploying, before step 8.
+
 **8. Hand off admin roles.** Transfer `DEFAULT_ADMIN_ROLE`, `UPGRADER_ROLE`,
 and `VERSIONER_ROLE` to the Safe, verify the Safe can act, and only **then**
 renounce the deployer's roles. The manager is a singleton — renouncing before
@@ -2065,7 +2118,7 @@ limitation that must close before mainnet."
 After Task 17, confirm the whole branch:
 
 - [ ] `yarn compile` — succeeds; no contract over 22.5 KiB
-- [ ] `yarn test` — passes; **exactly 129** (120 baseline + 12 new − 3 removed `reinitializeV2` tests)
+- [ ] `yarn test` — passes; **exactly 132** (120 baseline + 12 new; Task 11 is count-neutral)
 - [ ] `yarn lint` — passes
 - [ ] `git status --porcelain` — clean
 - [ ] `grep -rn "camino\|CAM\b\|cheque\|prefund\|ServiceFeeToken\|developer fee" contracts/ tasks/ scripts/ test/ --include='*.sol' --include='*.js' -i` — only the intentional historical reference in the Decision-1 NatSpec pointer

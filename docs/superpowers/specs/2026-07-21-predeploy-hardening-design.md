@@ -105,12 +105,14 @@ mapping(address => uint256) _withdrawnAmount;
 // TO:
 uint128 _withdrawalLimit;    // wei; 3.4e38 >> total ETH supply
 uint64  _withdrawalPeriod;   // seconds; 5.8e11 years
-mapping(address => GasMoneyWithdrawal) _withdrawals;
+mapping(address => GasMoneyWithdrawalRecord) _withdrawals;
 
-struct GasMoneyWithdrawal {
+struct GasMoneyWithdrawalRecord {
     uint128 amount;
     uint64  periodStart;
 }
+// NOTE: ...Record, not ...Withdrawal -- `event GasMoneyWithdrawal` already
+// exists in this file, and the bare name is a compile error.
 ```
 
 Removes one cold SLOAD from every bot gas withdrawal — the highest-frequency
@@ -412,10 +414,19 @@ Hardhat 3 is explicitly out of scope. Revisit after testnet is stable.
 ### 8.2 Configuration variables
 
 Rename `BASESCAN_API_KEY` → `ETHERSCAN_API_KEY` (V2 uses one unified Etherscan
-key across chains) and **remove the `"abc"` default** at `hardhat.config.js:46-47`
-so a missing key fails loudly. Keep Hardhat `vars` rather than `.env` — it is
-already wired and keeps secrets out of the repo. `BASE_SEPOLIA_URL` is not a
-secret and may be a plain environment variable.
+key across chains) and replace the `"abc"` default at `hardhat.config.js:46-47`
+with an **empty-string** default so a missing key fails at `verify` time with a
+clear auth error.
+
+> **Do not drop the default entirely.** An earlier draft of this spec said to
+> remove it "so a missing key fails loudly." That is wrong: `vars.get` with no
+> fallback throws at **config load** (`HH1201`), so *every* Hardhat command —
+> `compile`, `test`, `lint` — fails, and CI cannot run at all. Caught in the
+> final whole-branch review.
+
+Keep Hardhat `vars` rather than `.env` — it is already wired and keeps secrets
+out of the repo. `BASE_SEPOLIA_URL` is also a Hardhat configuration variable,
+**not** an environment variable: set it with `yarn hardhat vars set`, not `export`.
 
 ### 8.3 Task fixes
 
@@ -546,3 +557,39 @@ yarn compile && yarn docgen && yarn hardhat export-abi && bash scripts/generate_
 The `docs` and `go-bindings` CI jobs both assert `git status --porcelain` is
 empty. `go/contracts/servicefeetoken/` must be removed by hand — the generator
 will not do it.
+
+
+---
+
+## Implementation outcomes (recorded 2026-07-21, after execution)
+
+Implemented on `feat/predeploy-hardening` in 17 tasks. Final state: **134 tests
+passing** (120 at baseline), `yarn lint` green, all seven ERC-7201 storage
+constants byte-identical, exactly one ABI removal branch-wide
+(`BookingToken.reinitializeV2`, as sanctioned).
+
+Final contract sizes against the 22.5 KiB gate: `TTMAccountManager` 12.800 KiB,
+`TTMAccount` 21.371 KiB, `BookingToken` 21.552 KiB. `optimizer.runs` stayed at
+1000 — the fallback to 500 was never needed.
+
+Five things this spec got wrong, corrected during implementation:
+
+1. **`ETHERSCAN_API_KEY` must keep a default.** See §8.2 above. This was the
+   only Critical finding and it broke CI for the whole branch until fixed.
+2. **`GasMoneyWithdrawal` collides with the existing event of that name.** The
+   struct is `GasMoneyWithdrawalRecord`.
+3. **`managerVersioner` must NOT be overridden in the parameters file.** The
+   Ignition module itself calls `setAccountImplementation` and
+   `setBookingTokenAddress`, both `onlyRole(VERSIONER_ROLE)`, as account 0 —
+   pointing the role elsewhere reverts the deploy mid-run. Transfer it during
+   the role handoff instead. Related: Hardhat Ignition 0.15.8 cannot resolve a
+   module parameter used as another parameter's default, so overriding
+   `managerAdmin` does not cascade to the sibling roles.
+4. **`reinitializeV2` had one test block, not three** — and that block held the
+   suite's only assertions that the token's name and symbol initialize
+   correctly. It was replaced rather than deleted, so the count is unchanged.
+5. **`yarn compile` does not reliably run docgen** — Hardhat's compile cache
+   short-circuits it despite `docgen.runOnCompile: true`. Symbol-removing work
+   must run `yarn hardhat clean` first or `docs/` silently goes stale.
+
+Deferred work remains as scoped, in `docs/decisions/`.
