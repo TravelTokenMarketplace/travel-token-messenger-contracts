@@ -62,27 +62,6 @@ function ServiceLabel({ parsed }: { parsed: ParsedService }) {
   );
 }
 
-// Explicit single-overload fragments: the TTMAccount ABI overloads these by
-// (string) and (bytes32), which makes viem's overload resolution ambiguous.
-const RESTRICTED_RATE_ABI = [
-  {
-    type: "function",
-    name: "getServiceRestrictedRate",
-    stateMutability: "view",
-    inputs: [{ type: "bytes32" }],
-    outputs: [{ type: "bool" }],
-  },
-] as const;
-const CAPABILITIES_ABI = [
-  {
-    type: "function",
-    name: "getServiceCapabilities",
-    stateMutability: "view",
-    inputs: [{ type: "bytes32" }],
-    outputs: [{ type: "string[]" }],
-  },
-] as const;
-
 interface ServiceInfo {
   hash: Hex;
   name: string;
@@ -314,9 +293,10 @@ function SupportedServices({
   // name directly still yields the correct hash if the registry doesn't have it
   // (e.g. it was unregistered after being added to this account).
   const hashFor = (name: string) => catalog.hashByName.get(name) ?? hashServiceName(name);
-  // getSupportedServices() returns a (bytes32,(bool,string[]))[] tuple that viem
-  // cannot reliably decode, so list service hashes and resolve names + config
-  // via per-hash getters instead.
+  // Read the hash list on its own (rather than the combined getSupportedServices()
+  // tuple) so names and per-service config can be resolved and loading-gated
+  // independently: names come from the shared catalog resolver below, config from
+  // a separate batched read keyed on these hashes.
   const {
     data: hashesData,
     isLoading: hashesLoading,
@@ -339,8 +319,8 @@ function SupportedServices({
     refetch: refetchConfig,
   } = useReadContracts({
     contracts: hashes.flatMap((h) => [
-      { chainId, address: account, abi: RESTRICTED_RATE_ABI, functionName: "getServiceRestrictedRate", args: [h] },
-      { chainId, address: account, abi: CAPABILITIES_ABI, functionName: "getServiceCapabilities", args: [h] },
+      { chainId, address: account, abi, functionName: "getServiceRestrictedRate", args: [h] },
+      { chainId, address: account, abi, functionName: "getServiceCapabilities", args: [h] },
     ]),
     allowFailure: true,
     query: { enabled: hashes.length > 0 },
