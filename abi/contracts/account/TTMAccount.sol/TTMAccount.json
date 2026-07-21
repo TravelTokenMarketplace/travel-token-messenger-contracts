@@ -79,17 +79,6 @@
     "type": "error"
   },
   {
-    "inputs": [
-      {
-        "internalType": "uint8",
-        "name": "use",
-        "type": "uint8"
-      }
-    ],
-    "name": "InvalidPublicKeyUseType",
-    "type": "error"
-  },
-  {
     "inputs": [],
     "name": "NotInitializing",
     "type": "error"
@@ -114,27 +103,6 @@
       }
     ],
     "name": "PaymentTokenDoesNotExist",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "withdrawableAmount",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "prefundLeft",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "PrefundNotSpentYet",
     "type": "error"
   },
   {

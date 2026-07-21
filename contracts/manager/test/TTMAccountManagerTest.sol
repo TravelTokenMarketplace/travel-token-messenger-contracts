@@ -14,8 +14,4 @@ contract TTMAccountManagerTest is TTMAccountManager {
     function getVersion() public pure returns (string memory) {
         return "TESTING";
     }
-
-    // function setTTMAccountInfo(address account, TTMAccountInfo memory info) public onlyRole(DEFAULT_ADMIN_ROLE) {
-    //     _setTTMAccountInfo(account, info);
-    // }
 }

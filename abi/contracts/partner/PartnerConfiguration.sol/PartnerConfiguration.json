@@ -5,17 +5,6 @@
     "type": "error"
   },
   {
-    "inputs": [
-      {
-        "internalType": "uint8",
-        "name": "use",
-        "type": "uint8"
-      }
-    ],
-    "name": "InvalidPublicKeyUseType",
-    "type": "error"
-  },
-  {
     "inputs": [],
     "name": "NotInitializing",
     "type": "error"

@@ -78,7 +78,6 @@ abstract contract PartnerConfiguration is Initializable {
 
     error PublicKeyAlreadyExists(address pubKeyAddress);
     error PublicKeyDoesNotExist(address pubKeyAddress);
-    error InvalidPublicKeyUseType(uint8 use);
 
     /***************************************************
      *                    EVENTS                       *

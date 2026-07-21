@@ -4,7 +4,6 @@
 
 pragma solidity 0.8.24;
 
-import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { AccessControlEnumerableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlEnumerableUpgradeable.sol";
@@ -189,11 +188,6 @@ contract TTMAccount is
      * @notice New implementation is the same as the current implementation, no update needed
      */
     error TTMAccountNoUpgradeNeeded(address oldImplementation, address newImplementation);
-
-    /**
-     * @notice Error to revert with if the prefund is not spent yet
-     */
-    error PrefundNotSpentYet(uint256 withdrawableAmount, uint256 prefundLeft, uint256 amount);
 
     /**
      * @notice Error to revert if transfer to zero address

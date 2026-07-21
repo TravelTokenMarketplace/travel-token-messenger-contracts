@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 pragma solidity 0.8.24;
 
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+
 enum CancellationProposalStatus {
     NO_PROPOSAL, // 0, default
     PENDING, // 1
@@ -9,7 +11,7 @@ enum CancellationProposalStatus {
     FINALIZED // 4
 }
 
-contract BookingTokenCancellable {
+abstract contract BookingTokenCancellable is Initializable {
     struct Proposal {
         uint256 refundAmount; // Slot n (32 bytes)
         address initialProposer; // Slot n+1 (20 bytes)
@@ -92,8 +94,6 @@ contract BookingTokenCancellable {
      ***************************************************/
 
     error NotOwnerOrSupplier();
-
-    error CancellationProposalExists(uint256 tokenId);
 
     error IncorrectRefundAmount(uint256 tokenId, uint256 existing, uint256 checked);
 

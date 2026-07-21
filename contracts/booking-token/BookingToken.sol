@@ -247,16 +247,6 @@ contract BookingToken is
     error TokenIsReserved(uint256 tokenId, address reservedFor);
 
     /**
-     * @notice Insufficient allowance to transfer the ERC20 token to the supplier.
-     *
-     * @param sender msg.sender
-     * @param paymentToken payment token address
-     * @param price price of the token
-     * @param allowance allowance amount
-     */
-    error InsufficientAllowance(address sender, IERC20 paymentToken, uint256 price, uint256 allowance);
-
-    /**
      * @notice Invalid token status.
      *
      * @param tokenId token id

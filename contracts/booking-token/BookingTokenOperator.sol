@@ -2,7 +2,6 @@
 pragma solidity 0.8.24;
 
 import { IBookingToken, IERC20 } from "./IBookingToken.sol";
-import { CancellationProposalStatus } from "./BookingTokenCancellable.sol";
 
 // ERC-20 Utils
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
