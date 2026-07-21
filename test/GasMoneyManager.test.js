@@ -267,4 +267,49 @@ describe("GasMoneyManager", function () {
                 .withArgs(withdrawer.address, withdrawAmount3);
         });
     });
+
+    describe("Storage packing", function () {
+        it("should still return uint256 from the getters", async function () {
+            const { ttmAccount } = await loadFixture(deployAndConfigureAllFixture);
+            const [limit, period] = await ttmAccount.getGasMoneyWithdrawal();
+            expect(limit).to.equal(ethers.parseEther("10"));
+            expect(period).to.equal(86400n);
+
+            const iface = ttmAccount.interface.getFunction("getGasMoneyWithdrawal");
+            expect(iface.outputs.map((o) => o.type)).to.deep.equal(["uint256", "uint256"]);
+
+            const accIface = ttmAccount.interface.getFunction("getGasMoneyWithdrawalForAccount");
+            expect(accIface.outputs.map((o) => o.type)).to.deep.equal(["uint256", "uint256"]);
+        });
+
+        it("should accept values at the uint128/uint64 bounds", async function () {
+            const { ttmAccount } = await loadFixture(deployAndConfigureAllFixture);
+            const maxLimit = 2n ** 128n - 1n;
+            const maxPeriod = 2n ** 64n - 1n;
+
+            await ttmAccount.connect(signers.ttmAccountAdmin).setGasMoneyWithdrawal(maxLimit, maxPeriod);
+
+            const [limit, period] = await ttmAccount.getGasMoneyWithdrawal();
+            expect(limit).to.equal(maxLimit);
+            expect(period).to.equal(maxPeriod);
+        });
+
+        it("should revert rather than truncate when the limit overflows uint128", async function () {
+            const { ttmAccount } = await loadFixture(deployAndConfigureAllFixture);
+            const tooBig = 2n ** 128n;
+
+            await expect(
+                ttmAccount.connect(signers.ttmAccountAdmin).setGasMoneyWithdrawal(tooBig, 86400n),
+            ).to.be.revertedWithCustomError(ttmAccount, "GasMoneyValueOutOfRange");
+        });
+
+        it("should revert rather than truncate when the period overflows uint64", async function () {
+            const { ttmAccount } = await loadFixture(deployAndConfigureAllFixture);
+            const tooBig = 2n ** 64n;
+
+            await expect(
+                ttmAccount.connect(signers.ttmAccountAdmin).setGasMoneyWithdrawal(ethers.parseEther("10"), tooBig),
+            ).to.be.revertedWithCustomError(ttmAccount, "GasMoneyValueOutOfRange");
+        });
+    });
 });

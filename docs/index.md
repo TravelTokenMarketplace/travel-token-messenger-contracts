@@ -6,14 +6,24 @@ GasMoneyManager manages gas money withdrawals for a {TTMAccount}.
 
 Gas money withdrawals are restricted to a withdrawal limit and period.
 
+### GasMoneyWithdrawalRecord
+
+Per-account withdrawal accounting, packed into a single slot.
+
+```solidity
+struct GasMoneyWithdrawalRecord {
+    uint128 amount;
+    uint64 periodStart;
+}
+```
+
 ### GasMoneyStorage
 
 ```solidity
 struct GasMoneyStorage {
-    mapping(address => uint256) _withdrawalPeriodStart;
-    mapping(address => uint256) _withdrawnAmount;
-    uint256 _withdrawalLimit;
-    uint256 _withdrawalPeriod;
+  mapping(address => struct GasMoneyManager.GasMoneyWithdrawalRecord) _withdrawals;
+  uint128 _withdrawalLimit;
+  uint64 _withdrawalPeriod;
 }
 ```
 
@@ -57,6 +67,12 @@ error WithdrawalLimitExceeded(uint256 limit, uint256 amount)
 
 ```solidity
 error WithdrawalLimitExceededForPeriod(uint256 limit, uint256 amount)
+```
+
+### GasMoneyValueOutOfRange
+
+```solidity
+error GasMoneyValueOutOfRange(uint256 limit, uint256 period)
 ```
 
 ### \_\_GasMoneyManager_init
