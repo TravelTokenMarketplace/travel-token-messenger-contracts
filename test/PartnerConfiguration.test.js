@@ -600,6 +600,15 @@ describe("PartnerConfiguration", function () {
             // Try to get all services
             const servicesFromTTMAccount = await ttmAccount.getSupportedServices();
             expect(servicesFromTTMAccount).to.be.deep.equal([[serviceHash], [[restrictedRate, capabilities]]]);
+
+            // The registry deliberately keeps resolving the deprecated name by hash even
+            // though the service is no longer registered (this is what the UI's bounded
+            // fallback in useResolvedServiceNames/getServiceNameByHash relies on).
+            expect(await ttmAccountManager.getServiceNameByHash(serviceHash)).to.equal(serviceName);
+            await expect(ttmAccountManager.getRegisteredServiceNameByHash(serviceHash)).to.be.revertedWithCustomError(
+                ttmAccountManager,
+                "ServiceNotRegistered",
+            );
         });
 
         it("should keep a wanted service hash even if it becomes unregistered on the manager", async function () {
