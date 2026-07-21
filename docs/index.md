@@ -659,40 +659,46 @@ Removes a single capability from a service.
 ### getSupportedServices
 
 ```solidity
-function getSupportedServices() public view returns (string[] serviceNames, struct PartnerConfiguration.Service[] services)
+function getSupportedServices() public view returns (bytes32[] serviceHashes, struct PartnerConfiguration.Service[] services)
 ```
 
-Get all supported services. Return a list of service names and a list of service objects.
+Returns every supported service as a hash plus its stored record.
+
+_Reads no longer touch the manager. Resolve hashes to names client-side from
+the registry's `ServiceRegistered` events or `getAllRegisteredServiceNames()`.
+Unbounded - prefer {getSupportedServicesSlice} against a public RPC._
+
+### getSupportedServicesSlice
+
+```solidity
+function getSupportedServicesSlice(uint256 offset, uint256 limit) public view returns (bytes32[] serviceHashes, struct PartnerConfiguration.Service[] services)
+```
+
+Returns a bounded window of supported services.
+
+Returns empty arrays if `offset` is at or past the end; the window is clamped to
+the end of the list, so an oversized `limit` is not an error.
+
+#### Parameters
+
+| Name   | Type    | Description                          |
+| ------ | ------- | ------------------------------------ |
+| offset | uint256 | Index to start at                    |
+| limit  | uint256 | Maximum number of services to return |
 
 ### isServiceSupported
 
 ```solidity
-function isServiceSupported(string serviceName) public view returns (bool)
+function isServiceSupported(bytes32 serviceHash) public view returns (bool)
 ```
 
-Check if a service is registered and supported.
+Checks whether a service is supported by this account.
 
 #### Parameters
 
-| Name        | Type   | Description           |
-| ----------- | ------ | --------------------- |
-| serviceName | string | Service name to check |
-
-### getServiceRestrictedRate
-
-```solidity
-function getServiceRestrictedRate(string serviceName) public view returns (bool restrictedRate)
-```
-
-Get service restricted rate by name. Overloading the getServiceRestrictedRate function.
-
-### getServiceCapabilities
-
-```solidity
-function getServiceCapabilities(string serviceName) public view returns (string[] capabilities)
-```
-
-Get service capabilities by name. Overloading the getServiceCapabilities function.
+| Name        | Type    | Description                       |
+| ----------- | ------- | --------------------------------- |
+| serviceHash | bytes32 | Hash of the service name to check |
 
 ### addWantedServices
 
@@ -2132,29 +2138,14 @@ function getAccountImplementation() external view returns (address)
 function isTTMAccount(address account) external view returns (bool)
 ```
 
-### getRegisteredServiceHashByName
-
-```solidity
-function getRegisteredServiceHashByName(string serviceName) external view returns (bytes32 serviceHash)
-```
-
-### getServiceHashByName
-
-```solidity
-function getServiceHashByName(string serviceName) external view returns (bytes32 serviceHash)
-```
-
 ### getRegisteredServiceNameByHash
 
 ```solidity
 function getRegisteredServiceNameByHash(bytes32 serviceHash) external view returns (string serviceName)
 ```
 
-### getServiceNameByHash
-
-```solidity
-function getServiceNameByHash(bytes32 serviceHash) external view returns (string serviceName)
-```
+_Reverts if the hash is not registered. This is the sole remaining
+manager dependency of TTMAccount, used to validate {addService}._
 
 ## TTMAccountManager
 

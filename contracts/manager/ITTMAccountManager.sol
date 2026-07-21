@@ -7,11 +7,7 @@ interface ITTMAccountManager {
 
     function isTTMAccount(address account) external view returns (bool);
 
-    function getRegisteredServiceHashByName(string memory serviceName) external view returns (bytes32 serviceHash);
-
-    function getServiceHashByName(string memory serviceName) external view returns (bytes32 serviceHash);
-
+    /// @dev Reverts if the hash is not registered. This is the sole remaining
+    /// manager dependency of TTMAccount, used to validate {addService}.
     function getRegisteredServiceNameByHash(bytes32 serviceHash) external view returns (string memory serviceName);
-
-    function getServiceNameByHash(bytes32 serviceHash) external view returns (string memory serviceName);
 }

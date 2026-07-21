@@ -39,3 +39,26 @@ export function buildServiceCatalog(names: string[]): ServiceCatalog {
 export function serviceNameForHash(catalog: ServiceCatalog, hash: string): string | undefined {
   return catalog.nameByHash.get(hash.toLowerCase());
 }
+
+/**
+ * De-duplicated hashes from `hashes` that the catalog cannot resolve.
+ *
+ * The catalog is seeded from `getAllRegisteredServiceNames()`, which only lists
+ * *currently registered* services. `ServiceRegistry` deliberately keeps a name
+ * mapping around after a service is unregistered (so accounts that already
+ * adopted it can still resolve the name), so a hash can be legitimate and
+ * still miss the catalog. This is the input to the bounded per-hash fallback
+ * batch: in the common case every hash resolves here and the result is empty,
+ * so the fallback batch stays disabled.
+ */
+export function unresolvedHashes(catalog: ServiceCatalog, hashes: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const hash of hashes) {
+    const key = hash.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (serviceNameForHash(catalog, hash) === undefined) result.push(hash);
+  }
+  return result;
+}

@@ -547,70 +547,64 @@ contract TTMAccount is
     }
 
     /**
-     * @notice Get service hash by name. Returns the keccak256 hash of the
-     * registered service name from the account manager
+     * @notice Returns every supported service as a hash plus its stored record.
+     *
+     * @dev Reads no longer touch the manager. Resolve hashes to names client-side from
+     * the registry's `ServiceRegistered` events or `getAllRegisteredServiceNames()`.
+     * Unbounded - prefer {getSupportedServicesSlice} against a public RPC.
      */
-    function getRegisteredServiceHash(string memory serviceName) private view returns (bytes32 serviceHash) {
-        return ITTMAccountManager(getManagerAddress()).getRegisteredServiceHashByName(serviceName);
+    function getSupportedServices() public view returns (bytes32[] memory serviceHashes, Service[] memory services) {
+        serviceHashes = getAllServiceHashes();
+        services = new Service[](serviceHashes.length);
+
+        for (uint256 i = 0; i < serviceHashes.length; i++) {
+            services[i] = getService(serviceHashes[i]);
+        }
     }
 
     /**
-     * @notice Get service hash by name. Returns the keccak256 hash of the service name
-     * from the account manager
+     * @notice Returns a bounded window of supported services.
+     *
+     * Returns empty arrays if `offset` is at or past the end; the window is clamped to
+     * the end of the list, so an oversized `limit` is not an error.
+     *
+     * @param offset Index to start at
+     * @param limit Maximum number of services to return
      */
-    function getServiceHash(string memory serviceName) private view returns (bytes32 serviceHash) {
-        return ITTMAccountManager(getManagerAddress()).getServiceHashByName(serviceName);
-    }
-
-    /**
-     * @notice Get service name by hash. Returns the service name from the account manager
-     */
-    function getServiceName(bytes32 serviceHash) private view returns (string memory serviceName) {
-        return ITTMAccountManager(getManagerAddress()).getServiceNameByHash(serviceHash);
-    }
-
-    /***************************************************
-     *           SERVICES WITH RESOLVED NAMES          *
-     ***************************************************/
-
-    /**
-     * @notice Get all supported services. Return a list of service names and a list of service objects.
-     */
-    function getSupportedServices() public view returns (string[] memory serviceNames, Service[] memory services) {
-        // Get all hashes and create a list with predefined length
-        bytes32[] memory _serviceHashes = getAllServiceHashes();
-        string[] memory _serviceNames = new string[](_serviceHashes.length);
-        Service[] memory _allSupportedServicesList = new Service[](_serviceHashes.length);
-
-        for (uint256 i = 0; i < _serviceHashes.length; i++) {
-            _serviceNames[i] = getServiceName(_serviceHashes[i]);
-            _allSupportedServicesList[i] = getService(_serviceHashes[i]);
+    function getSupportedServicesSlice(
+        uint256 offset,
+        uint256 limit
+    ) public view returns (bytes32[] memory serviceHashes, Service[] memory services) {
+        bytes32[] memory allHashes = getAllServiceHashes();
+        uint256 total = allHashes.length;
+        if (offset >= total) {
+            return (new bytes32[](0), new Service[](0));
         }
 
-        return (_serviceNames, _allSupportedServicesList);
+        // Clamp by subtraction, not by computing `offset + limit`: under checked
+        // arithmetic that sum reverts for a large `limit`, which would contradict
+        // the "an oversized limit is not an error" contract above. `offset < total`
+        // here, so `total - offset` cannot underflow.
+        uint256 remaining = total - offset;
+        if (limit > remaining) {
+            limit = remaining;
+        }
+
+        serviceHashes = new bytes32[](limit);
+        services = new Service[](limit);
+        for (uint256 i = 0; i < limit; i++) {
+            serviceHashes[i] = allHashes[offset + i];
+            services[i] = getService(allHashes[offset + i]);
+        }
     }
 
     /**
-     * @notice Check if a service is registered and supported.
+     * @notice Checks whether a service is supported by this account.
      *
-     * @param serviceName Service name to check
+     * @param serviceHash Hash of the service name to check
      */
-    function isServiceSupported(string memory serviceName) public view returns (bool) {
-        return _isServiceSupported(getServiceHash(serviceName));
-    }
-
-    /**
-     * @notice Get service restricted rate by name. Overloading the getServiceRestrictedRate function.
-     */
-    function getServiceRestrictedRate(string memory serviceName) public view returns (bool restrictedRate) {
-        return getServiceRestrictedRate(getServiceHash(serviceName));
-    }
-
-    /**
-     * @notice Get service capabilities by name. Overloading the getServiceCapabilities function.
-     */
-    function getServiceCapabilities(string memory serviceName) public view returns (string[] memory capabilities) {
-        return getServiceCapabilities(getServiceHash(serviceName));
+    function isServiceSupported(bytes32 serviceHash) public view returns (bool) {
+        return _isServiceSupported(serviceHash);
     }
 
     /***************************************************

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { keccak256, toBytes } from "viem";
-import { buildServiceCatalog, hashServiceName, serviceNameForHash } from "./serviceCatalog";
+import { buildServiceCatalog, hashServiceName, serviceNameForHash, unresolvedHashes } from "./serviceCatalog";
 
 describe("serviceCatalog", () => {
   const name = "ttm.services.accommodation.v1alpha.AccommodationSearchService";
@@ -52,5 +52,39 @@ describe("serviceCatalog", () => {
 
     expect(catalog.nameByHash.size).toBe(0);
     expect(catalog.hashByName.size).toBe(0);
+  });
+});
+
+describe("unresolvedHashes", () => {
+  const name = "ttm.services.accommodation.v1alpha.AccommodationSearchService";
+  const registeredHash = hashServiceName(name);
+  // A hash that is *not* in the catalog: this is the deprecated-service case — a service
+  // an account adopted while it was registered, later unregistered on the manager. The
+  // catalog (seeded from currently-registered names only) can never contain it.
+  const deprecatedHash = hashServiceName("ttm.services.nope.v1.NopeService");
+
+  it("returns nothing when every hash is in the catalog", () => {
+    const catalog = buildServiceCatalog([name]);
+
+    expect(unresolvedHashes(catalog, [registeredHash])).toEqual([]);
+  });
+
+  it("returns exactly the hashes the catalog is missing", () => {
+    const catalog = buildServiceCatalog([name]);
+
+    expect(unresolvedHashes(catalog, [registeredHash, deprecatedHash])).toEqual([deprecatedHash]);
+  });
+
+  it("de-dupes case-insensitively, keeping the first-seen casing", () => {
+    const catalog = buildServiceCatalog([]);
+    const upper = deprecatedHash.toUpperCase().replace("0X", "0x");
+
+    expect(unresolvedHashes(catalog, [deprecatedHash, upper])).toEqual([deprecatedHash]);
+  });
+
+  it("returns an empty list for an empty input", () => {
+    const catalog = buildServiceCatalog([name]);
+
+    expect(unresolvedHashes(catalog, [])).toEqual([]);
   });
 });

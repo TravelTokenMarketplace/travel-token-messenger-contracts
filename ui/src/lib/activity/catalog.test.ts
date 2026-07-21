@@ -3,10 +3,8 @@ import {
   ACCOUNT_EVENTS,
   BOOKING_TOKEN_EVENTS,
   MANAGER_EVENTS,
-  SERVICE_HASH_EVENTS,
   lookupEntry,
   renderSentence,
-  serviceHashArg,
   toActivityEvent,
 } from "./catalog";
 
@@ -67,15 +65,6 @@ describe("catalog rendering", () => {
     ).toBe("Wanted service (0xabcd…1234) added");
   });
 
-  it("serviceHashArg still falls back to a serviceName field for any event shape that needs it", () => {
-    // No current account event carries `serviceName` any more (Task 6 converted the last
-    // one), but the fallback stays for future/other producers — keep it under direct test
-    // since render() alone can no longer exercise this branch.
-    expect(serviceHashArg({ serviceHash: "0xhash" })).toBe("0xhash");
-    expect(serviceHashArg({ serviceName: "0xname" })).toBe("0xname");
-    expect(serviceHashArg({ serviceHash: "0xhash", serviceName: "0xname" })).toBe("0xhash");
-  });
-
   it("uses the resolved service name when injected via serviceLabel", () => {
     expect(renderSentence("account", "ServiceAdded", { serviceHash: "0xabcd…", serviceLabel: "ttm.x.v1.Foo" })).toBe(
       'Supported service "ttm.x.v1.Foo" added',
@@ -96,12 +85,6 @@ describe("catalog rendering", () => {
     expect(render("account", "TTMAccountUpgraded", { oldImplementation: ACC, newImplementation: BUYER })).toBe(
       "Account upgraded to implementation 0xbBbB…0002",
     );
-  });
-
-  it("flags every account service event as resolvable", () => {
-    expect(SERVICE_HASH_EVENTS.has("ServiceAdded")).toBe(true);
-    expect(SERVICE_HASH_EVENTS.has("WantedServiceRemoved")).toBe(true);
-    expect(SERVICE_HASH_EVENTS.has("Deposit")).toBe(false);
   });
 
   it("exposes non-overlapping event sets per source", () => {

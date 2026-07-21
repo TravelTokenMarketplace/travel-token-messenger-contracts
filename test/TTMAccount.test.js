@@ -741,5 +741,99 @@ describe("TTMAccount", function () {
                 ttmAccount.connect(signers.ttmServiceAdmin).addWantedServices([unregistered]),
             ).to.be.revertedWithCustomError(ttmAccount, "ServiceNotRegistered");
         });
+
+        it("should return supported services as hashes with no manager round-trip", async function () {
+            await setupSigners();
+            // deployAndConfigureAllFixture alone does not grant ttmServiceAdmin the
+            // SERVICE_ADMIN_ROLE; only the WithRegisteredServices variant does.
+            const { ttmAccount, ttmAccountManager } = await loadFixture(
+                deployAndConfigureAllWithRegisteredServicesFixture,
+            );
+
+            const names = [
+                "ttm.services.accommodation.v1alpha.AccommodationSearchService",
+                "ttm.services.activity.v2.ActivitySearchService",
+            ];
+            const hashes = [];
+            for (const name of names) {
+                await ttmAccountManager.connect(signers.registryAdmin).registerService(name);
+                const hash = serviceHash(name);
+                hashes.push(hash);
+                await ttmAccount.connect(signers.ttmServiceAdmin).addService(hash, true, ["luggage"]);
+            }
+
+            const [serviceHashes, services] = await ttmAccount.getSupportedServices();
+            expect(serviceHashes).to.deep.equal(hashes);
+            expect(services).to.have.lengthOf(2);
+            expect(services[0][0]).to.be.true; // _restrictedRate
+
+            const [pageHashes] = await ttmAccount.getSupportedServicesSlice(1, 5);
+            expect(pageHashes).to.deep.equal([hashes[1]]);
+
+            // The string-typed API is gone.
+            expect(ttmAccount.interface.fragments.some((f) => f.name === "getServiceHash")).to.be.false;
+        });
+
+        describe("getSupportedServicesSlice pagination", function () {
+            async function threeServicesFixture() {
+                await setupSigners();
+                const { ttmAccount, ttmAccountManager } = await loadFixture(
+                    deployAndConfigureAllWithRegisteredServicesFixture,
+                );
+
+                const names = [
+                    "ttm.services.accommodation.v1alpha.AccommodationSearchService",
+                    "ttm.services.activity.v2.ActivitySearchService",
+                    "ttm.services.transport.v1.TransportSearchService",
+                ];
+                const hashes = [];
+                for (const name of names) {
+                    await ttmAccountManager.connect(signers.registryAdmin).registerService(name);
+                    const hash = serviceHash(name);
+                    hashes.push(hash);
+                    await ttmAccount.connect(signers.ttmServiceAdmin).addService(hash, false, []);
+                }
+                return { ttmAccount, hashes };
+            }
+
+            it("returns an empty window when offset is at or past the end", async function () {
+                const { ttmAccount, hashes } = await threeServicesFixture();
+
+                const [atEnd] = await ttmAccount.getSupportedServicesSlice(hashes.length, 5);
+                expect(atEnd).to.deep.equal([]);
+
+                const [pastEnd] = await ttmAccount.getSupportedServicesSlice(hashes.length + 10, 5);
+                expect(pastEnd).to.deep.equal([]);
+            });
+
+            it("clamps the window when limit exceeds the remainder, without reverting", async function () {
+                const { ttmAccount, hashes } = await threeServicesFixture();
+
+                // offset = 1, limit far larger than the 2 remaining entries: must clamp to
+                // what's left, not revert and not return garbage beyond the array bounds.
+                const [pageHashes, pageServices] = await ttmAccount.getSupportedServicesSlice(1, 1000);
+                expect(pageHashes).to.deep.equal(hashes.slice(1));
+                expect(pageServices).to.have.lengthOf(2);
+            });
+
+            it("returns an empty window for limit == 0", async function () {
+                const { ttmAccount } = await threeServicesFixture();
+
+                const [pageHashes, pageServices] = await ttmAccount.getSupportedServicesSlice(0, 0);
+                expect(pageHashes).to.deep.equal([]);
+                expect(pageServices).to.deep.equal([]);
+            });
+
+            it("does not revert for an oversized limit at offset 0", async function () {
+                const { ttmAccount, hashes } = await threeServicesFixture();
+
+                // A naive `offset + limit` bound check reverts under Solidity 0.8 checked
+                // arithmetic when `limit` is this large; clamping by subtraction (total -
+                // offset) must not. This pins the exact overflow shape Task 1 shipped.
+                const maxUint256 = 2n ** 256n - 1n;
+                const [pageHashes] = await ttmAccount.getSupportedServicesSlice(0, maxUint256);
+                expect(pageHashes).to.deep.equal(hashes);
+            });
+        });
     });
 });

@@ -191,11 +191,11 @@ describe("PartnerConfiguration", function () {
                 .withArgs(serviceHash3);
 
             // Verify services are added
-            const [serviceNames] = await ttmAccount.getSupportedServices();
-            expect(serviceNames).to.have.lengthOf(3);
-            expect(serviceNames).to.include(serviceName1);
-            expect(serviceNames).to.include(serviceName2);
-            expect(serviceNames).to.include(serviceName3);
+            const [serviceHashes] = await ttmAccount.getSupportedServices();
+            expect(serviceHashes).to.have.lengthOf(3);
+            expect(serviceHashes).to.include(serviceHash1);
+            expect(serviceHashes).to.include(serviceHash2);
+            expect(serviceHashes).to.include(serviceHash3);
 
             // Try to remove all services with non-auth address
             await expect(ttmAccount.connect(signers.otherAccount3).removeAllServices())
@@ -212,8 +212,8 @@ describe("PartnerConfiguration", function () {
                 .withArgs(serviceHash3);
 
             // Verify all services are removed
-            const [remainingServiceNames] = await ttmAccount.getSupportedServices();
-            expect(remainingServiceNames).to.have.lengthOf(0);
+            const [remainingServiceHashes] = await ttmAccount.getSupportedServices();
+            expect(remainingServiceHashes).to.have.lengthOf(0);
 
             // Try to remove all services again, should not fail (no-op)
             await expect(ttmAccount.connect(signers.otherAccount1).removeAllServices()).to.not.emit(
@@ -307,7 +307,7 @@ describe("PartnerConfiguration", function () {
             // Get all services
             const servicesFromTTMAccount = await ttmAccount.getSupportedServices();
             expect(servicesFromTTMAccount).to.be.deep.equal([
-                [services.serviceName1, services.serviceName2, services.serviceName3],
+                [services.serviceHash1, services.serviceHash2, services.serviceHash3],
                 [
                     [restrictedRate1, capabilities1],
                     [restrictedRate2, capabilities2],
@@ -315,27 +315,15 @@ describe("PartnerConfiguration", function () {
                 ],
             ]);
 
-            // Get specific restricted rate for a service name
-            expect(await ttmAccount["getServiceRestrictedRate(string)"](services.serviceName1)).to.be.equal(
-                restrictedRate1,
-            );
-            expect(await ttmAccount["getServiceRestrictedRate(string)"](services.serviceName2)).to.be.equal(
-                restrictedRate2,
-            );
-            expect(await ttmAccount["getServiceRestrictedRate(string)"](services.serviceName3)).to.be.equal(
-                restrictedRate3,
-            );
+            // Get specific restricted rate for a service hash
+            expect(await ttmAccount.getServiceRestrictedRate(services.serviceHash1)).to.be.equal(restrictedRate1);
+            expect(await ttmAccount.getServiceRestrictedRate(services.serviceHash2)).to.be.equal(restrictedRate2);
+            expect(await ttmAccount.getServiceRestrictedRate(services.serviceHash3)).to.be.equal(restrictedRate3);
 
-            // Get specific capabilities for a service name
-            expect(await ttmAccount["getServiceCapabilities(string)"](services.serviceName1)).to.be.deep.equal(
-                capabilities1,
-            );
-            expect(await ttmAccount["getServiceCapabilities(string)"](services.serviceName2)).to.be.deep.equal(
-                capabilities2,
-            );
-            expect(await ttmAccount["getServiceCapabilities(string)"](services.serviceName3)).to.be.deep.equal(
-                capabilities3,
-            );
+            // Get specific capabilities for a service hash
+            expect(await ttmAccount.getServiceCapabilities(services.serviceHash1)).to.be.deep.equal(capabilities1);
+            expect(await ttmAccount.getServiceCapabilities(services.serviceHash2)).to.be.deep.equal(capabilities2);
+            expect(await ttmAccount.getServiceCapabilities(services.serviceHash3)).to.be.deep.equal(capabilities3);
 
             // TEST SETTERS
             // with new values for each service field
@@ -434,9 +422,7 @@ describe("PartnerConfiguration", function () {
 
             const newCapabilityList = newCapabilities3.concat(["newCapabilities4"]);
 
-            expect(await ttmAccount["getServiceCapabilities(string)"](services.serviceName3)).to.be.deep.equal(
-                newCapabilityList,
-            );
+            expect(await ttmAccount.getServiceCapabilities(services.serviceHash3)).to.be.deep.equal(newCapabilityList);
 
             await expect(
                 ttmAccount
@@ -457,32 +443,20 @@ describe("PartnerConfiguration", function () {
 
             // TEST GETTERS with hashes
 
-            // Get specific restricted rate for a service name
-            expect(await ttmAccount["getServiceRestrictedRate(bytes32)"](services.serviceHash1)).to.be.equal(
-                newRestrictedRate1,
-            );
-            expect(await ttmAccount["getServiceRestrictedRate(bytes32)"](services.serviceHash2)).to.be.equal(
-                newRestrictedRate2,
-            );
-            expect(await ttmAccount["getServiceRestrictedRate(bytes32)"](services.serviceHash3)).to.be.equal(
-                newRestrictedRate3,
-            );
+            // Get specific restricted rate for a service hash
+            expect(await ttmAccount.getServiceRestrictedRate(services.serviceHash1)).to.be.equal(newRestrictedRate1);
+            expect(await ttmAccount.getServiceRestrictedRate(services.serviceHash2)).to.be.equal(newRestrictedRate2);
+            expect(await ttmAccount.getServiceRestrictedRate(services.serviceHash3)).to.be.equal(newRestrictedRate3);
 
-            // Get specific capabilities for a service name
-            expect(await ttmAccount["getServiceCapabilities(bytes32)"](services.serviceHash1)).to.be.deep.equal(
-                newCapabilities1,
-            );
-            expect(await ttmAccount["getServiceCapabilities(bytes32)"](services.serviceHash2)).to.be.deep.equal(
-                newCapabilities2,
-            );
-            expect(await ttmAccount["getServiceCapabilities(bytes32)"](services.serviceHash3)).to.be.deep.equal(
-                newCapabilities3,
-            );
+            // Get specific capabilities for a service hash
+            expect(await ttmAccount.getServiceCapabilities(services.serviceHash1)).to.be.deep.equal(newCapabilities1);
+            expect(await ttmAccount.getServiceCapabilities(services.serviceHash2)).to.be.deep.equal(newCapabilities2);
+            expect(await ttmAccount.getServiceCapabilities(services.serviceHash3)).to.be.deep.equal(newCapabilities3);
 
             // Test failures
             const nonExistingHash = ethers.keccak256(ethers.toUtf8Bytes("NON EXISTING HASH"));
 
-            await expect(ttmAccount["getServiceCapabilities(bytes32)"](nonExistingHash))
+            await expect(ttmAccount.getServiceCapabilities(nonExistingHash))
                 .to.be.revertedWithCustomError(ttmAccount, "ServiceDoesNotExist")
                 .withArgs(nonExistingHash);
         });
@@ -625,7 +599,7 @@ describe("PartnerConfiguration", function () {
 
             // Try to get all services
             const servicesFromTTMAccount = await ttmAccount.getSupportedServices();
-            expect(servicesFromTTMAccount).to.be.deep.equal([[serviceName], [[restrictedRate, capabilities]]]);
+            expect(servicesFromTTMAccount).to.be.deep.equal([[serviceHash], [[restrictedRate, capabilities]]]);
         });
 
         it("should keep a wanted service hash even if it becomes unregistered on the manager", async function () {
@@ -856,16 +830,16 @@ describe("PartnerConfiguration", function () {
             );
 
             // Prior to adding, it should be unsupported
-            expect(await ttmAccount.isServiceSupported(services.serviceName1)).to.be.false;
+            expect(await ttmAccount.isServiceSupported(services.serviceHash1)).to.be.false;
 
             // Add the service
             await ttmAccount.connect(signers.ttmServiceAdmin).addService(services.serviceHash1, false, []);
 
             // Now it should be supported
-            expect(await ttmAccount.isServiceSupported(services.serviceName1)).to.be.true;
+            expect(await ttmAccount.isServiceSupported(services.serviceHash1)).to.be.true;
 
             // Non-registered or other services should still be unsupported
-            expect(await ttmAccount.isServiceSupported(services.serviceName2)).to.be.false;
+            expect(await ttmAccount.isServiceSupported(services.serviceHash2)).to.be.false;
         });
     });
 

@@ -675,13 +675,19 @@ ACCOUNT_SCOPE.task("service:list", "List supported services from TTMAccount")
         try {
             console.log("Listing all supported services from TTMAccount...");
 
+            // getSupportedServices() returns hashes, not names — resolve each via the
+            // manager, the same as `wanted:list`. getServiceNameByHash resolves even a
+            // service that was later unregistered from the manager; an empty result
+            // just means the hash was never registered.
+            const manager = await ethers.getContractAt("TTMAccountManager", await ttmAccount.getManagerAddress());
             const supportedServices = await ttmAccount.getSupportedServices();
-            const serviceNames = supportedServices[0];
+            const serviceHashes = supportedServices[0];
             const serviceDetails = supportedServices[1];
-            if (serviceNames.length > 0) {
+            if (serviceHashes.length > 0) {
                 console.log("Supported Services:");
-                for (let i = 0; i < serviceNames.length; i++) {
-                    console.log(`📦 ${serviceNames[i]}`);
+                for (let i = 0; i < serviceHashes.length; i++) {
+                    const serviceName = await manager.getServiceNameByHash(serviceHashes[i]);
+                    console.log(`📦 ${serviceName ? `${serviceName} (${serviceHashes[i]})` : serviceHashes[i]}`);
                     const restrictedRate =
                         serviceDetails[i]._restrictedRate !== undefined
                             ? serviceDetails[i]._restrictedRate

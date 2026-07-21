@@ -13,9 +13,9 @@ import { TxButton } from "../../components/TxButton";
 import { useActiveContracts } from "../../hooks/useActiveContracts";
 import { useContractList } from "../../hooks/useContractList";
 import { useHasRole } from "../../hooks/useHasRole";
-import { useServiceCatalog } from "../../hooks/useServiceCatalog";
+import { useResolvedServiceNames, useServiceCatalog } from "../../hooks/useServiceCatalog";
 import { shortAddress } from "../../lib/format";
-import { hashServiceName, serviceNameForHash } from "../../lib/serviceCatalog";
+import { hashServiceName } from "../../lib/serviceCatalog";
 import { type ParsedService, groupServicesByPackage } from "../../lib/serviceName";
 import { useTx } from "../../tx/TxProvider";
 
@@ -306,7 +306,7 @@ function SupportedServices({
   hasRole: boolean;
   registered: string[];
 }) {
-  const { manager, managerAbi, chainId } = useActiveContracts();
+  const { chainId } = useActiveContracts();
   const { writeContractAsync } = useWriteContract();
   const { catalog } = useServiceCatalog();
   const serviceInputId = useId();
@@ -314,7 +314,7 @@ function SupportedServices({
   // name directly still yields the correct hash if the registry doesn't have it
   // (e.g. it was unregistered after being added to this account).
   const hashFor = (name: string) => catalog.hashByName.get(name) ?? hashServiceName(name);
-  // getSupportedServices() returns a (uint256,bool,string[])[] tuple that viem
+  // getSupportedServices() returns a (bytes32,(bool,string[]))[] tuple that viem
   // cannot reliably decode, so list service hashes and resolve names + config
   // via per-hash getters instead.
   const {
@@ -328,21 +328,10 @@ function SupportedServices({
     functionName: "getAllServiceHashes",
   });
   const hashes = (hashesData as Hex[] | undefined) ?? [];
-  const {
-    data: nameResults,
-    isLoading: namesLoading,
-    refetch: refetchNames,
-  } = useReadContracts({
-    contracts: hashes.map((h) => ({
-      chainId,
-      address: manager,
-      abi: managerAbi as Abi,
-      functionName: "getRegisteredServiceNameByHash",
-      args: [h],
-    })),
-    allowFailure: true,
-    query: { enabled: hashes.length > 0 },
-  });
+  // One merged lookup for names: the catalog covers the common case (one call),
+  // with a bounded per-hash fallback for a service unregistered after this
+  // account added it (the catalog alone can't see those).
+  const { resolve: resolveName, isLoading: namesLoading } = useResolvedServiceNames(hashes);
   // Per-service config (restricted rate + capabilities), best-effort.
   const {
     data: configResults,
@@ -358,7 +347,7 @@ function SupportedServices({
   });
   const services: ServiceInfo[] = hashes.map((h, i) => ({
     hash: h,
-    name: (nameResults?.[i]?.result as string | undefined) ?? h,
+    name: resolveName(h) ?? h,
     restricted: configResults?.[i * 2]?.result === true,
     capabilities: (configResults?.[i * 2 + 1]?.result as string[] | undefined) ?? [],
   }));
@@ -368,7 +357,6 @@ function SupportedServices({
   const isLoading = hashesLoading || (hashes.length > 0 && (namesLoading || configLoading));
   const refetch = () => {
     void refetchHashes();
-    void refetchNames();
     void refetchConfig();
   };
   const [openHash, setOpenHash] = useState<Hex | null>(null);
@@ -485,27 +473,28 @@ function WantedServices({
   registered: string[];
 }) {
   const { writeContractAsync } = useWriteContract();
-  const { catalog, isLoading: catalogLoading } = useServiceCatalog();
+  const { catalog } = useServiceCatalog();
   const { items: hashes, isLoading: hashesLoading, refetch } = useContractList(account, abi, "getWantedServiceHashes");
   const [name, setName] = useState("");
   // The catalog covers currently-registered names; falling back to hashing the
   // name directly still yields the correct hash if the registry doesn't have it
   // (mirrors SupportedServices' hashFor above).
   const hashFor = (n: string) => catalog.hashByName.get(n) ?? hashServiceName(n);
-  // getWantedServiceHashes() only returns hashes — resolve names from the
-  // catalog, falling back to a shortened hash for a service that was
-  // unregistered after this account wanted it (the catalog only knows
-  // currently-registered names).
+  // getWantedServiceHashes() only returns hashes — resolve names via the merged
+  // catalog + bounded-fallback lookup (same one the activity feed and
+  // SupportedServices use), falling back to a shortened hash only for a
+  // service the fallback batch itself couldn't resolve either.
+  const { resolve: resolveName, isLoading: namesLoading } = useResolvedServiceNames(hashes);
   const wanted = hashes.map((hash) => {
-    const resolved = serviceNameForHash(catalog, hash);
+    const resolved = resolveName(hash);
     return { hash, name: resolved ?? shortAddress(hash, 10, 8), resolved: resolved !== undefined };
   });
   const groups = groupServicesByPackage(wanted);
-  // Gate on the catalog too: while it's still loading, rows would render as
-  // short hashes and then flip to names, and the Autocomplete below would
+  // Gate on name resolution too: while it's still loading, rows would render
+  // as short hashes and then flip to names, and the Autocomplete below would
   // briefly offer services this account already wants (mirrors
   // SupportedServices' isLoading gate above).
-  const isLoading = hashesLoading || catalogLoading;
+  const isLoading = hashesLoading || namesLoading;
 
   return (
     <Card title="Wanted Services">

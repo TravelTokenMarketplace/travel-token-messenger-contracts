@@ -1258,25 +1258,6 @@
   {
     "inputs": [
       {
-        "internalType": "string",
-        "name": "serviceName",
-        "type": "string"
-      }
-    ],
-    "name": "getServiceCapabilities",
-    "outputs": [
-      {
-        "internalType": "string[]",
-        "name": "capabilities",
-        "type": "string[]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
         "internalType": "bytes32",
         "name": "serviceHash",
         "type": "bytes32"
@@ -1299,25 +1280,6 @@
         "internalType": "bytes32",
         "name": "serviceHash",
         "type": "bytes32"
-      }
-    ],
-    "name": "getServiceRestrictedRate",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "restrictedRate",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "string",
-        "name": "serviceName",
-        "type": "string"
       }
     ],
     "name": "getServiceRestrictedRate",
@@ -1336,9 +1298,50 @@
     "name": "getSupportedServices",
     "outputs": [
       {
-        "internalType": "string[]",
-        "name": "serviceNames",
-        "type": "string[]"
+        "internalType": "bytes32[]",
+        "name": "serviceHashes",
+        "type": "bytes32[]"
+      },
+      {
+        "components": [
+          {
+            "internalType": "bool",
+            "name": "_restrictedRate",
+            "type": "bool"
+          },
+          {
+            "internalType": "string[]",
+            "name": "_capabilities",
+            "type": "string[]"
+          }
+        ],
+        "internalType": "struct PartnerConfiguration.Service[]",
+        "name": "services",
+        "type": "tuple[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "offset",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "limit",
+        "type": "uint256"
+      }
+    ],
+    "name": "getSupportedServicesSlice",
+    "outputs": [
+      {
+        "internalType": "bytes32[]",
+        "name": "serviceHashes",
+        "type": "bytes32[]"
       },
       {
         "components": [
@@ -1507,9 +1510,9 @@
   {
     "inputs": [
       {
-        "internalType": "string",
-        "name": "serviceName",
-        "type": "string"
+        "internalType": "bytes32",
+        "name": "serviceHash",
+        "type": "bytes32"
       }
     ],
     "name": "isServiceSupported",
