@@ -434,6 +434,61 @@ lands. Three items:
 
 ---
 
+## Findings from implementation
+
+Recorded after the work landed. Neither is introduced by this branch, and
+neither blocks it — both bear on decisions still open.
+
+### The "bounds a compromised bot key" rationale does not hold end to end
+
+Decisions 4 and 5 are both justified in this document as limiting what a
+compromised bot key can do. That is true within each decision's own scope, and
+both changes are worth keeping. But the two together do **not** bound a
+compromised `BOOKING_OPERATOR_ROLE` key, because Decision 1 leaves account
+creation open. The full path, verified against the code:
+
+1. The attacker holds `BOOKING_OPERATOR_ROLE` on partner account P.
+2. `TTMAccountManager.createTTMAccount` has no access control (Decision 1), so
+   the attacker creates account A and grants itself the roles it wants on A.
+3. A declares any payment token. **Decision 4's check at mint reads A's own
+   allowlist**, so it is satisfied.
+4. A mints a reservation `reservedFor = P` at an arbitrary price.
+   `safeMintWithReservation` requires no relationship between supplier and
+   `reservedFor`.
+5. The attacker calls `P.buyBookingToken(...)` as `BOOKING_OPERATOR_ROLE`,
+   paying out of P's balance. The expected-price and expected-token guards are
+   supplied by the attacker.
+
+Decision 4 constrains the *supplier* side of pricing. It does not constrain the
+*buy* side, which is where a partner's funds actually leave. This is the
+argument that should inform Decision 1 before Base mainnet — reopening it is
+cheaper than an upgrade later.
+
+### `BOT_ADMIN_ROLE` is not a fund-safe delegation
+
+Decision 5's separation is real but narrower than first stated. A
+`BOT_ADMIN_ROLE` holder cannot grant `GAS_WITHDRAWER_ROLE`, but
+`addMessengerBot(bot, gasMoney)` sends an arbitrary amount to an arbitrary
+address, and `setGasMoneyWithdrawal` is also `BOT_ADMIN_ROLE`, so the 0.01 ETH
+default can be raised again by the same role. The natspec has been corrected to
+say so. What the change does buy is real: a compromised *bot* key no longer
+arrives with standing withdrawal authority.
+
+### Phase 3 upgrade ordering
+
+`BookingToken.safeMintWithReservation` now calls
+`ITTMAccount(msg.sender).isSupportedToken(...)`. Account proxies are not
+upgraded automatically when the manager's registered implementation changes, so
+a proxy still on a pre-branch implementation would make mints revert opaquely.
+Moot today — nothing is deployed — but when upgrading a live system, **upgrade
+the account proxies before the BookingToken that enforces**.
+
+Related: removing `_supportsOffChainPayment` shifts the fields after it in
+`PaymentInfo`, so any locally-deployed development instance is storage
+incompatible with this branch and must be redeployed rather than upgraded.
+
+---
+
 ## Appendix — Safe contract addresses, Base Sepolia
 
 Safe v1.4.1 canonical deployments. Needed only by the deferred guided-creation
