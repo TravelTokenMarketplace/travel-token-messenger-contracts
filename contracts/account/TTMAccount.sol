@@ -678,15 +678,6 @@ contract TTMAccount is
      ***************************************************/
 
     /**
-     * @notice Sets if off-chain payment is supported.
-     *
-     * @param _isSupported true if off-chain payment is supported
-     */
-    function setOffChainPaymentSupported(bool _isSupported) public onlyRole(SERVICE_ADMIN_ROLE) {
-        _setOffChainPaymentSupported(_isSupported);
-    }
-
-    /**
      * @notice Adds a supported payment token.
      *
      * @param _supportedToken address of the token

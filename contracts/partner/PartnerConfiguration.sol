@@ -33,7 +33,6 @@ abstract contract PartnerConfiguration is Initializable {
     }
 
     struct PaymentInfo {
-        bool _supportsOffChainPayment; // Supports off chain payments if true
         EnumerableSet.AddressSet _supportedTokens; // Supported on-chain token for payment
     }
 
@@ -87,8 +86,6 @@ abstract contract PartnerConfiguration is Initializable {
 
     event PaymentTokenAdded(address indexed token);
     event PaymentTokenRemoved(address indexed token);
-
-    event OffChainPaymentSupportUpdated(bool supportsOffChainPayment);
 
     event PublicKeyAdded(address indexed pubKeyAddress);
     event PublicKeyRemoved(address indexed pubKeyAddress);
@@ -399,25 +396,6 @@ abstract contract PartnerConfiguration is Initializable {
     function isSupportedToken(address _token) public view virtual returns (bool supported) {
         PartnerConfigurationStorage storage $ = _getPartnerConfigurationStorage();
         return $._paymentInfo._supportedTokens.contains(_token);
-    }
-
-    // PAYMENT INFO: OFF-CHAIN PAYMENT SUPPORT
-
-    /**
-     * @notice Sets the off-chain payment support is supported.
-     */
-    function _setOffChainPaymentSupported(bool _supportsOffChainPayment) internal virtual {
-        PartnerConfigurationStorage storage $ = _getPartnerConfigurationStorage();
-        $._paymentInfo._supportsOffChainPayment = _supportsOffChainPayment;
-        emit OffChainPaymentSupportUpdated(_supportsOffChainPayment);
-    }
-
-    /**
-     * @notice Returns true if off-chain payment is supported for the given service.
-     */
-    function offChainPaymentSupported() public view virtual returns (bool) {
-        PartnerConfigurationStorage storage $ = _getPartnerConfigurationStorage();
-        return $._paymentInfo._supportsOffChainPayment;
     }
 
     /***************************************************

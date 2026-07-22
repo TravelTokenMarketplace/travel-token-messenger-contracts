@@ -853,26 +853,28 @@ describe("PartnerConfiguration", function () {
     });
 
     describe("Payment", function () {
+        it("should declare off-chain payment support via the address(1) sentinel", async function () {
+            const { ttmAccount } = await loadFixture(deployAndConfigureAllWithRegisteredServicesFixture);
+
+            const OFFCHAIN = ethers.getAddress("0x0000000000000000000000000000000000000001");
+
+            expect(await ttmAccount.isSupportedToken(OFFCHAIN)).to.be.false;
+
+            await expect(ttmAccount.connect(signers.ttmServiceAdmin).addSupportedToken(OFFCHAIN))
+                .to.emit(ttmAccount, "PaymentTokenAdded")
+                .withArgs(OFFCHAIN);
+
+            expect(await ttmAccount.isSupportedToken(OFFCHAIN)).to.be.true;
+
+            await expect(
+                ttmAccount.connect(signers.otherAccount1).addSupportedToken(OFFCHAIN),
+            ).to.be.revertedWithCustomError(ttmAccount, "AccessControlUnauthorizedAccount");
+        });
+
         it("should set and remove payment info correctly", async function () {
             const { ttmAccountManager, ttmAccount } = await loadFixture(
                 deployAndConfigureAllWithRegisteredServicesFixture,
             );
-
-            // Get off chain payment supported expecting false
-            expect(await ttmAccount.offChainPaymentSupported()).to.be.equal(false);
-
-            // Set off chain payment supported
-            await expect(ttmAccount.connect(signers.ttmAccountAdmin).setOffChainPaymentSupported(true))
-                .to.emit(ttmAccount, "OffChainPaymentSupportUpdated")
-                .withArgs(true);
-
-            // Try with non-auth address
-            await expect(
-                ttmAccount.connect(signers.otherAccount1).setOffChainPaymentSupported(false),
-            ).to.be.revertedWithCustomError(ttmAccount, "AccessControlUnauthorizedAccount");
-
-            // Get off chain payment supported expecting true
-            expect(await ttmAccount.offChainPaymentSupported()).to.be.equal(true);
 
             // Set supported tokens
             const supportedToken1 = "0x0000000000000000000000000000000000000001";
