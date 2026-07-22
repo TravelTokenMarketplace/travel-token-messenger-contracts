@@ -322,7 +322,9 @@ describe("TTMAccount", function () {
             // Check roles
             expect(await ttmAccount.hasRole(await ttmAccount.MESSENGER_BOT_ROLE(), bot.address)).to.be.true;
             expect(await ttmAccount.hasRole(await ttmAccount.BOOKING_OPERATOR_ROLE(), bot.address)).to.be.true;
-            expect(await ttmAccount.hasRole(await ttmAccount.GAS_WITHDRAWER_ROLE(), bot.address)).to.be.true;
+            // GAS_WITHDRAWER_ROLE is no longer granted by addMessengerBot (Decision 5);
+            // it must be granted explicitly by DEFAULT_ADMIN_ROLE.
+            expect(await ttmAccount.hasRole(await ttmAccount.GAS_WITHDRAWER_ROLE(), bot.address)).to.be.false;
         });
 
         it("should remove messenger bot correctly", async function () {
@@ -390,6 +392,40 @@ describe("TTMAccount", function () {
             await expect(
                 ttmAccount.connect(signers.ttmAccountAdmin).addMessengerBot(ethers.ZeroAddress, 0n),
             ).to.be.revertedWithCustomError(ttmAccount, "TransferToZeroAddress");
+        });
+
+        it("should not grant GAS_WITHDRAWER_ROLE when adding a bot", async function () {
+            const { ttmAccount } = await loadFixture(deployAndConfigureAllFixture);
+            const bot = signers.otherAccount1;
+
+            await ttmAccount.connect(signers.ttmAccountAdmin).addMessengerBot(bot.address, 0n);
+
+            expect(await ttmAccount.hasRole(await ttmAccount.MESSENGER_BOT_ROLE(), bot.address)).to.be.true;
+            expect(await ttmAccount.hasRole(await ttmAccount.BOOKING_OPERATOR_ROLE(), bot.address)).to.be.true;
+            expect(await ttmAccount.hasRole(await ttmAccount.GAS_WITHDRAWER_ROLE(), bot.address)).to.be.false;
+        });
+
+        it("should let the default admin grant GAS_WITHDRAWER_ROLE explicitly", async function () {
+            const { ttmAccount } = await loadFixture(deployAndConfigureAllFixture);
+            const bot = signers.otherAccount1;
+            const GAS_WITHDRAWER_ROLE = await ttmAccount.GAS_WITHDRAWER_ROLE();
+
+            await ttmAccount.connect(signers.ttmAccountAdmin).addMessengerBot(bot.address, 0n);
+            await ttmAccount.connect(signers.ttmAccountAdmin).grantRole(GAS_WITHDRAWER_ROLE, bot.address);
+
+            expect(await ttmAccount.hasRole(GAS_WITHDRAWER_ROLE, bot.address)).to.be.true;
+
+            // Removal still fully de-authorizes a bot granted the role later.
+            await ttmAccount.connect(signers.ttmAccountAdmin).removeMessengerBot(bot.address);
+            expect(await ttmAccount.hasRole(GAS_WITHDRAWER_ROLE, bot.address)).to.be.false;
+        });
+
+        it("should default the gas allowance to 0.01 ETH per 24 hours", async function () {
+            const { ttmAccount } = await loadFixture(deployAndConfigureAllFixture);
+
+            const [limit, period] = await ttmAccount.getGasMoneyWithdrawal();
+            expect(limit).to.equal(ethers.parseEther("0.01"));
+            expect(period).to.equal(24n * 60n * 60n);
         });
     });
 

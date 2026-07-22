@@ -19,7 +19,7 @@ describe("GasMoneyManager", function () {
         it("should initialize gas money manager correctly", async function () {
             const { ttmAccount } = await loadFixture(deployAndConfigureAllFixture);
 
-            const expectedLimit = ethers.parseEther("10"); // 10 ETH
+            const expectedLimit = ethers.parseEther("0.01"); // 0.01 ETH
             const expectedPeriod = 24 * 60 * 60; // 24 hours
 
             expect(await ttmAccount.getGasMoneyWithdrawal()).to.be.deep.equal([expectedLimit, expectedPeriod]);
@@ -29,7 +29,7 @@ describe("GasMoneyManager", function () {
         it("should set gas money limit and period correctly", async function () {
             const { ttmAccount } = await loadFixture(deployAndConfigureAllFixture);
 
-            const expectedLimit = ethers.parseEther("10"); // 10 ETH
+            const expectedLimit = ethers.parseEther("0.01"); // 0.01 ETH
             const expectedPeriod = 24 * 60 * 60; // 24 hours
 
             expect(await ttmAccount.getGasMoneyWithdrawal()).to.be.deep.equal([expectedLimit, expectedPeriod]);
@@ -74,6 +74,16 @@ describe("GasMoneyManager", function () {
             await expect(ttmAccount.connect(signers.ttmAccountAdmin).addMessengerBot(withdrawer.address, 0n))
                 .to.emit(ttmAccount, "MessengerBotAdded")
                 .withArgs(withdrawer.address);
+
+            // Gas withdrawal is no longer granted by addMessengerBot; grant it explicitly.
+            await ttmAccount
+                .connect(signers.ttmAccountAdmin)
+                .grantRole(await ttmAccount.GAS_WITHDRAWER_ROLE(), withdrawer.address);
+
+            // Raise the limit above the new 0.01 ETH default so a 1 ETH withdrawal is allowed.
+            await ttmAccount
+                .connect(signers.ttmAccountAdmin)
+                .setGasMoneyWithdrawal(ethers.parseEther("10"), 24 * 60 * 60);
 
             // Withdraw
             const withdrawAmount = ethers.parseEther("1");
@@ -135,6 +145,14 @@ describe("GasMoneyManager", function () {
                 .to.emit(ttmAccount, "MessengerBotAdded")
                 .withArgs(withdrawer.address);
 
+            // Gas withdrawal is no longer granted by addMessengerBot; grant it explicitly.
+            await ttmAccount
+                .connect(signers.ttmAccountAdmin)
+                .grantRole(await ttmAccount.GAS_WITHDRAWER_ROLE(), withdrawer.address);
+
+            // Raise the limit above the new 0.01 ETH default to exercise the limit mechanism.
+            await ttmAccount.connect(signers.ttmAccountAdmin).setGasMoneyWithdrawal(expectedLimit, 24 * 60 * 60);
+
             // Withdraw
             const withdrawAmount = ethers.parseEther("11"); // 11 ETH, over the limit
 
@@ -164,6 +182,14 @@ describe("GasMoneyManager", function () {
             await expect(ttmAccount.connect(signers.ttmAccountAdmin).addMessengerBot(withdrawer.address, 0n))
                 .to.emit(ttmAccount, "MessengerBotAdded")
                 .withArgs(withdrawer.address);
+
+            // Gas withdrawal is no longer granted by addMessengerBot; grant it explicitly.
+            await ttmAccount
+                .connect(signers.ttmAccountAdmin)
+                .grantRole(await ttmAccount.GAS_WITHDRAWER_ROLE(), withdrawer.address);
+
+            // Raise the limit above the new 0.01 ETH default to exercise the limit mechanism.
+            await ttmAccount.connect(signers.ttmAccountAdmin).setGasMoneyWithdrawal(expectedLimit, 24 * 60 * 60);
 
             // Withdraw
             const withdrawAmount = ethers.parseEther("1"); // Start with 1 ETH
@@ -227,6 +253,14 @@ describe("GasMoneyManager", function () {
                 .to.emit(ttmAccount, "MessengerBotAdded")
                 .withArgs(withdrawer.address);
 
+            // Gas withdrawal is no longer granted by addMessengerBot; grant it explicitly.
+            await ttmAccount
+                .connect(signers.ttmAccountAdmin)
+                .grantRole(await ttmAccount.GAS_WITHDRAWER_ROLE(), withdrawer.address);
+
+            // Raise the limit above the new 0.01 ETH default to exercise the limit mechanism.
+            await ttmAccount.connect(signers.ttmAccountAdmin).setGasMoneyWithdrawal(expectedLimit, 24 * 60 * 60);
+
             // Withdraw
             const withdrawAmount = ethers.parseEther("10"); // withdraw all 10 ETH
 
@@ -267,7 +301,7 @@ describe("GasMoneyManager", function () {
         it("should still return uint256 from the getters", async function () {
             const { ttmAccount } = await loadFixture(deployAndConfigureAllFixture);
             const [limit, period] = await ttmAccount.getGasMoneyWithdrawal();
-            expect(limit).to.equal(ethers.parseEther("10"));
+            expect(limit).to.equal(ethers.parseEther("0.01"));
             expect(period).to.equal(86400n);
 
             const iface = ttmAccount.interface.getFunction("getGasMoneyWithdrawal");

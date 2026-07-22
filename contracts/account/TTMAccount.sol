@@ -35,7 +35,13 @@ import { GasMoneyManager } from "./GasMoneyManager.sol";
  * and `period` (seconds) set by the `BOT_ADMIN_ROLE`. The limit and period
  * apply per bot address: each bot tracks its own withdrawals against the
  * same limit, independently of every other bot on the account. Default
- * starting values are 10 ETH per 24 hours.
+ * starting values are 0.01 ETH per 24 hours.
+ *
+ * Unlike `MESSENGER_BOT_ROLE` and `BOOKING_OPERATOR_ROLE`, `GAS_WITHDRAWER_ROLE`
+ * is not granted by `addMessengerBot`. It must be granted explicitly by
+ * `DEFAULT_ADMIN_ROLE` via the inherited `grantRole`. This separates onboarding
+ * a bot from giving it access to funds: a `BOT_ADMIN_ROLE` holder can add and
+ * remove bots but cannot, by itself, authorize a bot to withdraw gas money.
  *
  * `BOOKING_OPERATOR_ROLE` enables a bot to mint and buy Booking Tokens by
  * calling the corresponding functions on the {BookingToken} contract. The buy
@@ -82,8 +88,9 @@ contract TTMAccount is
 
     /**
      * @notice Gas withdrawer role can withdraw gas money from the contract. This is
-     * intended to be used by the bots and is granted when `addMessengerBot` is
-     * called.
+     * intended to be used by the bots, but is not granted by `addMessengerBot`.
+     * `DEFAULT_ADMIN_ROLE` must grant it explicitly, so a `BOT_ADMIN_ROLE`
+     * holder can onboard and remove bots but cannot give them access to funds.
      */
     bytes32 public constant GAS_WITHDRAWER_ROLE = keccak256("GAS_WITHDRAWER_ROLE");
 
@@ -254,7 +261,7 @@ contract TTMAccount is
         $._bookingToken = bookingToken;
 
         // Initialize GasMoneyManager
-        uint256 withdrawalLimit = 10 ether; // 10 ETH
+        uint256 withdrawalLimit = 0.01 ether; // 0.01 ETH
         uint256 withdrawalPeriod = 24 hours; // per 24 hours
         __GasMoneyManager_init(withdrawalLimit, withdrawalPeriod);
     }
@@ -733,7 +740,6 @@ contract TTMAccount is
         // Grant roles to bot
         _grantRole(MESSENGER_BOT_ROLE, bot);
         _grantRole(BOOKING_OPERATOR_ROLE, bot);
-        _grantRole(GAS_WITHDRAWER_ROLE, bot);
 
         emit MessengerBotAdded(bot);
 
