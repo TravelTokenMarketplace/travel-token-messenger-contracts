@@ -36,10 +36,9 @@ module.exports = [
             // checking unused function arguments in this directory only.
             // `caughtErrors: "none"` covers the handful of best-effort
             // `try { ... } catch (e) { console.log("Failed to fetch ...") }`
-            // blocks used for optional/nice-to-have CLI output (e.g. off-chain
-            // payment support, gas withdrawal settings) — confirmed the called
-            // contract methods are real (GasMoneyManager.getGasMoneyWithdrawal,
-            // PartnerConfiguration.offChainPaymentSupported), so this is
+            // blocks used for optional/nice-to-have CLI output (e.g. gas
+            // withdrawal settings) — confirmed the called contract method is
+            // real (GasMoneyManager.getGasMoneyWithdrawal), so this is
             // deliberate graceful degradation, not a swallowed bug.
             "no-unused-vars": ["error", { args: "none", caughtErrors: "none" }],
         },
