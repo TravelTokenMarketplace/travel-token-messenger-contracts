@@ -170,13 +170,6 @@ export const CATALOG: CatalogEntry[] = [
   ),
   entry("account", "PaymentTokenAdded", "Tokens", Coins, (a) => `Payment token ${addr(a.token)} added`),
   entry("account", "PaymentTokenRemoved", "Tokens", Coins, (a) => `Payment token ${addr(a.token)} removed`),
-  entry(
-    "account",
-    "OffChainPaymentSupportUpdated",
-    "Config",
-    ShieldCheck,
-    (a) => `Off-chain payment support ${a.supportsOffChainPayment ? "enabled" : "disabled"}`,
-  ),
   entry("account", "PublicKeyAdded", "Pubkeys", KeyRound, (a) => `Public key ${addr(a.pubKeyAddress)} added`),
   entry("account", "PublicKeyRemoved", "Pubkeys", KeyRound, (a) => `Public key ${addr(a.pubKeyAddress)} removed`),
   entry("account", "Deposit", "Funds", ArrowDownToLine, (a) => `Deposit of ${ether(a.amount)} from ${addr(a.sender)}`),
