@@ -919,6 +919,34 @@ describe("PartnerConfiguration", function () {
             const supportedTokensAfterRemoval = await ttmAccount.getSupportedTokens();
             expect(supportedTokensAfterRemoval).to.be.deep.equal([supportedToken2]);
         });
+
+        it("should report membership via isSupportedToken, including sentinels", async function () {
+            const { ttmAccount } = await loadFixture(deployAndConfigureAllWithRegisteredServicesFixture);
+
+            const NATIVE = ethers.ZeroAddress;
+            const OFFCHAIN = ethers.getAddress("0x0000000000000000000000000000000000000001");
+            const erc20 = signers.otherAccount1.address;
+
+            // Nothing is declared to begin with.
+            expect(await ttmAccount.isSupportedToken(NATIVE)).to.be.false;
+            expect(await ttmAccount.isSupportedToken(OFFCHAIN)).to.be.false;
+            expect(await ttmAccount.isSupportedToken(erc20)).to.be.false;
+
+            // address(0) must be a legitimate set member, not treated as "unset".
+            await ttmAccount.connect(signers.ttmServiceAdmin).addSupportedToken(NATIVE);
+            await ttmAccount.connect(signers.ttmServiceAdmin).addSupportedToken(OFFCHAIN);
+            await ttmAccount.connect(signers.ttmServiceAdmin).addSupportedToken(erc20);
+
+            expect(await ttmAccount.isSupportedToken(NATIVE)).to.be.true;
+            expect(await ttmAccount.isSupportedToken(OFFCHAIN)).to.be.true;
+            expect(await ttmAccount.isSupportedToken(erc20)).to.be.true;
+            expect(await ttmAccount.getSupportedTokens()).to.have.lengthOf(3);
+
+            // Removal is reflected.
+            await ttmAccount.connect(signers.ttmServiceAdmin).removeSupportedToken(NATIVE);
+            expect(await ttmAccount.isSupportedToken(NATIVE)).to.be.false;
+            expect(await ttmAccount.isSupportedToken(OFFCHAIN)).to.be.true;
+        });
     });
     describe("PublicKeys", function () {
         it("should add a public keys correctly", async function () {

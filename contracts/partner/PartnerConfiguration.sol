@@ -386,6 +386,21 @@ abstract contract PartnerConfiguration is Initializable {
         return $._paymentInfo._supportedTokens.values();
     }
 
+    /**
+     * @notice Returns whether a payment token is declared as supported.
+     *
+     * The two sentinel values are legitimate members of this set:
+     * `address(0)` means native currency and `address(1)` means off-chain
+     * payment, matching how `BookingToken` encodes payment mode.
+     *
+     * @param _token Payment token address, or a sentinel
+     * @return supported Whether the token is declared
+     */
+    function isSupportedToken(address _token) public view virtual returns (bool supported) {
+        PartnerConfigurationStorage storage $ = _getPartnerConfigurationStorage();
+        return $._paymentInfo._supportedTokens.contains(_token);
+    }
+
     // PAYMENT INFO: OFF-CHAIN PAYMENT SUPPORT
 
     /**
