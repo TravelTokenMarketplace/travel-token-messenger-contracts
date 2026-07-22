@@ -16,7 +16,7 @@
 - Contracts are **UUPS upgradeable**. Storage layout rules apply: append fields, never insert or reorder. Deleting a field is permitted **only** because nothing is deployed (`ignition/deployments/` does not exist; `ui/src/contracts/generated/addresses.ts` exports an empty `ADDRESSES`). Verify this still holds before Task 6.
 - Baseline is **159 passing tests** (`yarn test`). Every task must end with at least 159 passing.
 - Run `yarn lint` before each commit. Use `yarn format` to auto-fix Prettier.
-- Do **not** hand-edit `abi/`. It is regenerated in Task 8.
+- Do **not** hand-edit `abi/`, `docs/` or `go/`. All three are regenerated in Task 8.
 - Phases 2 (UI) and 3 (deployment wiring) are out of scope for this plan and get their own plans.
 - This work happens on branch `feat/design-decisions-implementation`, already created.
 
@@ -980,7 +980,7 @@ Decision 5."
 ### Task 8: Regenerate ABIs and docs
 
 **Files:**
-- Modify: `abi/` (generated), `docs/` (generated)
+- Modify: `abi/` (generated), `docs/` (generated), `go/contracts/` (generated)
 
 **Interfaces:**
 - Consumes: all preceding tasks.
@@ -993,6 +993,30 @@ yarn compile
 yarn hardhat export-abi
 yarn docgen
 ```
+
+- [ ] **Step 1b: Regenerate the Go bindings**
+
+`.github/workflows/ci.yaml:104-135` runs a `go-bindings` job that regenerates
+bindings and **fails the build if the working tree is then dirty**. Several
+contracts changed public API in this branch (`approveERC721`,
+`isSupportedToken`, `PaymentTokenNotSupported`, and the removed
+`offChainPaymentSupported` / `setOffChainPaymentSupported`), so
+`go/contracts/ttmaccount/TTMAccount.go` and its siblings are stale. Without
+this step the PR fails CI.
+
+```bash
+bash scripts/generate_go_abi.sh
+```
+
+Requires `abigen` on `PATH` (it is, via mise). Then confirm the tree is clean
+after a second run — that is precisely what CI asserts:
+
+```bash
+bash scripts/generate_go_abi.sh && git status --porcelain
+```
+
+The second invocation must leave `git status --porcelain` empty once the first
+run's output is committed.
 
 - [ ] **Step 2: Confirm the ABI reflects the changes**
 
@@ -1016,10 +1040,12 @@ Expected: at least 167 passing, 0 failing; lint clean.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add abi/ docs/
-git commit -m "chore: regenerate ABIs and docs after decision changes
+git add abi/ docs/ go/
+git commit -m "chore: regenerate ABIs, docs and Go bindings
 
-abi/ is what the UI consumes via ui/scripts/sync-contracts.ts."
+abi/ is what the UI consumes via ui/scripts/sync-contracts.ts. go/ is asserted
+clean by the go-bindings CI job, which fails the build if regeneration leaves
+the tree dirty."
 ```
 
 ---
