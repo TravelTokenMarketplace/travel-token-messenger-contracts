@@ -794,6 +794,11 @@ contract BookingToken is
         // Revert if token does not exist
         owner = _requireOwned(tokenId);
 
+        // Cancellation is only possible while a TTM Account holds the token.
+        // A wallet owner can never call acceptCancellation (every entry point
+        // is onlyTTMAccount), so a proposal against one could never finalize.
+        requireTTMAccount(owner);
+
         // Get storage
         BookingTokenStorage storage $ = _getBookingTokenStorage();
 
