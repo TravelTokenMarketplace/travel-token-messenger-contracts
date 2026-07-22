@@ -42,16 +42,16 @@
     "anonymous": false,
     "inputs": [
       {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "serviceHash",
+        "type": "bytes32"
+      },
+      {
         "indexed": false,
         "internalType": "string",
         "name": "serviceName",
         "type": "string"
-      },
-      {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "serviceHash",
-        "type": "bytes32"
       }
     ],
     "name": "ServiceRegistered",
@@ -61,16 +61,16 @@
     "anonymous": false,
     "inputs": [
       {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "serviceHash",
+        "type": "bytes32"
+      },
+      {
         "indexed": false,
         "internalType": "string",
         "name": "serviceName",
         "type": "string"
-      },
-      {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "serviceHash",
-        "type": "bytes32"
       }
     ],
     "name": "ServiceUnregistered",

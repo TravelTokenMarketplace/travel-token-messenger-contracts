@@ -161,17 +161,27 @@ contract TTMAccount is
 
     // Partner Config Events
 
-    event ServiceAdded(string indexed serviceName);
-    event ServiceRemoved(string indexed serviceName);
+    /**
+     * @dev Service events carry the service hash only. Indexing a dynamic `string`
+     * stores just its keccak hash in the topic and nothing in the data section, so the
+     * old `string indexed serviceName` form published a hash while pretending to
+     * publish a name. Consumers resolve names from `ServiceRegistry`'s
+     * `ServiceRegistered` / `ServiceUnregistered` events, which do carry them.
+     *
+     * Capability strings stay readable: capabilities are free-form partner text with
+     * no registry to resolve against.
+     */
+    event ServiceAdded(bytes32 indexed serviceHash);
+    event ServiceRemoved(bytes32 indexed serviceHash);
 
-    event WantedServiceAdded(string indexed serviceName);
-    event WantedServiceRemoved(string indexed serviceName);
+    event WantedServiceAdded(bytes32 indexed serviceHash);
+    event WantedServiceRemoved(bytes32 indexed serviceHash);
 
-    event ServiceRestrictedRateUpdated(string indexed serviceName, bool restrictedRate);
+    event ServiceRestrictedRateUpdated(bytes32 indexed serviceHash, bool restrictedRate);
 
-    event ServiceCapabilitiesUpdated(string indexed serviceName);
-    event ServiceCapabilityAdded(string indexed serviceName, string capability);
-    event ServiceCapabilityRemoved(string indexed serviceName, string capability);
+    event ServiceCapabilitiesUpdated(bytes32 indexed serviceHash);
+    event ServiceCapabilityAdded(bytes32 indexed serviceHash, string capability);
+    event ServiceCapabilityRemoved(bytes32 indexed serviceHash, string capability);
 
     /***************************************************
      *                    ERRORS                       *
@@ -196,6 +206,16 @@ contract TTMAccount is
      * @notice A required address parameter was the zero address.
      */
     error ZeroAddress();
+
+    /**
+     * @notice The given service hash is not registered in the manager's ServiceRegistry.
+     *
+     * @dev Same selector as ServiceRegistry's `ServiceNotRegistered()` (identical, argument-less
+     * signature) since this error is what actually bubbles up from the staticcall in
+     * {_requireRegisteredService}; declaring it here as well only lets this contract's ABI
+     * name it directly.
+     */
+    error ServiceNotRegistered();
 
     /***************************************************
      *         CONSTRUCTOR & INITIALIZATION            *
@@ -374,9 +394,17 @@ contract TTMAccount is
     }
 
     /**
-     * @notice Record expiration status if the token is expired
+     * @notice Marks an expired reservation as expired on the BookingToken.
+     *
+     * @dev Deliberately permissionless. The underlying `BookingToken.recordExpiration`
+     * is public and unrestricted, so a role gate here would protect nothing - it only
+     * created the false impression that one was needed. The operation is objective
+     * housekeeping: it succeeds only once `block.timestamp` has genuinely passed the
+     * reservation's expiry, so there is nothing for an attacker to gain.
+     *
+     * @param tokenId The booking token to mark expired
      */
-    function recordExpiration(uint256 tokenId) external onlyRole(BOOKING_OPERATOR_ROLE) {
+    function recordExpiration(uint256 tokenId) external {
         BookingTokenOperator.recordExpiration(getBookingTokenAddress(), tokenId);
     }
 
@@ -387,6 +415,19 @@ contract TTMAccount is
      */
     function onERC721Received(address, address, uint256, bytes memory) public virtual returns (bytes4) {
         return this.onERC721Received.selector;
+    }
+
+    /**
+     * @notice See {IERC165-supportsInterface}.
+     *
+     * @dev This contract implements {IERC721Receiver}, so it must say so - counterparties
+     * that capability-detect before transferring an NFT would otherwise conclude it
+     * cannot receive one.
+     */
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view virtual override(AccessControlEnumerableUpgradeable) returns (bool) {
+        return interfaceId == type(IERC721Receiver).interfaceId || super.supportsInterface(interfaceId);
     }
 
     /***************************************************
@@ -432,164 +473,159 @@ contract TTMAccount is
     /**
      * @notice Adds a service to the account as a supported service.
      *
-     * `serviceName` is defined as pkg + service name in protobuf. For example:
+     * `serviceHash` is `keccak256(abi.encodePacked(serviceName))`, where the name is
+     * pkg + service name as defined in the Travel Token Messenger Protocol's protobuf
+     * definitions. For example:
      *
      * ```text
      *  ┌────────────── pkg ─────────────┐ ┌───── service name ─────┐
      * "ttm.services.accommodation.v1alpha.AccommodationSearchService")
      * ```
      *
-     * @dev These services are coming from the Travel Token Messenger Protocol's protobuf
-     * definitions.
+     * @dev The hash must be registered in the manager's `ServiceRegistry`. That check is
+     * the one manager staticcall left on this path: it is a write, called rarely, and
+     * without it an account could advertise a service that does not exist. Reads carry
+     * no manager dependency at all.
      *
-     * @param serviceName Service name to add to the account as a supported service
-     * @param capabilities Capabilities of the service (if any, optional)
+     * @param serviceHash Hash of the service name to support
+     * @param restrictedRate Whether the service is restricted to pre-agreement
+     * @param capabilities Capabilities of the service (optional)
      */
     function addService(
-        string memory serviceName,
+        bytes32 serviceHash,
         bool restrictedRate,
         string[] memory capabilities
     ) public onlyRole(SERVICE_ADMIN_ROLE) {
-        _addService(getRegisteredServiceHash(serviceName), capabilities, restrictedRate);
-        emit ServiceAdded(serviceName);
+        _requireRegisteredService(serviceHash);
+        _addService(serviceHash, capabilities, restrictedRate);
+        emit ServiceAdded(serviceHash);
     }
 
     /**
-     * @notice Remove a service from the account by its name
+     * @notice Reverts unless `serviceHash` is registered in the manager's ServiceRegistry.
      */
-    function removeService(string memory serviceName) public onlyRole(SERVICE_ADMIN_ROLE) {
-        _removeService(getServiceHash(serviceName));
-        emit ServiceRemoved(serviceName);
+    function _requireRegisteredService(bytes32 serviceHash) private view {
+        // Reverts with ServiceNotRegistered if the hash is unknown to the registry.
+        ITTMAccountManager(getManagerAddress()).getRegisteredServiceNameByHash(serviceHash);
     }
 
     /**
-     * @notice Remove all supported services from the account.
-     * This function retrieves all currently supported service names and removes them one by one.
+     * @notice Removes a service from the account by its hash.
+     */
+    function removeService(bytes32 serviceHash) public onlyRole(SERVICE_ADMIN_ROLE) {
+        _removeService(serviceHash);
+        emit ServiceRemoved(serviceHash);
+    }
+
+    /**
+     * @notice Removes all supported services from the account.
      */
     function removeAllServices() public onlyRole(SERVICE_ADMIN_ROLE) {
-        (string[] memory serviceNames, ) = getSupportedServices();
+        bytes32[] memory serviceHashes = getAllServiceHashes();
 
-        for (uint256 i = 0; i < serviceNames.length; i++) {
-            _removeService(getServiceHash(serviceNames[i]));
-            emit ServiceRemoved(serviceNames[i]);
+        for (uint256 i = 0; i < serviceHashes.length; i++) {
+            _removeService(serviceHashes[i]);
+            emit ServiceRemoved(serviceHashes[i]);
         }
     }
 
-    // RESTRICTED RATE
-
     /**
-     * @notice Set the restricted rate of a service by name
+     * @notice Sets whether a service is offered at a restricted (non-rack) rate.
      */
-    function setServiceRestrictedRate(
-        string memory serviceName,
-        bool restrictedRate
-    ) public onlyRole(SERVICE_ADMIN_ROLE) {
-        _setServiceRestrictedRate(getServiceHash(serviceName), restrictedRate);
-        emit ServiceRestrictedRateUpdated(serviceName, restrictedRate);
+    function setServiceRestrictedRate(bytes32 serviceHash, bool restrictedRate) public onlyRole(SERVICE_ADMIN_ROLE) {
+        _setServiceRestrictedRate(serviceHash, restrictedRate);
+        emit ServiceRestrictedRateUpdated(serviceHash, restrictedRate);
     }
 
-    // ALL CAPABILITIES
-
     /**
-     * @notice Set all capabilities for a service by name
+     * @notice Replaces the capability list of a service.
      */
     function setServiceCapabilities(
-        string memory serviceName,
+        bytes32 serviceHash,
         string[] memory capabilities
     ) public onlyRole(SERVICE_ADMIN_ROLE) {
-        _setServiceCapabilities(getServiceHash(serviceName), capabilities);
-        emit ServiceCapabilitiesUpdated(serviceName);
+        _setServiceCapabilities(serviceHash, capabilities);
+        emit ServiceCapabilitiesUpdated(serviceHash);
     }
 
-    // SINGLE CAPABILITY
-
     /**
-     * @notice Add a single capability to the service by name
+     * @notice Adds a single capability to a service.
      */
-    function addServiceCapability(
-        string memory serviceName,
-        string memory capability
-    ) public onlyRole(SERVICE_ADMIN_ROLE) {
-        _addServiceCapability(getServiceHash(serviceName), capability);
-        emit ServiceCapabilityAdded(serviceName, capability);
+    function addServiceCapability(bytes32 serviceHash, string memory capability) public onlyRole(SERVICE_ADMIN_ROLE) {
+        _addServiceCapability(serviceHash, capability);
+        emit ServiceCapabilityAdded(serviceHash, capability);
     }
 
     /**
-     * @notice Remove a single capability from the service by name
+     * @notice Removes a single capability from a service.
      */
     function removeServiceCapability(
-        string memory serviceName,
+        bytes32 serviceHash,
         string memory capability
     ) public onlyRole(SERVICE_ADMIN_ROLE) {
-        _removeServiceCapability(getServiceHash(serviceName), capability);
-        emit ServiceCapabilityRemoved(serviceName, capability);
+        _removeServiceCapability(serviceHash, capability);
+        emit ServiceCapabilityRemoved(serviceHash, capability);
     }
 
     /**
-     * @notice Get service hash by name. Returns the keccak256 hash of the
-     * registered service name from the account manager
+     * @notice Returns every supported service as a hash plus its stored record.
+     *
+     * @dev Reads no longer touch the manager. Resolve hashes to names client-side from
+     * the registry's `ServiceRegistered` events or `getAllRegisteredServiceNames()`.
+     * Unbounded - prefer {getSupportedServicesSlice} against a public RPC.
      */
-    function getRegisteredServiceHash(string memory serviceName) private view returns (bytes32 serviceHash) {
-        return ITTMAccountManager(getManagerAddress()).getRegisteredServiceHashByName(serviceName);
+    function getSupportedServices() public view returns (bytes32[] memory serviceHashes, Service[] memory services) {
+        serviceHashes = getAllServiceHashes();
+        services = new Service[](serviceHashes.length);
+
+        for (uint256 i = 0; i < serviceHashes.length; i++) {
+            services[i] = getService(serviceHashes[i]);
+        }
     }
 
     /**
-     * @notice Get service hash by name. Returns the keccak256 hash of the service name
-     * from the account manager
+     * @notice Returns a bounded window of supported services.
+     *
+     * Returns empty arrays if `offset` is at or past the end; the window is clamped to
+     * the end of the list, so an oversized `limit` is not an error.
+     *
+     * @param offset Index to start at
+     * @param limit Maximum number of services to return
      */
-    function getServiceHash(string memory serviceName) private view returns (bytes32 serviceHash) {
-        return ITTMAccountManager(getManagerAddress()).getServiceHashByName(serviceName);
-    }
-
-    /**
-     * @notice Get service name by hash. Returns the service name from the account manager
-     */
-    function getServiceName(bytes32 serviceHash) private view returns (string memory serviceName) {
-        return ITTMAccountManager(getManagerAddress()).getServiceNameByHash(serviceHash);
-    }
-
-    /***************************************************
-     *           SERVICES WITH RESOLVED NAMES          *
-     ***************************************************/
-
-    /**
-     * @notice Get all supported services. Return a list of service names and a list of service objects.
-     */
-    function getSupportedServices() public view returns (string[] memory serviceNames, Service[] memory services) {
-        // Get all hashes and create a list with predefined length
-        bytes32[] memory _serviceHashes = getAllServiceHashes();
-        string[] memory _serviceNames = new string[](_serviceHashes.length);
-        Service[] memory _allSupportedServicesList = new Service[](_serviceHashes.length);
-
-        for (uint256 i = 0; i < _serviceHashes.length; i++) {
-            _serviceNames[i] = getServiceName(_serviceHashes[i]);
-            _allSupportedServicesList[i] = getService(_serviceHashes[i]);
+    function getSupportedServicesSlice(
+        uint256 offset,
+        uint256 limit
+    ) public view returns (bytes32[] memory serviceHashes, Service[] memory services) {
+        bytes32[] memory allHashes = getAllServiceHashes();
+        uint256 total = allHashes.length;
+        if (offset >= total) {
+            return (new bytes32[](0), new Service[](0));
         }
 
-        return (_serviceNames, _allSupportedServicesList);
+        // Clamp by subtraction, not by computing `offset + limit`: under checked
+        // arithmetic that sum reverts for a large `limit`, which would contradict
+        // the "an oversized limit is not an error" contract above. `offset < total`
+        // here, so `total - offset` cannot underflow.
+        uint256 remaining = total - offset;
+        if (limit > remaining) {
+            limit = remaining;
+        }
+
+        serviceHashes = new bytes32[](limit);
+        services = new Service[](limit);
+        for (uint256 i = 0; i < limit; i++) {
+            serviceHashes[i] = allHashes[offset + i];
+            services[i] = getService(allHashes[offset + i]);
+        }
     }
 
     /**
-     * @notice Check if a service is registered and supported.
+     * @notice Checks whether a service is supported by this account.
      *
-     * @param serviceName Service name to check
+     * @param serviceHash Hash of the service name to check
      */
-    function isServiceSupported(string memory serviceName) public view returns (bool) {
-        return _isServiceSupported(getServiceHash(serviceName));
-    }
-
-    /**
-     * @notice Get service restricted rate by name. Overloading the getServiceRestrictedRate function.
-     */
-    function getServiceRestrictedRate(string memory serviceName) public view returns (bool restrictedRate) {
-        return getServiceRestrictedRate(getServiceHash(serviceName));
-    }
-
-    /**
-     * @notice Get service capabilities by name. Overloading the getServiceCapabilities function.
-     */
-    function getServiceCapabilities(string memory serviceName) public view returns (string[] memory capabilities) {
-        return getServiceCapabilities(getServiceHash(serviceName));
+    function isServiceSupported(bytes32 serviceHash) public view returns (bool) {
+        return _isServiceSupported(serviceHash);
     }
 
     /***************************************************
@@ -597,46 +633,31 @@ contract TTMAccount is
      ***************************************************/
 
     /**
-     * @notice Adds wanted services.
+     * @notice Declares services this account wants to consume from other partners.
      *
-     * @param serviceNames List of service names
+     * @dev Each hash must be registered in the manager's ServiceRegistry, for the same
+     * reason as {addService}.
+     *
+     * @param serviceHashes Hashes of the service names to want
      */
-    function addWantedServices(string[] memory serviceNames) public onlyRole(SERVICE_ADMIN_ROLE) {
-        for (uint256 i = 0; i < serviceNames.length; i++) {
-            bytes32 serviceHash = getRegisteredServiceHash(serviceNames[i]);
-            _addWantedService(serviceHash);
-            emit WantedServiceAdded(serviceNames[i]);
+    function addWantedServices(bytes32[] memory serviceHashes) public onlyRole(SERVICE_ADMIN_ROLE) {
+        for (uint256 i = 0; i < serviceHashes.length; i++) {
+            _requireRegisteredService(serviceHashes[i]);
+            _addWantedService(serviceHashes[i]);
+            emit WantedServiceAdded(serviceHashes[i]);
         }
     }
 
     /**
-     * @notice Removes wanted services.
+     * @notice Removes services from this account's wanted list.
      *
-     * @param serviceNames List of service names
+     * @param serviceHashes Hashes of the service names to stop wanting
      */
-    function removeWantedServices(string[] memory serviceNames) public onlyRole(SERVICE_ADMIN_ROLE) {
-        for (uint256 i = 0; i < serviceNames.length; i++) {
-            bytes32 serviceHash = getServiceHash(serviceNames[i]);
-            _removeWantedService(serviceHash);
-            emit WantedServiceRemoved(serviceNames[i]);
+    function removeWantedServices(bytes32[] memory serviceHashes) public onlyRole(SERVICE_ADMIN_ROLE) {
+        for (uint256 i = 0; i < serviceHashes.length; i++) {
+            _removeWantedService(serviceHashes[i]);
+            emit WantedServiceRemoved(serviceHashes[i]);
         }
-    }
-
-    /**
-     * @notice Get all wanted services.
-     *
-     * @return serviceNames List of service names
-     */
-    function getWantedServices() public view returns (string[] memory serviceNames) {
-        bytes32[] memory _wantedServiceHashes = getWantedServiceHashes();
-
-        string[] memory _wantedServiceNames = new string[](_wantedServiceHashes.length);
-
-        for (uint256 i = 0; i < _wantedServiceHashes.length; i++) {
-            _wantedServiceNames[i] = getServiceName(_wantedServiceHashes[i]);
-        }
-
-        return _wantedServiceNames;
     }
 
     /***************************************************

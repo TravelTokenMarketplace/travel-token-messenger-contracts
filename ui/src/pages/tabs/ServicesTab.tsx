@@ -13,6 +13,9 @@ import { TxButton } from "../../components/TxButton";
 import { useActiveContracts } from "../../hooks/useActiveContracts";
 import { useContractList } from "../../hooks/useContractList";
 import { useHasRole } from "../../hooks/useHasRole";
+import { useResolvedServiceNames, useServiceCatalog } from "../../hooks/useServiceCatalog";
+import { shortAddress } from "../../lib/format";
+import { hashServiceName } from "../../lib/serviceCatalog";
 import { type ParsedService, groupServicesByPackage } from "../../lib/serviceName";
 import { useTx } from "../../tx/TxProvider";
 
@@ -58,27 +61,6 @@ function ServiceLabel({ parsed }: { parsed: ParsedService }) {
     </span>
   );
 }
-
-// Explicit single-overload fragments: the TTMAccount ABI overloads these by
-// (string) and (bytes32), which makes viem's overload resolution ambiguous.
-const RESTRICTED_RATE_ABI = [
-  {
-    type: "function",
-    name: "getServiceRestrictedRate",
-    stateMutability: "view",
-    inputs: [{ type: "bytes32" }],
-    outputs: [{ type: "bool" }],
-  },
-] as const;
-const CAPABILITIES_ABI = [
-  {
-    type: "function",
-    name: "getServiceCapabilities",
-    stateMutability: "view",
-    inputs: [{ type: "bytes32" }],
-    outputs: [{ type: "string[]" }],
-  },
-] as const;
 
 interface ServiceInfo {
   hash: Hex;
@@ -192,7 +174,7 @@ function SupportedServiceRow({
                       run(
                         `${service.restricted ? "Disable" : "Enable"} restricted rate · ${service.name}`,
                         "setServiceRestrictedRate",
-                        [service.name, !service.restricted],
+                        [service.hash, !service.restricted],
                       )
                     }
                     className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs transition-colors disabled:opacity-50 ${
@@ -222,7 +204,7 @@ function SupportedServiceRow({
                           disabled={busy}
                           onClick={() =>
                             run(`Remove capability "${c}" · ${service.name}`, "removeServiceCapability", [
-                              service.name,
+                              service.hash,
                               c,
                             ])
                           }
@@ -244,7 +226,7 @@ function SupportedServiceRow({
                         run(
                           `Add capability "${newCap.trim()}" · ${service.name}`,
                           "addServiceCapability",
-                          [service.name, newCap.trim()],
+                          [service.hash, newCap.trim()],
                           () => setNewCap(""),
                         );
                       }
@@ -258,7 +240,7 @@ function SupportedServiceRow({
                         run(
                           `Add capability "${newCap.trim()}" · ${service.name}`,
                           "addServiceCapability",
-                          [service.name, newCap.trim()],
+                          [service.hash, newCap.trim()],
                           () => setNewCap(""),
                         )
                       }
@@ -277,7 +259,7 @@ function SupportedServiceRow({
                   icon={<Trash2 className="h-4 w-4" />}
                   tooltip="Removes this service from the account — sends a transaction to your wallet."
                   write={() =>
-                    writeContractAsync({ address: account, abi, functionName: "removeService", args: [service.name] })
+                    writeContractAsync({ address: account, abi, functionName: "removeService", args: [service.hash] })
                   }
                   onConfirmed={onChanged}
                 />
@@ -303,12 +285,18 @@ function SupportedServices({
   hasRole: boolean;
   registered: string[];
 }) {
-  const { manager, managerAbi, chainId } = useActiveContracts();
+  const { chainId } = useActiveContracts();
   const { writeContractAsync } = useWriteContract();
+  const { catalog } = useServiceCatalog();
   const serviceInputId = useId();
-  // getSupportedServices() returns a (uint256,bool,string[])[] tuple that viem
-  // cannot reliably decode, so list service hashes and resolve names + config
-  // via per-hash getters instead.
+  // The catalog covers currently-registered names; falling back to hashing the
+  // name directly still yields the correct hash if the registry doesn't have it
+  // (e.g. it was unregistered after being added to this account).
+  const hashFor = (name: string) => catalog.hashByName.get(name) ?? hashServiceName(name);
+  // Read the hash list on its own (rather than the combined getSupportedServices()
+  // tuple) so names and per-service config can be resolved and loading-gated
+  // independently: names come from the shared catalog resolver below, config from
+  // a separate batched read keyed on these hashes.
   const {
     data: hashesData,
     isLoading: hashesLoading,
@@ -320,21 +308,10 @@ function SupportedServices({
     functionName: "getAllServiceHashes",
   });
   const hashes = (hashesData as Hex[] | undefined) ?? [];
-  const {
-    data: nameResults,
-    isLoading: namesLoading,
-    refetch: refetchNames,
-  } = useReadContracts({
-    contracts: hashes.map((h) => ({
-      chainId,
-      address: manager,
-      abi: managerAbi as Abi,
-      functionName: "getRegisteredServiceNameByHash",
-      args: [h],
-    })),
-    allowFailure: true,
-    query: { enabled: hashes.length > 0 },
-  });
+  // One merged lookup for names: the catalog covers the common case (one call),
+  // with a bounded per-hash fallback for a service unregistered after this
+  // account added it (the catalog alone can't see those).
+  const { resolve: resolveName, isLoading: namesLoading } = useResolvedServiceNames(hashes);
   // Per-service config (restricted rate + capabilities), best-effort.
   const {
     data: configResults,
@@ -342,15 +319,15 @@ function SupportedServices({
     refetch: refetchConfig,
   } = useReadContracts({
     contracts: hashes.flatMap((h) => [
-      { chainId, address: account, abi: RESTRICTED_RATE_ABI, functionName: "getServiceRestrictedRate", args: [h] },
-      { chainId, address: account, abi: CAPABILITIES_ABI, functionName: "getServiceCapabilities", args: [h] },
+      { chainId, address: account, abi, functionName: "getServiceRestrictedRate", args: [h] },
+      { chainId, address: account, abi, functionName: "getServiceCapabilities", args: [h] },
     ]),
     allowFailure: true,
     query: { enabled: hashes.length > 0 },
   });
   const services: ServiceInfo[] = hashes.map((h, i) => ({
     hash: h,
-    name: (nameResults?.[i]?.result as string | undefined) ?? h,
+    name: resolveName(h) ?? h,
     restricted: configResults?.[i * 2]?.result === true,
     capabilities: (configResults?.[i * 2 + 1]?.result as string[] | undefined) ?? [],
   }));
@@ -360,7 +337,6 @@ function SupportedServices({
   const isLoading = hashesLoading || (hashes.length > 0 && (namesLoading || configLoading));
   const refetch = () => {
     void refetchHashes();
-    void refetchNames();
     void refetchConfig();
   };
   const [openHash, setOpenHash] = useState<Hex | null>(null);
@@ -441,7 +417,7 @@ function SupportedServices({
                     abi,
                     functionName: "addService",
                     args: [
-                      name.trim(),
+                      hashFor(name.trim()),
                       restricted,
                       caps
                         .split(",")
@@ -477,15 +453,34 @@ function WantedServices({
   registered: string[];
 }) {
   const { writeContractAsync } = useWriteContract();
-  const { items, isLoading, refetch } = useContractList(account, abi, "getWantedServices");
+  const { catalog } = useServiceCatalog();
+  const { items: hashes, isLoading: hashesLoading, refetch } = useContractList(account, abi, "getWantedServiceHashes");
   const [name, setName] = useState("");
-  const groups = groupServicesByPackage(items.map((n) => ({ name: n })));
+  // The catalog covers currently-registered names; falling back to hashing the
+  // name directly still yields the correct hash if the registry doesn't have it
+  // (mirrors SupportedServices' hashFor above).
+  const hashFor = (n: string) => catalog.hashByName.get(n) ?? hashServiceName(n);
+  // getWantedServiceHashes() only returns hashes — resolve names via the merged
+  // catalog + bounded-fallback lookup (same one the activity feed and
+  // SupportedServices use), falling back to a shortened hash only for a
+  // service the fallback batch itself couldn't resolve either.
+  const { resolve: resolveName, isLoading: namesLoading } = useResolvedServiceNames(hashes);
+  const wanted = hashes.map((hash) => {
+    const resolved = resolveName(hash);
+    return { hash, name: resolved ?? shortAddress(hash, 10, 8), resolved: resolved !== undefined };
+  });
+  const groups = groupServicesByPackage(wanted);
+  // Gate on name resolution too: while it's still loading, rows would render
+  // as short hashes and then flip to names, and the Autocomplete below would
+  // briefly offer services this account already wants (mirrors
+  // SupportedServices' isLoading gate above).
+  const isLoading = hashesLoading || namesLoading;
 
   return (
     <Card title="Wanted Services">
       {isLoading ? (
         <p>Loading…</p>
-      ) : items.length === 0 ? (
+      ) : wanted.length === 0 ? (
         <p className="mb-4 py-2 text-sm text-tarmac-400">None</p>
       ) : (
         <div className="mb-4 space-y-5">
@@ -495,12 +490,15 @@ function WantedServices({
               <ul className="space-y-2">
                 {g.items.map((s) => (
                   <li
-                    key={s.name}
+                    key={s.hash}
                     className="group flex items-center justify-between gap-3 rounded-md border border-tarmac-100 px-3 py-2 dark:border-tarmac-700/60"
                   >
                     <span className="flex min-w-0 items-center gap-2">
                       <ServiceLabel parsed={s.parsed} />
-                      <CopyButton value={s.name} label="Copy full service name" />
+                      <CopyButton
+                        value={s.resolved ? s.name : s.hash}
+                        label={s.resolved ? "Copy full service name" : "Copy service hash"}
+                      />
                     </span>
                     {hasRole && (
                       <RowAction>
@@ -514,7 +512,7 @@ function WantedServices({
                               address: account,
                               abi,
                               functionName: "removeWantedServices",
-                              args: [[s.name]],
+                              args: [[s.hash]],
                             })
                           }
                           onConfirmed={refetch}
@@ -534,7 +532,7 @@ function WantedServices({
             className="flex-1"
             value={name}
             onChange={setName}
-            options={registered.filter((n) => !items.includes(n))}
+            options={registered.filter((n) => !wanted.some((w) => w.resolved && w.name === n))}
             placeholder="Pick or type a registered service…"
           />
           <TxButton
@@ -543,7 +541,12 @@ function WantedServices({
             disabled={!name.trim()}
             tooltip="Adds a wanted service to the account — sends a transaction to your wallet."
             write={() =>
-              writeContractAsync({ address: account, abi, functionName: "addWantedServices", args: [[name.trim()]] })
+              writeContractAsync({
+                address: account,
+                abi,
+                functionName: "addWantedServices",
+                args: [[hashFor(name.trim())]],
+              })
             }
             onConfirmed={() => {
               setName("");

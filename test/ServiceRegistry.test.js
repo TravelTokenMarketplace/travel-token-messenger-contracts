@@ -34,7 +34,7 @@ describe("ServiceRegistry", function () {
 
             await expect(ttmAccountManager.connect(signers.otherAccount1).registerService(serviceName))
                 .to.emit(ttmAccountManager, "ServiceRegistered")
-                .withArgs(serviceName, serviceHash);
+                .withArgs(serviceHash, serviceName);
 
             await expect(await ttmAccountManager.getRegisteredServiceHashByName(serviceName)).to.be.equal(serviceHash);
             await expect(await ttmAccountManager.getRegisteredServiceNameByHash(serviceHash)).to.be.equal(serviceName);
@@ -70,11 +70,11 @@ describe("ServiceRegistry", function () {
 
             await expect(ttmAccountManager.connect(signers.otherAccount1).registerService(serviceName))
                 .to.emit(ttmAccountManager, "ServiceRegistered")
-                .withArgs(serviceName, serviceHash);
+                .withArgs(serviceHash, serviceName);
 
             await expect(ttmAccountManager.connect(signers.otherAccount1).unregisterService(serviceName))
                 .to.emit(ttmAccountManager, "ServiceUnregistered")
-                .withArgs(serviceName, serviceHash);
+                .withArgs(serviceHash, serviceName);
 
             // Try with non registered service name
             const nonRegisteredServiceName = "nonRegisteredServiceName";
@@ -152,15 +152,15 @@ describe("ServiceRegistry", function () {
 
             await expect(ttmAccountManager.connect(signers.otherAccount1).registerService(serviceName1))
                 .to.emit(ttmAccountManager, "ServiceRegistered")
-                .withArgs(serviceName1, serviceHash1);
+                .withArgs(serviceHash1, serviceName1);
 
             await expect(ttmAccountManager.connect(signers.otherAccount1).registerService(serviceName2))
                 .to.emit(ttmAccountManager, "ServiceRegistered")
-                .withArgs(serviceName2, serviceHash2);
+                .withArgs(serviceHash2, serviceName2);
 
             await expect(ttmAccountManager.connect(signers.otherAccount1).registerService(serviceName3))
                 .to.emit(ttmAccountManager, "ServiceRegistered")
-                .withArgs(serviceName3, serviceHash3);
+                .withArgs(serviceHash3, serviceName3);
 
             // Check all registered service names
             const registeredServices = await ttmAccountManager.getAllRegisteredServiceNames();
@@ -180,6 +180,29 @@ describe("ServiceRegistry", function () {
 
             const registeredServiceHashes = await ttmAccountManager.getAllRegisteredServiceHashes();
             expect(registeredServiceHashes).to.be.deep.equal([]);
+        });
+
+        it("should emit the service name in the data section and index the hash", async function () {
+            await setupSigners();
+            const { ttmAccountManager } = await loadFixture(deployAndConfigureAllFixture);
+
+            const SERVICE_REGISTRY_ADMIN_ROLE = await ttmAccountManager.SERVICE_REGISTRY_ADMIN_ROLE();
+
+            // Grant SERVICE_REGISTRY_ADMIN_ROLE
+            await ttmAccountManager
+                .connect(signers.managerAdmin)
+                .grantRole(SERVICE_REGISTRY_ADMIN_ROLE, signers.otherAccount1.address);
+
+            const name = "ttm.services.accommodation.v1alpha.AccommodationSearchService";
+            const hash = ethers.keccak256(ethers.toUtf8Bytes(name));
+
+            await expect(ttmAccountManager.connect(signers.otherAccount1).registerService(name))
+                .to.emit(ttmAccountManager, "ServiceRegistered")
+                .withArgs(hash, name);
+
+            await expect(ttmAccountManager.connect(signers.otherAccount1).unregisterService(name))
+                .to.emit(ttmAccountManager, "ServiceUnregistered")
+                .withArgs(hash, name);
         });
 
         it("should handle service registration and unregistration with proper state updates", async function () {
@@ -205,11 +228,11 @@ describe("ServiceRegistry", function () {
             // Register two services
             await expect(ttmAccountManager.connect(signers.otherAccount1).registerService(serviceName1))
                 .to.emit(ttmAccountManager, "ServiceRegistered")
-                .withArgs(serviceName1, serviceHash1);
+                .withArgs(serviceHash1, serviceName1);
 
             await expect(ttmAccountManager.connect(signers.otherAccount1).registerService(serviceName2))
                 .to.emit(ttmAccountManager, "ServiceRegistered")
-                .withArgs(serviceName2, serviceHash2);
+                .withArgs(serviceHash2, serviceName2);
 
             // Verify both services are registered
             let registeredServices = await ttmAccountManager.getAllRegisteredServiceNames();
@@ -222,7 +245,7 @@ describe("ServiceRegistry", function () {
             // Unregister first service
             await expect(ttmAccountManager.connect(signers.otherAccount1).unregisterService(serviceName1))
                 .to.emit(ttmAccountManager, "ServiceUnregistered")
-                .withArgs(serviceName1, serviceHash1);
+                .withArgs(serviceHash1, serviceName1);
 
             // Verify only second service remains
             registeredServices = await ttmAccountManager.getAllRegisteredServiceNames();
@@ -245,7 +268,7 @@ describe("ServiceRegistry", function () {
             // Unregister second service
             await expect(ttmAccountManager.connect(signers.otherAccount1).unregisterService(serviceName2))
                 .to.emit(ttmAccountManager, "ServiceUnregistered")
-                .withArgs(serviceName2, serviceHash2);
+                .withArgs(serviceHash2, serviceName2);
 
             // Verify all services are unregistered
             registeredServices = await ttmAccountManager.getAllRegisteredServiceNames();

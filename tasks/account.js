@@ -22,6 +22,15 @@ function bold(text) {
     return `${boldCode}${text}${resetCode}`;
 }
 
+/**
+ * @dev Returns the keccak256 hash of a service name, matching the on-chain
+ * `keccak256(abi.encodePacked(serviceName))` computation used by ServiceRegistry.
+ * Mirrors the helper in `test/utils/fixtures.js`.
+ */
+function serviceHash(name) {
+    return ethers.keccak256(ethers.toUtf8Bytes(name));
+}
+
 function getAddressesForNetwork(hre) {
     let addresses;
 
@@ -524,7 +533,8 @@ ACCOUNT_SCOPE.task("wanted:add", "Add wanted service to TTMAccount")
             console.log("Adding service to TTMAccount...");
             console.log("Signer:", signer.address);
 
-            const tx = await ttmAccount.connect(signer).addWantedServices([taskArgs.serviceName]);
+            const hash = serviceHash(taskArgs.serviceName);
+            const tx = await ttmAccount.connect(signer).addWantedServices([hash]);
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
         } catch (error) {
@@ -555,7 +565,8 @@ ACCOUNT_SCOPE.task("wanted:remove", "Remove wanted service from TTMAccount")
             console.log("Removing service from TTMAccount...");
             console.log("Signer:", signer.address);
 
-            const tx = await ttmAccount.connect(signer).removeWantedServices([taskArgs.serviceName]);
+            const hash = serviceHash(taskArgs.serviceName);
+            const tx = await ttmAccount.connect(signer).removeWantedServices([hash]);
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
         } catch (error) {
@@ -576,9 +587,15 @@ ACCOUNT_SCOPE.task("wanted:list", "List all wanted service from TTMAccount")
         try {
             console.log("Listing all wanted services from TTMAccount...");
 
-            const wantedServices = await ttmAccount.getWantedServices();
+            const manager = await ethers.getContractAt("TTMAccountManager", await ttmAccount.getManagerAddress());
+            const wantedServiceHashes = await ttmAccount.getWantedServiceHashes();
             console.log("Wanted Services:");
-            console.log(wantedServices);
+            for (const serviceHash of wantedServiceHashes) {
+                // getServiceNameByHash resolves even a service that was later unregistered
+                // from the manager; an empty result just means the hash was never registered.
+                const serviceName = await manager.getServiceNameByHash(serviceHash);
+                console.log(serviceName ? `📦 ${serviceName} (${serviceHash})` : `📦 ${serviceHash}`);
+            }
         } catch (error) {
             handleTransactionError(error, ttmAccount);
         }
@@ -609,13 +626,12 @@ ACCOUNT_SCOPE.task("service:add", "Add supported service to TTMAccount")
             const signer = new ethers.Wallet(taskArgs.privateKey, ethers.provider);
 
             const capabilities = taskArgs.capabilities ? taskArgs.capabilities.split(",") : [];
+            const hash = serviceHash(taskArgs.serviceName);
 
             console.log("Adding service to TTMAccount...");
             console.log("Signer:", signer.address);
 
-            const tx = await ttmAccount
-                .connect(signer)
-                .addService(taskArgs.serviceName, taskArgs.restrictedRate, capabilities);
+            const tx = await ttmAccount.connect(signer).addService(hash, taskArgs.restrictedRate, capabilities);
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
         } catch (error) {
@@ -646,7 +662,8 @@ ACCOUNT_SCOPE.task("service:remove", "Remove wanted service from TTMAccount")
             console.log("Removing service from TTMAccount...");
             console.log("Signer:", signer.address);
 
-            const tx = await ttmAccount.connect(signer).removeService(taskArgs.serviceName);
+            const hash = serviceHash(taskArgs.serviceName);
+            const tx = await ttmAccount.connect(signer).removeService(hash);
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
         } catch (error) {
@@ -667,13 +684,19 @@ ACCOUNT_SCOPE.task("service:list", "List supported services from TTMAccount")
         try {
             console.log("Listing all supported services from TTMAccount...");
 
+            // getSupportedServices() returns hashes, not names — resolve each via the
+            // manager, the same as `wanted:list`. getServiceNameByHash resolves even a
+            // service that was later unregistered from the manager; an empty result
+            // just means the hash was never registered.
+            const manager = await ethers.getContractAt("TTMAccountManager", await ttmAccount.getManagerAddress());
             const supportedServices = await ttmAccount.getSupportedServices();
-            const serviceNames = supportedServices[0];
+            const serviceHashes = supportedServices[0];
             const serviceDetails = supportedServices[1];
-            if (serviceNames.length > 0) {
+            if (serviceHashes.length > 0) {
                 console.log("Supported Services:");
-                for (let i = 0; i < serviceNames.length; i++) {
-                    console.log(`📦 ${serviceNames[i]}`);
+                for (let i = 0; i < serviceHashes.length; i++) {
+                    const serviceName = await manager.getServiceNameByHash(serviceHashes[i]);
+                    console.log(`📦 ${serviceName ? `${serviceName} (${serviceHashes[i]})` : serviceHashes[i]}`);
                     const restrictedRate =
                         serviceDetails[i]._restrictedRate !== undefined
                             ? serviceDetails[i]._restrictedRate
@@ -778,8 +801,8 @@ ACCOUNT_SCOPE.task("find", "Scan all TTM Accounts for roles of a given address")
     .addParam("address", "Address to search for")
     .setAction(async (taskArgs, hre) => {
         const manager = await getManager(hre);
-        const ttmAccountRole = await manager.TTMACCOUNT_ROLE();
-        const count = await manager.getRoleMemberCount(ttmAccountRole);
+        const ttmAccounts = await manager.getTTMAccounts();
+        const count = ttmAccounts.length;
 
         console.log(`🔍 Searching for address: ${bold(taskArgs.address)}`);
         console.log(`📡 Found ${bold(count)} TTM Accounts. Starting scan...\n`);
@@ -798,7 +821,7 @@ ACCOUNT_SCOPE.task("find", "Scan all TTM Accounts for roles of a given address")
         const findings = [];
 
         for (let i = 0; i < count; i++) {
-            const ttmAccountAddress = await manager.getRoleMember(ttmAccountRole, i);
+            const ttmAccountAddress = ttmAccounts[i];
 
             // Update progress on every account
             process.stdout.write(formatProgress(i + 1, count, ttmAccountAddress));
@@ -1126,9 +1149,8 @@ ACCOUNT_SCOPE.task("service:set-restricted-rate", "Set the restricted rate prope
         try {
             const signer = new ethers.Wallet(taskArgs.privateKey, ethers.provider);
             console.log(`Setting restricted rate of service ${taskArgs.serviceName} to ${taskArgs.restrictedRate}...`);
-            const tx = await ttmAccount
-                .connect(signer)
-                .setServiceRestrictedRate(taskArgs.serviceName, taskArgs.restrictedRate);
+            const hash = serviceHash(taskArgs.serviceName);
+            const tx = await ttmAccount.connect(signer).setServiceRestrictedRate(hash, taskArgs.restrictedRate);
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
         } catch (error) {
@@ -1157,7 +1179,8 @@ ACCOUNT_SCOPE.task("service:set-capabilities", "Set all capabilities of a suppor
             const capabilities = taskArgs.capabilities ? taskArgs.capabilities.split(",") : [];
             const signer = new ethers.Wallet(taskArgs.privateKey, ethers.provider);
             console.log(`Setting capabilities of service ${taskArgs.serviceName} to:`, capabilities);
-            const tx = await ttmAccount.connect(signer).setServiceCapabilities(taskArgs.serviceName, capabilities);
+            const hash = serviceHash(taskArgs.serviceName);
+            const tx = await ttmAccount.connect(signer).setServiceCapabilities(hash, capabilities);
             const receipt = await tx.wait();
             console.log("Tx:", receipt.hash);
         } catch (error) {

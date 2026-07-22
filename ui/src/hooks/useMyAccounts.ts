@@ -18,30 +18,21 @@ export function uniqueAddresses(addrs: string[]): string[] {
 }
 
 /**
- * Lists every TTM Account by enumerating members of the manager's TTMACCOUNT_ROLE.
- * This mirrors the `account find` CLI task and avoids eth_getLogs, which
- * free-tier RPCs reject for wide block ranges.
+ * Lists every TTM Account by reading the manager's account registry. This
+ * mirrors the `account find` CLI task and avoids eth_getLogs, which free-tier
+ * RPCs reject for wide block ranges.
  */
 export function useManagerAccounts() {
   const { manager, managerAbi } = useActiveContracts();
   const { activeChainId } = useActiveChain();
   const abi = managerAbi as Abi;
 
-  const { data: ttmRole } = useReadContract({
-    chainId: activeChainId,
-    address: manager,
-    abi,
-    functionName: "TTMACCOUNT_ROLE",
-    query: { enabled: Boolean(manager) },
-  });
-
   const { data, isLoading } = useReadContract({
     chainId: activeChainId,
     address: manager,
     abi,
-    functionName: "getRoleMembers",
-    args: ttmRole ? [ttmRole] : undefined,
-    query: { enabled: Boolean(manager && ttmRole) },
+    functionName: "getTTMAccounts",
+    query: { enabled: Boolean(manager) },
   });
 
   const accounts = uniqueAddresses((data as string[]) ?? []) as Address[];

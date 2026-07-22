@@ -58,9 +58,8 @@ Identity is a departures board crossed with a financial terminal — dense, legi
 
 ## Gotchas
 
-- **Don't use `eth_getLogs` over large ranges** (free-tier RPCs reject it). Enumerate accounts via `TTMACCOUNT_ROLE` members and lists via role members / array getters, not events.
-- **viem overload ambiguity:** `getServiceRestrictedRate` / `getServiceCapabilities` are overloaded by `(string)` and `(bytes32)`. Use the explicit single-overload `bytes32` ABI fragments in `ServicesTab.tsx`.
-- **`getSupportedServices` tuple** doesn't decode reliably — list `getAllServiceHashes()` and resolve names via the manager + per-hash getters instead.
+- **Don't use `eth_getLogs` over large ranges** (free-tier RPCs reject it). Enumerate accounts via the manager's `getTTMAccounts()` registry and other lists via role members / array getters, not events.
+- **The service surface is `bytes32`-native.** `getServiceRestrictedRate` / `getServiceCapabilities` take a single `bytes32 serviceHash` argument each — there is no `(string)` overload to disambiguate, so call them with the normal ABI. `getSupportedServices()` returns `(bytes32[] serviceHashes, Service[] services)`; names are never on-chain, they're resolved client-side. Do it via `ui/src/lib/serviceCatalog.ts` + `ui/src/hooks/useServiceCatalog.ts` (`useResolvedServiceNames`), which seeds a name↔hash map from one `getAllRegisteredServiceNames()` read and falls back to a bounded per-hash `getServiceNameByHash` batch for hashes that read misses (e.g. a service unregistered after an account adopted it). Don't reintroduce per-hash manager round-trips for the common case — that's exactly what this module replaced.
 - **Tests:** components using `useQueryClient`/`useTx`/wagmi need a `QueryClientProvider` (and usually mocked wagmi) in the test render — see existing `*.test.tsx`.
 
 ## Deploy

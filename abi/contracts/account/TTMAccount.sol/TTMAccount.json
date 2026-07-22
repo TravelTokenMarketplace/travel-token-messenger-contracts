@@ -198,6 +198,11 @@
     "type": "error"
   },
   {
+    "inputs": [],
+    "name": "ServiceNotRegistered",
+    "type": "error"
+  },
+  {
     "inputs": [
       {
         "internalType": "address",
@@ -550,9 +555,9 @@
     "inputs": [
       {
         "indexed": true,
-        "internalType": "string",
-        "name": "serviceName",
-        "type": "string"
+        "internalType": "bytes32",
+        "name": "serviceHash",
+        "type": "bytes32"
       }
     ],
     "name": "ServiceAdded",
@@ -563,9 +568,9 @@
     "inputs": [
       {
         "indexed": true,
-        "internalType": "string",
-        "name": "serviceName",
-        "type": "string"
+        "internalType": "bytes32",
+        "name": "serviceHash",
+        "type": "bytes32"
       }
     ],
     "name": "ServiceCapabilitiesUpdated",
@@ -576,9 +581,9 @@
     "inputs": [
       {
         "indexed": true,
-        "internalType": "string",
-        "name": "serviceName",
-        "type": "string"
+        "internalType": "bytes32",
+        "name": "serviceHash",
+        "type": "bytes32"
       },
       {
         "indexed": false,
@@ -595,9 +600,9 @@
     "inputs": [
       {
         "indexed": true,
-        "internalType": "string",
-        "name": "serviceName",
-        "type": "string"
+        "internalType": "bytes32",
+        "name": "serviceHash",
+        "type": "bytes32"
       },
       {
         "indexed": false,
@@ -614,9 +619,9 @@
     "inputs": [
       {
         "indexed": true,
-        "internalType": "string",
-        "name": "serviceName",
-        "type": "string"
+        "internalType": "bytes32",
+        "name": "serviceHash",
+        "type": "bytes32"
       }
     ],
     "name": "ServiceRemoved",
@@ -627,9 +632,9 @@
     "inputs": [
       {
         "indexed": true,
-        "internalType": "string",
-        "name": "serviceName",
-        "type": "string"
+        "internalType": "bytes32",
+        "name": "serviceHash",
+        "type": "bytes32"
       },
       {
         "indexed": false,
@@ -678,9 +683,9 @@
     "inputs": [
       {
         "indexed": true,
-        "internalType": "string",
-        "name": "serviceName",
-        "type": "string"
+        "internalType": "bytes32",
+        "name": "serviceHash",
+        "type": "bytes32"
       }
     ],
     "name": "WantedServiceAdded",
@@ -691,9 +696,9 @@
     "inputs": [
       {
         "indexed": true,
-        "internalType": "string",
-        "name": "serviceName",
-        "type": "string"
+        "internalType": "bytes32",
+        "name": "serviceHash",
+        "type": "bytes32"
       }
     ],
     "name": "WantedServiceRemoved",
@@ -892,9 +897,9 @@
   {
     "inputs": [
       {
-        "internalType": "string",
-        "name": "serviceName",
-        "type": "string"
+        "internalType": "bytes32",
+        "name": "serviceHash",
+        "type": "bytes32"
       },
       {
         "internalType": "bool",
@@ -915,9 +920,9 @@
   {
     "inputs": [
       {
-        "internalType": "string",
-        "name": "serviceName",
-        "type": "string"
+        "internalType": "bytes32",
+        "name": "serviceHash",
+        "type": "bytes32"
       },
       {
         "internalType": "string",
@@ -946,9 +951,9 @@
   {
     "inputs": [
       {
-        "internalType": "string[]",
-        "name": "serviceNames",
-        "type": "string[]"
+        "internalType": "bytes32[]",
+        "name": "serviceHashes",
+        "type": "bytes32[]"
       }
     ],
     "name": "addWantedServices",
@@ -1253,25 +1258,6 @@
   {
     "inputs": [
       {
-        "internalType": "string",
-        "name": "serviceName",
-        "type": "string"
-      }
-    ],
-    "name": "getServiceCapabilities",
-    "outputs": [
-      {
-        "internalType": "string[]",
-        "name": "capabilities",
-        "type": "string[]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
         "internalType": "bytes32",
         "name": "serviceHash",
         "type": "bytes32"
@@ -1294,25 +1280,6 @@
         "internalType": "bytes32",
         "name": "serviceHash",
         "type": "bytes32"
-      }
-    ],
-    "name": "getServiceRestrictedRate",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "restrictedRate",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "string",
-        "name": "serviceName",
-        "type": "string"
       }
     ],
     "name": "getServiceRestrictedRate",
@@ -1331,9 +1298,50 @@
     "name": "getSupportedServices",
     "outputs": [
       {
-        "internalType": "string[]",
-        "name": "serviceNames",
-        "type": "string[]"
+        "internalType": "bytes32[]",
+        "name": "serviceHashes",
+        "type": "bytes32[]"
+      },
+      {
+        "components": [
+          {
+            "internalType": "bool",
+            "name": "_restrictedRate",
+            "type": "bool"
+          },
+          {
+            "internalType": "string[]",
+            "name": "_capabilities",
+            "type": "string[]"
+          }
+        ],
+        "internalType": "struct PartnerConfiguration.Service[]",
+        "name": "services",
+        "type": "tuple[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "offset",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "limit",
+        "type": "uint256"
+      }
+    ],
+    "name": "getSupportedServicesSlice",
+    "outputs": [
+      {
+        "internalType": "bytes32[]",
+        "name": "serviceHashes",
+        "type": "bytes32[]"
       },
       {
         "components": [
@@ -1377,19 +1385,6 @@
         "internalType": "bytes32[]",
         "name": "serviceHashes",
         "type": "bytes32[]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getWantedServices",
-    "outputs": [
-      {
-        "internalType": "string[]",
-        "name": "serviceNames",
-        "type": "string[]"
       }
     ],
     "stateMutability": "view",
@@ -1515,9 +1510,9 @@
   {
     "inputs": [
       {
-        "internalType": "string",
-        "name": "serviceName",
-        "type": "string"
+        "internalType": "bytes32",
+        "name": "serviceHash",
+        "type": "bytes32"
       }
     ],
     "name": "isServiceSupported",
@@ -1706,9 +1701,9 @@
   {
     "inputs": [
       {
-        "internalType": "string",
-        "name": "serviceName",
-        "type": "string"
+        "internalType": "bytes32",
+        "name": "serviceHash",
+        "type": "bytes32"
       }
     ],
     "name": "removeService",
@@ -1719,9 +1714,9 @@
   {
     "inputs": [
       {
-        "internalType": "string",
-        "name": "serviceName",
-        "type": "string"
+        "internalType": "bytes32",
+        "name": "serviceHash",
+        "type": "bytes32"
       },
       {
         "internalType": "string",
@@ -1750,9 +1745,9 @@
   {
     "inputs": [
       {
-        "internalType": "string[]",
-        "name": "serviceNames",
-        "type": "string[]"
+        "internalType": "bytes32[]",
+        "name": "serviceHashes",
+        "type": "bytes32[]"
       }
     ],
     "name": "removeWantedServices",
@@ -1830,9 +1825,9 @@
   {
     "inputs": [
       {
-        "internalType": "string",
-        "name": "serviceName",
-        "type": "string"
+        "internalType": "bytes32",
+        "name": "serviceHash",
+        "type": "bytes32"
       },
       {
         "internalType": "string[]",
@@ -1848,9 +1843,9 @@
   {
     "inputs": [
       {
-        "internalType": "string",
-        "name": "serviceName",
-        "type": "string"
+        "internalType": "bytes32",
+        "name": "serviceHash",
+        "type": "bytes32"
       },
       {
         "internalType": "bool",

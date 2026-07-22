@@ -4,9 +4,9 @@ import { useReadContract } from "wagmi";
 import { useActiveContracts } from "../hooks/useActiveContracts";
 
 /**
- * Warns, in the account's left pane, when the opened address isn't actually a
- * TTM Account according to the manager (no TTMACCOUNT_ROLE) or isn't a valid
- * address at all. The workspace still renders so users can inspect raw state.
+ * Warns, in the account's left pane, when the opened address isn't recognized
+ * by the manager as a TTM Account, or isn't a valid address at all. The
+ * workspace still renders so users can inspect raw state.
  */
 export function AccountValidityNotice({ account }: { account: Address }) {
   const { manager, managerAbi, chainId, supported } = useActiveContracts();
@@ -34,9 +34,8 @@ export function AccountValidityNotice({ account }: { account: Address }) {
 
   return (
     <Notice title="Not a TTM Account">
-      The manager on this network does not recognize this address as a TTM Account (it lacks the{" "}
-      <code className="font-mono">TTMACCOUNT_ROLE</code>). You can still browse, but management actions will likely
-      revert.
+      The manager on this network does not recognize this address as a TTM Account. You can still browse, but management
+      actions will likely revert.
     </Notice>
   );
 }

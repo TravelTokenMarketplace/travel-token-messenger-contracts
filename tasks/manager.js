@@ -6,14 +6,7 @@ const BT_SCOPE = scope("btoken", "Booking Token Tasks");
 
 // TODO: Handle transaction failures
 
-const ROLES = [
-    "DEFAULT_ADMIN_ROLE",
-    "PAUSER_ROLE",
-    "UPGRADER_ROLE",
-    "VERSIONER_ROLE",
-    "SERVICE_REGISTRY_ADMIN_ROLE",
-    //"TTMACCOUNT_ROLE", // Disabled because it slows down the role:all output a lot. Use `account:list` instead
-];
+const ROLES = ["DEFAULT_ADMIN_ROLE", "PAUSER_ROLE", "UPGRADER_ROLE", "VERSIONER_ROLE", "SERVICE_REGISTRY_ADMIN_ROLE"];
 
 function bold(text) {
     const boldCode = "\x1b[1m";
@@ -249,7 +242,12 @@ MANAGER_SCOPE.task("role:all", "List all roles").setAction(async (taskArgs, hre)
 });
 
 MANAGER_SCOPE.task("account:list", "List TTM Accounts").setAction(async (taskArgs, hre) => {
-    await hre.run({ scope: "manager", task: "role:members" }, { role: "TTMACCOUNT_ROLE" });
+    const manager = await getManager(hre);
+    const accounts = await manager.getTTMAccounts();
+    console.log(`TTM Accounts (${accounts.length}):`);
+    for (const account of accounts) {
+        console.log(`  ${account}  creator: ${await manager.getTTMAccountCreator(account)}`);
+    }
 });
 
 MANAGER_SCOPE.task("account:set-implementation", "Set TTMAccount implementation address")

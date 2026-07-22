@@ -3,7 +3,6 @@ import {
   ACCOUNT_EVENTS,
   BOOKING_TOKEN_EVENTS,
   MANAGER_EVENTS,
-  SERVICE_HASH_EVENTS,
   lookupEntry,
   renderSentence,
   toActivityEvent,
@@ -48,20 +47,31 @@ describe("catalog rendering", () => {
   });
 
   it("falls back to a short service hash when the name isn't resolved", () => {
+    // ServiceAdded carries an indexed bytes32 `serviceHash` (Task 5), decoded as-is by viem.
     expect(
       render("account", "ServiceAdded", {
-        serviceName: "0xabcd000000000000000000000000000000000000000000000000000000001234",
+        serviceHash: "0xabcd000000000000000000000000000000000000000000000000000000001234",
       }),
     ).toBe("Supported service (0xabcd…1234) added");
   });
 
+  it("falls back to a short service hash for wanted-service events too", () => {
+    // WantedServiceAdded/Removed switched from an indexed `string serviceName` to an
+    // indexed `bytes32 serviceHash` in Task 6, mirroring ServiceAdded/Removed (Task 5).
+    expect(
+      render("account", "WantedServiceAdded", {
+        serviceHash: "0xabcd000000000000000000000000000000000000000000000000000000001234",
+      }),
+    ).toBe("Wanted service (0xabcd…1234) added");
+  });
+
   it("uses the resolved service name when injected via serviceLabel", () => {
-    expect(renderSentence("account", "ServiceAdded", { serviceName: "0xabcd…", serviceLabel: "ttm.x.v1.Foo" })).toBe(
+    expect(renderSentence("account", "ServiceAdded", { serviceHash: "0xabcd…", serviceLabel: "ttm.x.v1.Foo" })).toBe(
       'Supported service "ttm.x.v1.Foo" added',
     );
     expect(
       renderSentence("account", "ServiceCapabilityAdded", {
-        serviceName: "0xabcd…",
+        serviceHash: "0xabcd…",
         serviceLabel: "ttm.x.v1.Foo",
         capability: "luggage",
       }),
@@ -75,12 +85,6 @@ describe("catalog rendering", () => {
     expect(render("account", "TTMAccountUpgraded", { oldImplementation: ACC, newImplementation: BUYER })).toBe(
       "Account upgraded to implementation 0xbBbB…0002",
     );
-  });
-
-  it("flags every account service event as resolvable", () => {
-    expect(SERVICE_HASH_EVENTS.has("ServiceAdded")).toBe(true);
-    expect(SERVICE_HASH_EVENTS.has("WantedServiceRemoved")).toBe(true);
-    expect(SERVICE_HASH_EVENTS.has("Deposit")).toBe(false);
   });
 
   it("exposes non-overlapping event sets per source", () => {

@@ -745,6 +745,25 @@
     "anonymous": false,
     "inputs": [
       {
+        "indexed": true,
+        "internalType": "address",
+        "name": "oldManager",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "newManager",
+        "type": "address"
+      }
+    ],
+    "name": "ManagerAddressUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
         "indexed": false,
         "internalType": "uint256",
         "name": "_tokenId",
@@ -752,6 +771,25 @@
       }
     ],
     "name": "MetadataUpdate",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "oldDiff",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "newDiff",
+        "type": "uint256"
+      }
+    ],
+    "name": "MinExpirationTimestampDiffUpdated",
     "type": "event"
   },
   {

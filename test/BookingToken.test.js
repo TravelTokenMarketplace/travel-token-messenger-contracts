@@ -90,6 +90,32 @@ describe("BookingToken", function () {
             expect(await bookingToken.getMinExpirationTimestampDiff()).to.be.equal(newMinExpirationTimestampDiff);
         });
 
+        it("should emit ManagerAddressUpdated when the manager is repointed", async function () {
+            await setupSigners();
+            const { bookingToken } = await loadFixture(deployAndConfigureAllFixture);
+
+            const oldManager = await bookingToken.getManagerAddress();
+            const newManager = signers.otherAccount1.address;
+
+            await expect(bookingToken.connect(signers.btAdmin).setManagerAddress(newManager))
+                .to.emit(bookingToken, "ManagerAddressUpdated")
+                .withArgs(oldManager, newManager);
+        });
+
+        it("should emit MinExpirationTimestampDiffUpdated when the mint rule changes", async function () {
+            await setupSigners();
+            const { bookingToken } = await loadFixture(deployAndConfigureAllFixture);
+
+            const MIN_EXPIRATION_ADMIN_ROLE = await bookingToken.MIN_EXPIRATION_ADMIN_ROLE();
+            await bookingToken.connect(signers.btAdmin).grantRole(MIN_EXPIRATION_ADMIN_ROLE, signers.btAdmin.address);
+
+            const oldDiff = await bookingToken.getMinExpirationTimestampDiff();
+
+            await expect(bookingToken.connect(signers.btAdmin).setMinExpirationTimestampDiff(120))
+                .to.emit(bookingToken, "MinExpirationTimestampDiffUpdated")
+                .withArgs(oldDiff, 120);
+        });
+
         it("should support ERC165", async function () {
             const { ttmAccountManager, supplierTTMAccount, distributorTTMAccount, bookingToken } =
                 await loadFixture(deployBookingTokenFixture);
@@ -1696,20 +1722,17 @@ describe("BookingToken", function () {
             await network.provider.send("evm_increaseTime", [24 * 60 * 60]);
             await network.provider.send("evm_mine");
 
-            // Try to expire with non-auth address
-            await expect(
-                supplierTTMAccount.connect(signers.otherAccount1).recordExpiration(0n),
-            ).to.be.revertedWithCustomError(bookingToken, "AccessControlUnauthorizedAccount");
-
-            // Expire the token
-            await expect(supplierTTMAccount.connect(signers.btAdmin).recordExpiration(0n))
+            // recordExpiration is deliberately permissionless - an account with no role
+            // at all can expire it, since the only real gate is whether the reservation
+            // has genuinely passed its expiration timestamp (which it now has).
+            await expect(supplierTTMAccount.connect(signers.otherAccount1).recordExpiration(0n))
                 .to.emit(bookingToken, "TokenReservationExpired")
                 .withArgs(0n);
 
             // Check token booking status
             expect(await bookingToken.getBookingStatus(0n)).to.equal(2); // Expired == 2
 
-            // Try to expire the token again
+            // Try to expire the token again, should revert since it's already expired
             await expect(supplierTTMAccount.connect(signers.btAdmin).recordExpiration(0n))
                 .to.be.revertedWithCustomError(bookingToken, "InvalidTokenStatus")
                 .withArgs(0n, 2); // RESERVATION_EXPIRED == 2
@@ -3197,6 +3220,114 @@ describe("BookingToken", function () {
                 [supplier, distributor, bookingToken, supplierBookingOperator, distributorBookingOperator],
                 [0n, 0n, 0n, 0n, 0n], // Off chain payment, should not change any balances
             );
+        });
+    });
+
+    describe("Cancellation blocked by a non-TTM-Account holder", function () {
+        // See docs/decisions/2026-07-21-contract-design-decisions.md, Decision 3,
+        // and its 2026-07-22 correction: the real blocker here is not the
+        // refund push described in the original Decision 3 write-up. It is
+        // that `ownerAccepted` can only be set by the current owner calling
+        // in, and every entry point requires the caller to be a registered
+        // TTM Account. Once the token leaves the TTM Account ecosystem -
+        // whether to a contract that rejects ETH or to a perfectly ordinary
+        // EOA - cancellation can never be finalized.
+        //
+        // This test documents the observed behaviour and pins it as a known,
+        // pre-existing limitation. It does not fix anything - the fix (or
+        // accepted trade-off) is a business decision to be made separately.
+        it("should document that cancellation can never finalize once the token leaves the TTM Account ecosystem", async function () {
+            const {
+                supplierTTMAccount,
+                distributorTTMAccount,
+                bookingToken,
+                tokenWithNativePayment,
+                supplierBookingOperator,
+            } = await loadFixture(deployCancellationSupportFixture);
+
+            // A contract with no `receive`/`fallback`, standing in for a
+            // custody wrapper, vault, or misconfigured multisig - the kind of
+            // "ordinary composition" Decision 3 calls out, not malice.
+            const RejectsEther = await ethers.getContractFactory("RejectsEther");
+            const rejectsEther = await RejectsEther.deploy();
+            expect(await rejectsEther.ping()).to.equal(true);
+
+            // Move the BOUGHT token to the ETH-rejecting contract *before* any
+            // cancellation proposal exists. A transfer while a proposal is
+            // PENDING auto-rejects it (Decision 2), so this has to happen first
+            // - and it has to happen in two hops:
+            //   1. TTMAccount.transferERC721 uses safeTransferFrom, which would
+            //      itself revert against RejectsEther (no IERC721Receiver). An
+            //      EOA has no such check.
+            //   2. From the EOA, a plain (non-safe) transferFrom has no
+            //      receiver check either, so it reaches RejectsEther.
+            const WITHDRAWER_ROLE = await distributorTTMAccount.WITHDRAWER_ROLE();
+            await distributorTTMAccount
+                .connect(signers.ttmAccountAdmin)
+                .grantRole(WITHDRAWER_ROLE, signers.withdrawer.address);
+
+            await distributorTTMAccount
+                .connect(signers.withdrawer)
+                .transferERC721(await bookingToken.getAddress(), signers.otherAccount1.address, tokenWithNativePayment);
+
+            const rejectsEtherAddress = await rejectsEther.getAddress();
+            await bookingToken
+                .connect(signers.otherAccount1)
+                .transferFrom(signers.otherAccount1.address, rejectsEtherAddress, tokenWithNativePayment);
+
+            expect(await bookingToken.ownerOf(tokenWithNativePayment)).to.equal(rejectsEtherAddress);
+
+            // The supplier can still open a cancellation proposal against the
+            // token - `initiateCancellation` only requires the caller to be the
+            // owner or the supplier, and the supplier still qualifies.
+            const refundAmount = ethers.parseEther("0.045");
+            await expect(
+                supplierTTMAccount
+                    .connect(supplierBookingOperator)
+                    .initiateCancellation(tokenWithNativePayment, refundAmount, 42, 1),
+            ).to.not.be.reverted;
+
+            // OBSERVED BEHAVIOUR (verified by running this test): the call
+            // reverts, but *before* the refund push Decision 3 describes is
+            // ever attempted. The real gate is that `ownerAccepted` can only
+            // be set by the current owner calling in (BookingTokenCancellable.sol
+            // :226, :299, :352), and every public entry point on BookingToken
+            // is `onlyTTMAccount(msg.sender)` - so the owner must itself be a
+            // registered TTM Account or it can never accept, and
+            // `finalizeCancellation` always reverts with
+            // `OwnerNotAcceptedCancellation` rather than a raw ETH-send
+            // failure. This is NOT specific to RejectsEther or to contracts
+            // that reject ETH: an ordinary EOA holder trips the exact same
+            // gate, since an EOA is never a registered TTM Account either.
+            // RejectsEther is used here only because it is a convenient way
+            // to land the token outside the TTM Account ecosystem; a
+            // perfectly ordinary, willing EOA would hit the identical revert.
+            // The practical effect Decision 3 warns about still holds: the
+            // booking can never be cancelled, and the refund amount never
+            // leaves the supplier's account - it is blocked one step earlier
+            // than the decision doc's push-failure framing, not avoided.
+            const supplierTTMAccountAddress = await supplierTTMAccount.getAddress();
+            const supplierBalanceBeforeFinalize = await ethers.provider.getBalance(supplierTTMAccountAddress);
+            const ownerBalanceBeforeFinalize = await ethers.provider.getBalance(rejectsEtherAddress);
+
+            const finalizeTx = supplierTTMAccount
+                .connect(supplierBookingOperator)
+                .finalizeCancellation(tokenWithNativePayment, refundAmount);
+
+            await expect(finalizeTx).to.be.revertedWithCustomError(bookingToken, "OwnerNotAcceptedCancellation");
+
+            // Nothing moved: the transaction is atomic, so the would-be refund
+            // never leaves the supplier's account, and the booking is left
+            // permanently stuck in BOUGHT status - not cancellable, not
+            // resolved. Assert this directly, rather than just checking the
+            // recipient's balance is zero (which would hold trivially even if
+            // the revert never happened, since the recipient never had any
+            // ETH to begin with): both the supplier's and the would-be
+            // recipient's balances must be exactly what they were right
+            // before the reverted call.
+            expect(await bookingToken.getBookingStatus(tokenWithNativePayment)).to.equal(3); // Bought == 3
+            expect(await ethers.provider.getBalance(supplierTTMAccountAddress)).to.equal(supplierBalanceBeforeFinalize);
+            expect(await ethers.provider.getBalance(rejectsEtherAddress)).to.equal(ownerBalanceBeforeFinalize);
         });
     });
 

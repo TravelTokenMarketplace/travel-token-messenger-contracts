@@ -19,6 +19,7 @@ import { ITTMAccount } from "../account/ITTMAccount.sol";
 
 // Utils
 import { Address } from "@openzeppelin/contracts/utils/Address.sol";
+import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 // Service Registry
 import { ServiceRegistry } from "../partner/ServiceRegistry.sol";
@@ -51,6 +52,7 @@ contract TTMAccountManager is
     ServiceRegistry
 {
     using Address for address payable;
+    using EnumerableSet for EnumerableSet.AddressSet;
 
     /**
      * @notice Pauser role can pause the contract. Currently this only affects the
@@ -80,24 +82,9 @@ contract TTMAccountManager is
      */
     bytes32 public constant SERVICE_REGISTRY_ADMIN_ROLE = keccak256("SERVICE_REGISTRY_ADMIN_ROLE");
 
-    /**
-     * @notice This role is granted to the created TTM Accounts. It is used to keep
-     * an enumerable list of TTM Accounts.
-     */
-    bytes32 public constant TTMACCOUNT_ROLE = keccak256("TTMACCOUNT_ROLE");
-
     /***************************************************
      *                   STORAGE                       *
      ***************************************************/
-
-    /**
-     * @notice TTMAccount info struct, to keep track of created TTM Accounts and their
-     * creators.
-     */
-    struct TTMAccountInfo {
-        bool isTTMAccount;
-        address creator;
-    }
 
     /// @custom:storage-location erc7201:traveltoken.messenger.storage.TTMAccountManager
     struct TTMAccountManagerStorage {
@@ -111,9 +98,15 @@ contract TTMAccountManager is
          */
         address _bookingToken;
         /**
-         * @dev TTMAccount info mapping to track if an address is a TTMAccount and initial creators.
+         * @dev Every TTM Account created by this manager. This is the single source of
+         * truth for account identity. `_createTTMAccount` is the only writer and there
+         * is no external mutator, so this set cannot diverge from reality.
          */
-        mapping(address account => TTMAccountInfo) _ttmAccountInfo;
+        EnumerableSet.AddressSet _ttmAccounts;
+        /**
+         * @dev Creator of each TTM Account, keyed by the account address.
+         */
+        mapping(address account => address creator) _ttmAccountCreator;
     }
 
     // keccak256(abi.encode(uint256(keccak256("traveltoken.messenger.storage.TTMAccountManager")) - 1)) & ~bytes32(uint256(0xff));
@@ -131,10 +124,15 @@ contract TTMAccountManager is
      ***************************************************/
 
     /**
-     * @notice TTM Account created event.
-     * @param account The address of the new TTMAccount
+     * @notice Emitted when a TTM Account is created.
+     *
+     * @dev Carries creator and admin so indexers need no follow-up call per account.
+     *
+     * @param account The address of the newly created TTM Account
+     * @param creator The address that called {createTTMAccount}
+     * @param admin The admin address granted on the new account
      */
-    event TTMAccountCreated(address indexed account);
+    event TTMAccountCreated(address indexed account, address indexed creator, address indexed admin);
 
     /**
      * @notice TTM Account implementation address updated event.
@@ -273,41 +271,86 @@ contract TTMAccountManager is
         // Initialize the TTMAccount
         ITTMAccount(address(ttmAccountProxy)).initialize(address(this), bookingToken, admin, upgrader);
 
-        // Set the isTTMAccount and creator
-        _setTTMAccountInfo(address(ttmAccountProxy), TTMAccountInfo({ isTTMAccount: true, creator: msg.sender }));
-
-        // Grant TTMACCOUNT_ROLE
-        _grantRole(TTMACCOUNT_ROLE, address(ttmAccountProxy));
+        // Record the account and its creator. This is the only writer.
+        TTMAccountManagerStorage storage $ = _getTTMAccountManagerStorage();
+        $._ttmAccounts.add(address(ttmAccountProxy));
+        $._ttmAccountCreator[address(ttmAccountProxy)] = msg.sender;
 
         // [ETH] Send the msg.value to the TTMAccount
         payable(ttmAccountProxy).sendValue(msg.value);
 
-        emit TTMAccountCreated(address(ttmAccountProxy));
+        emit TTMAccountCreated(address(ttmAccountProxy), msg.sender, admin);
 
         return address(ttmAccountProxy);
     }
 
-    function _setTTMAccountInfo(address account, TTMAccountInfo memory info) internal {
-        TTMAccountManagerStorage storage $ = _getTTMAccountManagerStorage();
-        $._ttmAccountInfo[account] = info;
-    }
-
     /**
-     * @notice Returns the given account's creator.
+     * @notice Returns the given account's creator, or the zero address if the
+     * address is not a TTM Account.
+     *
      * @param account The account address
      */
     function getTTMAccountCreator(address account) public view returns (address) {
-        TTMAccountManagerStorage storage $ = _getTTMAccountManagerStorage();
-        return $._ttmAccountInfo[account].creator;
+        return _getTTMAccountManagerStorage()._ttmAccountCreator[account];
     }
 
     /**
-     * @notice Check if an address is TTMAccount created by the manager.
-     * @param account The account address to check
+     * @notice Returns whether the given address is a TTM Account created by this manager.
+     *
+     * @param account The address to check
      */
     function isTTMAccount(address account) public view returns (bool) {
-        TTMAccountManagerStorage storage $ = _getTTMAccountManagerStorage();
-        return $._ttmAccountInfo[account].isTTMAccount;
+        return _getTTMAccountManagerStorage()._ttmAccounts.contains(account);
+    }
+
+    /**
+     * @notice Returns the number of TTM Accounts created by this manager.
+     */
+    function getTTMAccountCount() public view returns (uint256) {
+        return _getTTMAccountManagerStorage()._ttmAccounts.length();
+    }
+
+    /**
+     * @notice Returns every TTM Account created by this manager.
+     *
+     * @dev Unbounded. Prefer {getTTMAccountsSlice} against a public RPC once the
+     * ecosystem grows past a few hundred accounts.
+     */
+    function getTTMAccounts() public view returns (address[] memory) {
+        return _getTTMAccountManagerStorage()._ttmAccounts.values();
+    }
+
+    /**
+     * @notice Returns a bounded window of TTM Accounts, for callers that cannot
+     * afford an unbounded read.
+     *
+     * Returns an empty array if `offset` is at or past the end. The window is
+     * clamped to the end of the set, so a `limit` larger than the remainder is
+     * not an error.
+     *
+     * @param offset Index to start at
+     * @param limit Maximum number of accounts to return
+     */
+    function getTTMAccountsSlice(uint256 offset, uint256 limit) public view returns (address[] memory accounts) {
+        EnumerableSet.AddressSet storage ttmAccounts = _getTTMAccountManagerStorage()._ttmAccounts;
+        uint256 total = ttmAccounts.length();
+        if (offset >= total) {
+            return new address[](0);
+        }
+
+        // Clamp by subtraction, not by computing `offset + limit`: under checked
+        // arithmetic that sum reverts for a large `limit`, which would contradict
+        // the "an oversized limit is not an error" contract above. `offset < total`
+        // here, so `total - offset` cannot underflow.
+        uint256 remaining = total - offset;
+        if (limit > remaining) {
+            limit = remaining;
+        }
+
+        accounts = new address[](limit);
+        for (uint256 i = 0; i < limit; i++) {
+            accounts[i] = ttmAccounts.at(offset + i);
+        }
     }
 
     /***************************************************

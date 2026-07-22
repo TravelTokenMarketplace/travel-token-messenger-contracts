@@ -293,49 +293,58 @@ Messenger bot removed
 ### ServiceAdded
 
 ```solidity
-event ServiceAdded(string serviceName)
+event ServiceAdded(bytes32 serviceHash)
 ```
+
+\_Service events carry the service hash only. Indexing a dynamic `string`
+stores just its keccak hash in the topic and nothing in the data section, so the
+old `string indexed serviceName` form published a hash while pretending to
+publish a name. Consumers resolve names from `ServiceRegistry`'s
+`ServiceRegistered` / `ServiceUnregistered` events, which do carry them.
+
+Capability strings stay readable: capabilities are free-form partner text with
+no registry to resolve against.\_
 
 ### ServiceRemoved
 
 ```solidity
-event ServiceRemoved(string serviceName)
+event ServiceRemoved(bytes32 serviceHash)
 ```
 
 ### WantedServiceAdded
 
 ```solidity
-event WantedServiceAdded(string serviceName)
+event WantedServiceAdded(bytes32 serviceHash)
 ```
 
 ### WantedServiceRemoved
 
 ```solidity
-event WantedServiceRemoved(string serviceName)
+event WantedServiceRemoved(bytes32 serviceHash)
 ```
 
 ### ServiceRestrictedRateUpdated
 
 ```solidity
-event ServiceRestrictedRateUpdated(string serviceName, bool restrictedRate)
+event ServiceRestrictedRateUpdated(bytes32 serviceHash, bool restrictedRate)
 ```
 
 ### ServiceCapabilitiesUpdated
 
 ```solidity
-event ServiceCapabilitiesUpdated(string serviceName)
+event ServiceCapabilitiesUpdated(bytes32 serviceHash)
 ```
 
 ### ServiceCapabilityAdded
 
 ```solidity
-event ServiceCapabilityAdded(string serviceName, string capability)
+event ServiceCapabilityAdded(bytes32 serviceHash, string capability)
 ```
 
 ### ServiceCapabilityRemoved
 
 ```solidity
-event ServiceCapabilityRemoved(string serviceName, string capability)
+event ServiceCapabilityRemoved(bytes32 serviceHash, string capability)
 ```
 
 ### TTMAccountImplementationMismatch
@@ -369,6 +378,19 @@ error ZeroAddress()
 ```
 
 A required address parameter was the zero address.
+
+### ServiceNotRegistered
+
+```solidity
+error ServiceNotRegistered()
+```
+
+The given service hash is not registered in the manager's ServiceRegistry.
+
+_Same selector as ServiceRegistry's `ServiceNotRegistered()` (identical, argument-less
+signature) since this error is what actually bubbles up from the staticcall in
+{\_requireRegisteredService}; declaring it here as well only lets this contract's ABI
+name it directly._
 
 ### constructor
 
@@ -508,7 +530,19 @@ Buys booking token.
 function recordExpiration(uint256 tokenId) external
 ```
 
-Record expiration status if the token is expired
+Marks an expired reservation as expired on the BookingToken.
+
+_Deliberately permissionless. The underlying `BookingToken.recordExpiration`
+is public and unrestricted, so a role gate here would protect nothing - it only
+created the false impression that one was needed. The operation is objective
+housekeeping: it succeeds only once `block.timestamp` has genuinely passed the
+reservation's expiry, so there is nothing for an attacker to gain._
+
+#### Parameters
+
+| Name    | Type    | Description                       |
+| ------- | ------- | --------------------------------- |
+| tokenId | uint256 | The booking token to mark expired |
 
 ### onERC721Received
 
@@ -519,6 +553,18 @@ function onERC721Received(address, address, uint256, bytes) public virtual retur
 Always returns `IERC721Receiver.onERC721Received.selector`.
 
 _See {IERC721Receiver-onERC721Received}._
+
+### supportsInterface
+
+```solidity
+function supportsInterface(bytes4 interfaceId) public view virtual returns (bool)
+```
+
+See {IERC165-supportsInterface}.
+
+_This contract implements {IERC721Receiver}, so it must say so - counterparties
+that capability-detect before transferring an NFT would otherwise conclude it
+cannot receive one._
 
 ### transferERC20
 
@@ -559,36 +605,40 @@ This function reverts if `to` is the zero address.
 ### addService
 
 ```solidity
-function addService(string serviceName, bool restrictedRate, string[] capabilities) public
+function addService(bytes32 serviceHash, bool restrictedRate, string[] capabilities) public
 ```
 
 Adds a service to the account as a supported service.
 
-`serviceName` is defined as pkg + service name in protobuf. For example:
+`serviceHash` is `keccak256(abi.encodePacked(serviceName))`, where the name is
+pkg + service name as defined in the Travel Token Messenger Protocol's protobuf
+definitions. For example:
 
 ```text
  ┌────────────── pkg ─────────────┐ ┌───── service name ─────┐
 "ttm.services.accommodation.v1alpha.AccommodationSearchService")
 ```
 
-_These services are coming from the Travel Token Messenger Protocol's protobuf
-definitions._
+_The hash must be registered in the manager's `ServiceRegistry`. That check is
+the one manager staticcall left on this path: it is a write, called rarely, and
+without it an account could advertise a service that does not exist. Reads carry
+no manager dependency at all._
 
 #### Parameters
 
-| Name           | Type     | Description                                               |
-| -------------- | -------- | --------------------------------------------------------- |
-| serviceName    | string   | Service name to add to the account as a supported service |
-| restrictedRate | bool     |                                                           |
-| capabilities   | string[] | Capabilities of the service (if any, optional)            |
+| Name           | Type     | Description                                        |
+| -------------- | -------- | -------------------------------------------------- |
+| serviceHash    | bytes32  | Hash of the service name to support                |
+| restrictedRate | bool     | Whether the service is restricted to pre-agreement |
+| capabilities   | string[] | Capabilities of the service (optional)             |
 
 ### removeService
 
 ```solidity
-function removeService(string serviceName) public
+function removeService(bytes32 serviceHash) public
 ```
 
-Remove a service from the account by its name
+Removes a service from the account by its hash.
 
 ### removeAllServices
 
@@ -596,120 +646,114 @@ Remove a service from the account by its name
 function removeAllServices() public
 ```
 
-Remove all supported services from the account.
-This function retrieves all currently supported service names and removes them one by one.
+Removes all supported services from the account.
 
 ### setServiceRestrictedRate
 
 ```solidity
-function setServiceRestrictedRate(string serviceName, bool restrictedRate) public
+function setServiceRestrictedRate(bytes32 serviceHash, bool restrictedRate) public
 ```
 
-Set the restricted rate of a service by name
+Sets whether a service is offered at a restricted (non-rack) rate.
 
 ### setServiceCapabilities
 
 ```solidity
-function setServiceCapabilities(string serviceName, string[] capabilities) public
+function setServiceCapabilities(bytes32 serviceHash, string[] capabilities) public
 ```
 
-Set all capabilities for a service by name
+Replaces the capability list of a service.
 
 ### addServiceCapability
 
 ```solidity
-function addServiceCapability(string serviceName, string capability) public
+function addServiceCapability(bytes32 serviceHash, string capability) public
 ```
 
-Add a single capability to the service by name
+Adds a single capability to a service.
 
 ### removeServiceCapability
 
 ```solidity
-function removeServiceCapability(string serviceName, string capability) public
+function removeServiceCapability(bytes32 serviceHash, string capability) public
 ```
 
-Remove a single capability from the service by name
+Removes a single capability from a service.
 
 ### getSupportedServices
 
 ```solidity
-function getSupportedServices() public view returns (string[] serviceNames, struct PartnerConfiguration.Service[] services)
+function getSupportedServices() public view returns (bytes32[] serviceHashes, struct PartnerConfiguration.Service[] services)
 ```
 
-Get all supported services. Return a list of service names and a list of service objects.
+Returns every supported service as a hash plus its stored record.
+
+_Reads no longer touch the manager. Resolve hashes to names client-side from
+the registry's `ServiceRegistered` events or `getAllRegisteredServiceNames()`.
+Unbounded - prefer {getSupportedServicesSlice} against a public RPC._
+
+### getSupportedServicesSlice
+
+```solidity
+function getSupportedServicesSlice(uint256 offset, uint256 limit) public view returns (bytes32[] serviceHashes, struct PartnerConfiguration.Service[] services)
+```
+
+Returns a bounded window of supported services.
+
+Returns empty arrays if `offset` is at or past the end; the window is clamped to
+the end of the list, so an oversized `limit` is not an error.
+
+#### Parameters
+
+| Name   | Type    | Description                          |
+| ------ | ------- | ------------------------------------ |
+| offset | uint256 | Index to start at                    |
+| limit  | uint256 | Maximum number of services to return |
 
 ### isServiceSupported
 
 ```solidity
-function isServiceSupported(string serviceName) public view returns (bool)
+function isServiceSupported(bytes32 serviceHash) public view returns (bool)
 ```
 
-Check if a service is registered and supported.
+Checks whether a service is supported by this account.
 
 #### Parameters
 
-| Name        | Type   | Description           |
-| ----------- | ------ | --------------------- |
-| serviceName | string | Service name to check |
-
-### getServiceRestrictedRate
-
-```solidity
-function getServiceRestrictedRate(string serviceName) public view returns (bool restrictedRate)
-```
-
-Get service restricted rate by name. Overloading the getServiceRestrictedRate function.
-
-### getServiceCapabilities
-
-```solidity
-function getServiceCapabilities(string serviceName) public view returns (string[] capabilities)
-```
-
-Get service capabilities by name. Overloading the getServiceCapabilities function.
+| Name        | Type    | Description                       |
+| ----------- | ------- | --------------------------------- |
+| serviceHash | bytes32 | Hash of the service name to check |
 
 ### addWantedServices
 
 ```solidity
-function addWantedServices(string[] serviceNames) public
+function addWantedServices(bytes32[] serviceHashes) public
 ```
 
-Adds wanted services.
+Declares services this account wants to consume from other partners.
+
+_Each hash must be registered in the manager's ServiceRegistry, for the same
+reason as {addService}._
 
 #### Parameters
 
-| Name         | Type     | Description           |
-| ------------ | -------- | --------------------- |
-| serviceNames | string[] | List of service names |
+| Name          | Type      | Description                         |
+| ------------- | --------- | ----------------------------------- |
+| serviceHashes | bytes32[] | Hashes of the service names to want |
 
 ### removeWantedServices
 
 ```solidity
-function removeWantedServices(string[] serviceNames) public
+function removeWantedServices(bytes32[] serviceHashes) public
 ```
 
-Removes wanted services.
+Removes services from this account's wanted list.
 
 #### Parameters
 
-| Name         | Type     | Description           |
-| ------------ | -------- | --------------------- |
-| serviceNames | string[] | List of service names |
-
-### getWantedServices
-
-```solidity
-function getWantedServices() public view returns (string[] serviceNames)
-```
-
-Get all wanted services.
-
-#### Return Values
-
-| Name         | Type     | Description           |
-| ------------ | -------- | --------------------- |
-| serviceNames | string[] | List of service names |
+| Name          | Type      | Description                                 |
+| ------------- | --------- | ------------------------------------------- |
+| serviceHashes | bytes32[] | Hashes of the service names to stop wanting |
 
 ### setOffChainPaymentSupported
 
@@ -1069,6 +1113,27 @@ Event emitted when a token is expired.
 | Name    | Type    | Description |
 | ------- | ------- | ----------- |
 | tokenId | uint256 | token id    |
+
+### ManagerAddressUpdated
+
+```solidity
+event ManagerAddressUpdated(address oldManager, address newManager)
+```
+
+Emitted when the manager address is changed.
+
+_This repoints the entire authorization oracle for this token - `isTTMAccount`
+resolves through the manager - so the change is worth an explicit log._
+
+### MinExpirationTimestampDiffUpdated
+
+```solidity
+event MinExpirationTimestampDiffUpdated(uint256 oldDiff, uint256 newDiff)
+```
+
+Emitted when the minimum expiration timestamp difference changes.
+
+_This is a mint-time validation rule; changing it changes which mints succeed._
 
 ### ExpirationTimestampTooSoon
 
@@ -2097,29 +2162,14 @@ function getAccountImplementation() external view returns (address)
 function isTTMAccount(address account) external view returns (bool)
 ```
 
-### getRegisteredServiceHashByName
-
-```solidity
-function getRegisteredServiceHashByName(string serviceName) external view returns (bytes32 serviceHash)
-```
-
-### getServiceHashByName
-
-```solidity
-function getServiceHashByName(string serviceName) external view returns (bytes32 serviceHash)
-```
-
 ### getRegisteredServiceNameByHash
 
 ```solidity
 function getRegisteredServiceNameByHash(bytes32 serviceHash) external view returns (string serviceName)
 ```
 
-### getServiceNameByHash
-
-```solidity
-function getServiceNameByHash(bytes32 serviceHash) external view returns (string serviceName)
-```
+_Reverts if the hash is not registered. This is the sole remaining
+manager dependency of TTMAccount, used to validate {addService}._
 
 ## TTMAccountManager
 
@@ -2180,50 +2230,34 @@ bytes32 SERVICE_REGISTRY_ADMIN_ROLE
 Service registry admin role can add and remove services to the service
 registry mapping. Implemented by {ServiceRegistry} contract.
 
-### TTMACCOUNT_ROLE
-
-```solidity
-bytes32 TTMACCOUNT_ROLE
-```
-
-This role is granted to the created TTM Accounts. It is used to keep
-an enumerable list of TTM Accounts.
-
-### TTMAccountInfo
-
-TTMAccount info struct, to keep track of created TTM Accounts and their
-creators.
-
-```solidity
-struct TTMAccountInfo {
-    bool isTTMAccount;
-    address creator;
-}
-```
-
 ### TTMAccountManagerStorage
 
 ```solidity
 struct TTMAccountManagerStorage {
   address _latestAccountImplementation;
   address _bookingToken;
-  mapping(address => struct TTMAccountManager.TTMAccountInfo) _ttmAccountInfo;
+  struct EnumerableSet.AddressSet _ttmAccounts;
+  mapping(address => address) _ttmAccountCreator;
 }
 ```
 
 ### TTMAccountCreated
 
 ```solidity
-event TTMAccountCreated(address account)
+event TTMAccountCreated(address account, address creator, address admin)
 ```
 
-TTM Account created event.
+Emitted when a TTM Account is created.
+
+_Carries creator and admin so indexers need no follow-up call per account._
 
 #### Parameters
 
-| Name    | Type    | Description                       |
-| ------- | ------- | --------------------------------- |
-| account | address | The address of the new TTMAccount |
+| Name    | Type    | Description                                  |
+| ------- | ------- | -------------------------------------------- |
+| account | address | The address of the newly created TTM Account |
+| creator | address | The address that called {createTTMAccount}   |
+| admin   | address | The admin address granted on the new account |
 
 ### TTMAccountImplementationUpdated
 
@@ -2356,19 +2390,14 @@ account. See docs/decisions/2026-07-21-contract-design-decisions.md
 
 _Emits a {TTMAccountCreated} event._
 
-### \_setTTMAccountInfo
-
-```solidity
-function _setTTMAccountInfo(address account, struct TTMAccountManager.TTMAccountInfo info) internal
-```
-
 ### getTTMAccountCreator
 
 ```solidity
 function getTTMAccountCreator(address account) public view returns (address)
 ```
 
-Returns the given account's creator.
+Returns the given account's creator, or the zero address if the
+address is not a TTM Account.
 
 #### Parameters
 
@@ -2382,13 +2411,52 @@ Returns the given account's creator.
 function isTTMAccount(address account) public view returns (bool)
 ```
 
-Check if an address is TTMAccount created by the manager.
+Returns whether the given address is a TTM Account created by this manager.
 
 #### Parameters
 
-| Name    | Type    | Description                  |
-| ------- | ------- | ---------------------------- |
-| account | address | The account address to check |
+| Name    | Type    | Description          |
+| ------- | ------- | -------------------- |
+| account | address | The address to check |
+
+### getTTMAccountCount
+
+```solidity
+function getTTMAccountCount() public view returns (uint256)
+```
+
+Returns the number of TTM Accounts created by this manager.
+
+### getTTMAccounts
+
+```solidity
+function getTTMAccounts() public view returns (address[])
+```
+
+Returns every TTM Account created by this manager.
+
+_Unbounded. Prefer {getTTMAccountsSlice} against a public RPC once the
+ecosystem grows past a few hundred accounts._
+
+### getTTMAccountsSlice
+
+```solidity
+function getTTMAccountsSlice(uint256 offset, uint256 limit) public view returns (address[] accounts)
+```
+
+Returns a bounded window of TTM Accounts, for callers that cannot
+afford an unbounded read.
+
+Returns an empty array if `offset` is at or past the end. The window is
+clamped to the end of the set, so a `limit` larger than the remainder is
+not an error.
+
+#### Parameters
+
+| Name   | Type    | Description                          |
+| ------ | ------- | ------------------------------------ |
+| offset | uint256 | Index to start at                    |
+| limit  | uint256 | Maximum number of accounts to return |
 
 ### getAccountImplementation
 
@@ -2946,14 +3014,26 @@ struct ServiceRegistryStorage {
 ### ServiceRegistered
 
 ```solidity
-event ServiceRegistered(string serviceName, bytes32 serviceHash)
+event ServiceRegistered(bytes32 serviceHash, string serviceName)
 ```
+
+Emitted when a service is registered.
+
+_The hash is indexed for filtering; the name travels in the data section so
+consumers can build a complete name-to-hash map from logs alone, with no
+`eth_call`. This is the authoritative publication of that mapping - `TTMAccount`
+emits hashes only._
 
 ### ServiceUnregistered
 
 ```solidity
-event ServiceUnregistered(string serviceName, bytes32 serviceHash)
+event ServiceUnregistered(bytes32 serviceHash, string serviceName)
 ```
+
+Emitted when a service is unregistered.
+
+_Existing accounts can still resolve a deprecated name, so this is the only
+signal that a service was retired. See {\_unregisterServiceName}._
 
 ### ServiceAlreadyRegistered
 
@@ -3118,3 +3198,19 @@ function getVersion() public pure returns (string)
 ```solidity
 constructor() public
 ```
+
+## RejectsEther
+
+A contract that cannot receive ETH: no `receive`, no `fallback`.
+
+_Used to exercise the cancellation refund path against a counterparty whose
+address rejects a plain transfer. See Decision 3 in
+docs/decisions/2026-07-21-contract-design-decisions.md._
+
+### ping
+
+```solidity
+function ping() external pure returns (bool)
+```
+
+Lets tests confirm the contract deployed and has code.

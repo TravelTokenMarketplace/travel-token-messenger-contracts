@@ -8,6 +8,7 @@ const { ethers, upgrades } = require("hardhat");
 // Fixtures
 const {
     setupSigners,
+    serviceHash,
     deployTTMAccountManagerFixture,
     deployTTMAccountImplFixture,
     deployTTMAccountManagerWithTTMAccountImplFixture,
@@ -36,7 +37,7 @@ describe("PartnerConfiguration", function () {
 
             await expect(ttmAccountManager.connect(signers.otherAccount1).registerService(serviceName))
                 .to.emit(ttmAccountManager, "ServiceRegistered")
-                .withArgs(serviceName, serviceHash);
+                .withArgs(serviceHash, serviceName);
 
             // get the SERVICE_ADMIN_ROLE
             const SERVICE_ADMIN_ROLE = await ttmAccount.SERVICE_ADMIN_ROLE();
@@ -54,14 +55,14 @@ describe("PartnerConfiguration", function () {
             const capabilities = [];
 
             await expect(
-                ttmAccount.connect(signers.otherAccount1).addService(serviceName, restrictedRate, capabilities),
+                ttmAccount.connect(signers.otherAccount1).addService(serviceHash, restrictedRate, capabilities),
             )
                 .to.emit(ttmAccount, "ServiceAdded")
-                .withArgs(serviceName);
+                .withArgs(serviceHash);
 
             // Should revert if the same service is added again
             await expect(
-                ttmAccount.connect(signers.otherAccount1).addService(serviceName, restrictedRate, capabilities),
+                ttmAccount.connect(signers.otherAccount1).addService(serviceHash, restrictedRate, capabilities),
             )
                 .to.be.revertedWithCustomError(ttmAccount, "ServiceAlreadyExists")
                 .withArgs(serviceHash);
@@ -86,7 +87,7 @@ describe("PartnerConfiguration", function () {
 
             await expect(ttmAccountManager.connect(signers.otherAccount1).registerService(serviceName))
                 .to.emit(ttmAccountManager, "ServiceRegistered")
-                .withArgs(serviceName, serviceHash);
+                .withArgs(serviceHash, serviceName);
 
             // get the SERVICE_ADMIN_ROLE
             const SERVICE_ADMIN_ROLE = await ttmAccount.SERVICE_ADMIN_ROLE();
@@ -104,24 +105,24 @@ describe("PartnerConfiguration", function () {
             const capabilities = [];
 
             await expect(
-                ttmAccount.connect(signers.otherAccount1).addService(serviceName, restrictedRate, capabilities),
+                ttmAccount.connect(signers.otherAccount1).addService(serviceHash, restrictedRate, capabilities),
             )
                 .to.emit(ttmAccount, "ServiceAdded")
-                .withArgs(serviceName);
+                .withArgs(serviceHash);
 
             // Try to remove with non-auth address
-            await expect(ttmAccount.connect(signers.otherAccount3).removeService(serviceName))
+            await expect(ttmAccount.connect(signers.otherAccount3).removeService(serviceHash))
                 .to.be.revertedWithCustomError(ttmAccount, "AccessControlUnauthorizedAccount")
                 .withArgs(signers.otherAccount3.address, await ttmAccount.SERVICE_ADMIN_ROLE());
 
             // Remove the service
-            await expect(ttmAccount.connect(signers.otherAccount1).removeService(serviceName))
+            await expect(ttmAccount.connect(signers.otherAccount1).removeService(serviceHash))
                 .to.emit(ttmAccount, "ServiceRemoved")
-                .withArgs(serviceName);
+                .withArgs(serviceHash);
 
             // Try to remove the service again, should fail
             await expect(
-                ttmAccount.connect(signers.otherAccount1).removeService(serviceName),
+                ttmAccount.connect(signers.otherAccount1).removeService(serviceHash),
             ).to.be.revertedWithCustomError(ttmAccount, "ServiceDoesNotExist");
         });
 
@@ -149,13 +150,13 @@ describe("PartnerConfiguration", function () {
 
             await expect(ttmAccountManager.connect(signers.otherAccount1).registerService(serviceName1))
                 .to.emit(ttmAccountManager, "ServiceRegistered")
-                .withArgs(serviceName1, serviceHash1);
+                .withArgs(serviceHash1, serviceName1);
             await expect(ttmAccountManager.connect(signers.otherAccount1).registerService(serviceName2))
                 .to.emit(ttmAccountManager, "ServiceRegistered")
-                .withArgs(serviceName2, serviceHash2);
+                .withArgs(serviceHash2, serviceName2);
             await expect(ttmAccountManager.connect(signers.otherAccount1).registerService(serviceName3))
                 .to.emit(ttmAccountManager, "ServiceRegistered")
-                .withArgs(serviceName3, serviceHash3);
+                .withArgs(serviceHash3, serviceName3);
 
             // Get the SERVICE_ADMIN_ROLE
             const SERVICE_ADMIN_ROLE = await ttmAccount.SERVICE_ADMIN_ROLE();
@@ -174,27 +175,27 @@ describe("PartnerConfiguration", function () {
             const capabilities = [];
 
             await expect(
-                ttmAccount.connect(signers.otherAccount1).addService(serviceName1, restrictedRate, capabilities),
+                ttmAccount.connect(signers.otherAccount1).addService(serviceHash1, restrictedRate, capabilities),
             )
                 .to.emit(ttmAccount, "ServiceAdded")
-                .withArgs(serviceName1);
+                .withArgs(serviceHash1);
             await expect(
-                ttmAccount.connect(signers.otherAccount1).addService(serviceName2, restrictedRate, capabilities),
+                ttmAccount.connect(signers.otherAccount1).addService(serviceHash2, restrictedRate, capabilities),
             )
                 .to.emit(ttmAccount, "ServiceAdded")
-                .withArgs(serviceName2);
+                .withArgs(serviceHash2);
             await expect(
-                ttmAccount.connect(signers.otherAccount1).addService(serviceName3, restrictedRate, capabilities),
+                ttmAccount.connect(signers.otherAccount1).addService(serviceHash3, restrictedRate, capabilities),
             )
                 .to.emit(ttmAccount, "ServiceAdded")
-                .withArgs(serviceName3);
+                .withArgs(serviceHash3);
 
             // Verify services are added
-            const [serviceNames] = await ttmAccount.getSupportedServices();
-            expect(serviceNames).to.have.lengthOf(3);
-            expect(serviceNames).to.include(serviceName1);
-            expect(serviceNames).to.include(serviceName2);
-            expect(serviceNames).to.include(serviceName3);
+            const [serviceHashes] = await ttmAccount.getSupportedServices();
+            expect(serviceHashes).to.have.lengthOf(3);
+            expect(serviceHashes).to.include(serviceHash1);
+            expect(serviceHashes).to.include(serviceHash2);
+            expect(serviceHashes).to.include(serviceHash3);
 
             // Try to remove all services with non-auth address
             await expect(ttmAccount.connect(signers.otherAccount3).removeAllServices())
@@ -204,15 +205,15 @@ describe("PartnerConfiguration", function () {
             // Remove all services
             await expect(ttmAccount.connect(signers.otherAccount1).removeAllServices())
                 .to.emit(ttmAccount, "ServiceRemoved")
-                .withArgs(serviceName1)
+                .withArgs(serviceHash1)
                 .to.emit(ttmAccount, "ServiceRemoved")
-                .withArgs(serviceName2)
+                .withArgs(serviceHash2)
                 .to.emit(ttmAccount, "ServiceRemoved")
-                .withArgs(serviceName3);
+                .withArgs(serviceHash3);
 
             // Verify all services are removed
-            const [remainingServiceNames] = await ttmAccount.getSupportedServices();
-            expect(remainingServiceNames).to.have.lengthOf(0);
+            const [remainingServiceHashes] = await ttmAccount.getSupportedServices();
+            expect(remainingServiceHashes).to.have.lengthOf(0);
 
             // Try to remove all services again, should not fail (no-op)
             await expect(ttmAccount.connect(signers.otherAccount1).removeAllServices()).to.not.emit(
@@ -240,7 +241,7 @@ describe("PartnerConfiguration", function () {
 
             await expect(ttmAccountManager.connect(signers.otherAccount1).registerService(serviceName))
                 .to.emit(ttmAccountManager, "ServiceRegistered")
-                .withArgs(serviceName, serviceHash);
+                .withArgs(serviceHash, serviceName);
 
             // get the SERVICE_ADMIN_ROLE
             const SERVICE_ADMIN_ROLE = await ttmAccount.SERVICE_ADMIN_ROLE();
@@ -259,7 +260,7 @@ describe("PartnerConfiguration", function () {
 
             // Try to add a service with otherAccount2
             await expect(
-                ttmAccount.connect(signers.otherAccount2).addService(serviceName, restrictedRate, capabilities),
+                ttmAccount.connect(signers.otherAccount2).addService(serviceHash, restrictedRate, capabilities),
             )
                 .to.be.revertedWithCustomError(ttmAccount, "AccessControlUnauthorizedAccount")
                 .withArgs(signers.otherAccount2.address, SERVICE_ADMIN_ROLE);
@@ -282,31 +283,31 @@ describe("PartnerConfiguration", function () {
             expect(
                 await ttmAccount
                     .connect(signers.ttmServiceAdmin)
-                    .addService(services.serviceName1, restrictedRate1, capabilities1),
+                    .addService(services.serviceHash1, restrictedRate1, capabilities1),
             )
                 .to.emit(ttmAccount, "ServiceAdded")
-                .withArgs(services.serviceName1);
+                .withArgs(services.serviceHash1);
 
             expect(
                 await ttmAccount
                     .connect(signers.ttmServiceAdmin)
-                    .addService(services.serviceName2, restrictedRate2, capabilities2),
+                    .addService(services.serviceHash2, restrictedRate2, capabilities2),
             )
                 .to.emit(ttmAccount, "ServiceAdded")
-                .withArgs(services.serviceName2);
+                .withArgs(services.serviceHash2);
 
             expect(
                 await ttmAccount
                     .connect(signers.ttmServiceAdmin)
-                    .addService(services.serviceName3, restrictedRate3, capabilities3),
+                    .addService(services.serviceHash3, restrictedRate3, capabilities3),
             )
                 .to.emit(ttmAccount, "ServiceAdded")
-                .withArgs(services.serviceName3);
+                .withArgs(services.serviceHash3);
 
             // Get all services
             const servicesFromTTMAccount = await ttmAccount.getSupportedServices();
             expect(servicesFromTTMAccount).to.be.deep.equal([
-                [services.serviceName1, services.serviceName2, services.serviceName3],
+                [services.serviceHash1, services.serviceHash2, services.serviceHash3],
                 [
                     [restrictedRate1, capabilities1],
                     [restrictedRate2, capabilities2],
@@ -314,27 +315,15 @@ describe("PartnerConfiguration", function () {
                 ],
             ]);
 
-            // Get specific restricted rate for a service name
-            expect(await ttmAccount["getServiceRestrictedRate(string)"](services.serviceName1)).to.be.equal(
-                restrictedRate1,
-            );
-            expect(await ttmAccount["getServiceRestrictedRate(string)"](services.serviceName2)).to.be.equal(
-                restrictedRate2,
-            );
-            expect(await ttmAccount["getServiceRestrictedRate(string)"](services.serviceName3)).to.be.equal(
-                restrictedRate3,
-            );
+            // Get specific restricted rate for a service hash
+            expect(await ttmAccount.getServiceRestrictedRate(services.serviceHash1)).to.be.equal(restrictedRate1);
+            expect(await ttmAccount.getServiceRestrictedRate(services.serviceHash2)).to.be.equal(restrictedRate2);
+            expect(await ttmAccount.getServiceRestrictedRate(services.serviceHash3)).to.be.equal(restrictedRate3);
 
-            // Get specific capabilities for a service name
-            expect(await ttmAccount["getServiceCapabilities(string)"](services.serviceName1)).to.be.deep.equal(
-                capabilities1,
-            );
-            expect(await ttmAccount["getServiceCapabilities(string)"](services.serviceName2)).to.be.deep.equal(
-                capabilities2,
-            );
-            expect(await ttmAccount["getServiceCapabilities(string)"](services.serviceName3)).to.be.deep.equal(
-                capabilities3,
-            );
+            // Get specific capabilities for a service hash
+            expect(await ttmAccount.getServiceCapabilities(services.serviceHash1)).to.be.deep.equal(capabilities1);
+            expect(await ttmAccount.getServiceCapabilities(services.serviceHash2)).to.be.deep.equal(capabilities2);
+            expect(await ttmAccount.getServiceCapabilities(services.serviceHash3)).to.be.deep.equal(capabilities3);
 
             // TEST SETTERS
             // with new values for each service field
@@ -351,30 +340,30 @@ describe("PartnerConfiguration", function () {
             await expect(
                 await ttmAccount
                     .connect(signers.ttmServiceAdmin)
-                    ["setServiceRestrictedRate(string,bool)"](services.serviceName1, newRestrictedRate1),
+                    .setServiceRestrictedRate(services.serviceHash1, newRestrictedRate1),
             )
                 .to.emit(ttmAccount, "ServiceRestrictedRateUpdated")
-                .withArgs(services.serviceName1, newRestrictedRate1);
+                .withArgs(services.serviceHash1, newRestrictedRate1);
 
             await expect(
                 await ttmAccount
                     .connect(signers.ttmServiceAdmin)
-                    ["setServiceRestrictedRate(string,bool)"](services.serviceName2, newRestrictedRate2),
+                    .setServiceRestrictedRate(services.serviceHash2, newRestrictedRate2),
             )
                 .to.emit(ttmAccount, "ServiceRestrictedRateUpdated")
-                .withArgs(services.serviceName2, newRestrictedRate2);
+                .withArgs(services.serviceHash2, newRestrictedRate2);
 
             await expect(
                 await ttmAccount
                     .connect(signers.ttmServiceAdmin)
-                    ["setServiceRestrictedRate(string,bool)"](services.serviceName3, newRestrictedRate3),
+                    .setServiceRestrictedRate(services.serviceHash3, newRestrictedRate3),
             ).to.emit(ttmAccount, "ServiceRestrictedRateUpdated");
 
             // Try with non-auth address
             await expect(
                 ttmAccount
                     .connect(signers.otherAccount1)
-                    ["setServiceRestrictedRate(string,bool)"](services.serviceName1, newRestrictedRate1),
+                    .setServiceRestrictedRate(services.serviceHash1, newRestrictedRate1),
             )
                 .to.be.revertedWithCustomError(ttmAccount, "AccessControlUnauthorizedAccount")
                 .withArgs(signers.otherAccount1.address, await ttmAccount.SERVICE_ADMIN_ROLE());
@@ -383,32 +372,32 @@ describe("PartnerConfiguration", function () {
             await expect(
                 await ttmAccount
                     .connect(signers.ttmServiceAdmin)
-                    ["setServiceCapabilities(string,string[])"](services.serviceName1, newCapabilities1),
+                    .setServiceCapabilities(services.serviceHash1, newCapabilities1),
             )
                 .to.emit(ttmAccount, "ServiceCapabilitiesUpdated")
-                .withArgs(services.serviceName1);
+                .withArgs(services.serviceHash1);
 
             await expect(
                 await ttmAccount
                     .connect(signers.ttmServiceAdmin)
-                    ["setServiceCapabilities(string,string[])"](services.serviceName2, newCapabilities2),
+                    .setServiceCapabilities(services.serviceHash2, newCapabilities2),
             )
                 .to.emit(ttmAccount, "ServiceCapabilitiesUpdated")
-                .withArgs(services.serviceName2);
+                .withArgs(services.serviceHash2);
 
             await expect(
                 await ttmAccount
                     .connect(signers.ttmServiceAdmin)
-                    ["setServiceCapabilities(string,string[])"](services.serviceName3, newCapabilities3),
+                    .setServiceCapabilities(services.serviceHash3, newCapabilities3),
             )
                 .to.emit(ttmAccount, "ServiceCapabilitiesUpdated")
-                .withArgs(services.serviceName3);
+                .withArgs(services.serviceHash3);
 
             // Try with non-auth address
             await expect(
                 ttmAccount
                     .connect(signers.otherAccount1)
-                    ["setServiceCapabilities(string,string[])"](services.serviceName1, newCapabilities1),
+                    .setServiceCapabilities(services.serviceHash1, newCapabilities1),
             )
                 .to.be.revertedWithCustomError(ttmAccount, "AccessControlUnauthorizedAccount")
                 .withArgs(signers.otherAccount1.address, await ttmAccount.SERVICE_ADMIN_ROLE());
@@ -417,71 +406,57 @@ describe("PartnerConfiguration", function () {
             await expect(
                 ttmAccount
                     .connect(signers.ttmServiceAdmin)
-                    .addServiceCapability(services.serviceName3, "newCapabilities4"),
+                    .addServiceCapability(services.serviceHash3, "newCapabilities4"),
             )
                 .to.emit(ttmAccount, "ServiceCapabilityAdded")
-                .withArgs(services.serviceName3, "newCapabilities4");
+                .withArgs(services.serviceHash3, "newCapabilities4");
 
             // Try with non-auth address
             await expect(
                 ttmAccount
                     .connect(signers.otherAccount1)
-                    .addServiceCapability(services.serviceName3, "newCapabilities4"),
+                    .addServiceCapability(services.serviceHash3, "newCapabilities4"),
             )
                 .to.be.revertedWithCustomError(ttmAccount, "AccessControlUnauthorizedAccount")
                 .withArgs(signers.otherAccount1.address, await ttmAccount.SERVICE_ADMIN_ROLE());
 
             const newCapabilityList = newCapabilities3.concat(["newCapabilities4"]);
 
-            expect(await ttmAccount["getServiceCapabilities(string)"](services.serviceName3)).to.be.deep.equal(
-                newCapabilityList,
-            );
+            expect(await ttmAccount.getServiceCapabilities(services.serviceHash3)).to.be.deep.equal(newCapabilityList);
 
             await expect(
                 ttmAccount
                     .connect(signers.ttmServiceAdmin)
-                    .removeServiceCapability(services.serviceName3, "newCapabilities4"),
+                    .removeServiceCapability(services.serviceHash3, "newCapabilities4"),
             )
                 .to.emit(ttmAccount, "ServiceCapabilityRemoved")
-                .withArgs(services.serviceName3, "newCapabilities4");
+                .withArgs(services.serviceHash3, "newCapabilities4");
 
             // Try with non-auth address
             await expect(
                 ttmAccount
                     .connect(signers.otherAccount1)
-                    .removeServiceCapability(services.serviceName3, "newCapabilities4"),
+                    .removeServiceCapability(services.serviceHash3, "newCapabilities4"),
             )
                 .to.be.revertedWithCustomError(ttmAccount, "AccessControlUnauthorizedAccount")
                 .withArgs(signers.otherAccount1.address, await ttmAccount.SERVICE_ADMIN_ROLE());
 
             // TEST GETTERS with hashes
 
-            // Get specific restricted rate for a service name
-            expect(await ttmAccount["getServiceRestrictedRate(bytes32)"](services.serviceHash1)).to.be.equal(
-                newRestrictedRate1,
-            );
-            expect(await ttmAccount["getServiceRestrictedRate(bytes32)"](services.serviceHash2)).to.be.equal(
-                newRestrictedRate2,
-            );
-            expect(await ttmAccount["getServiceRestrictedRate(bytes32)"](services.serviceHash3)).to.be.equal(
-                newRestrictedRate3,
-            );
+            // Get specific restricted rate for a service hash
+            expect(await ttmAccount.getServiceRestrictedRate(services.serviceHash1)).to.be.equal(newRestrictedRate1);
+            expect(await ttmAccount.getServiceRestrictedRate(services.serviceHash2)).to.be.equal(newRestrictedRate2);
+            expect(await ttmAccount.getServiceRestrictedRate(services.serviceHash3)).to.be.equal(newRestrictedRate3);
 
-            // Get specific capabilities for a service name
-            expect(await ttmAccount["getServiceCapabilities(bytes32)"](services.serviceHash1)).to.be.deep.equal(
-                newCapabilities1,
-            );
-            expect(await ttmAccount["getServiceCapabilities(bytes32)"](services.serviceHash2)).to.be.deep.equal(
-                newCapabilities2,
-            );
-            expect(await ttmAccount["getServiceCapabilities(bytes32)"](services.serviceHash3)).to.be.deep.equal(
-                newCapabilities3,
-            );
+            // Get specific capabilities for a service hash
+            expect(await ttmAccount.getServiceCapabilities(services.serviceHash1)).to.be.deep.equal(newCapabilities1);
+            expect(await ttmAccount.getServiceCapabilities(services.serviceHash2)).to.be.deep.equal(newCapabilities2);
+            expect(await ttmAccount.getServiceCapabilities(services.serviceHash3)).to.be.deep.equal(newCapabilities3);
 
             // Test failures
             const nonExistingHash = ethers.keccak256(ethers.toUtf8Bytes("NON EXISTING HASH"));
 
-            await expect(ttmAccount["getServiceCapabilities(bytes32)"](nonExistingHash))
+            await expect(ttmAccount.getServiceCapabilities(nonExistingHash))
                 .to.be.revertedWithCustomError(ttmAccount, "ServiceDoesNotExist")
                 .withArgs(nonExistingHash);
         });
@@ -492,11 +467,12 @@ describe("PartnerConfiguration", function () {
             );
 
             const serviceName = "ttm.service.accommodation.v0.AccommodationSearchService";
+            const hash = ethers.keccak256(ethers.toUtf8Bytes(serviceName));
             const restrictedRate = false;
             const capabilities = [];
 
             await expect(
-                ttmAccount.connect(signers.ttmServiceAdmin).addService(serviceName, restrictedRate, capabilities),
+                ttmAccount.connect(signers.ttmServiceAdmin).addService(hash, restrictedRate, capabilities),
             ).to.be.revertedWithCustomError(ttmAccountManager, "ServiceNotRegistered");
         });
     });
@@ -510,12 +486,12 @@ describe("PartnerConfiguration", function () {
 
             await ttmAccount
                 .connect(signers.ttmServiceAdmin)
-                .addService(services.serviceName1, restrictedRate, capabilities);
+                .addService(services.serviceHash1, restrictedRate, capabilities);
 
             await expect(
                 ttmAccount
                     .connect(signers.ttmServiceAdmin)
-                    .removeServiceCapability(services.serviceName1, "no-such-capability"),
+                    .removeServiceCapability(services.serviceHash1, "no-such-capability"),
             ).to.be.revertedWithCustomError(ttmAccount, "CapabilityDoesNotExist");
         });
     });
@@ -540,7 +516,7 @@ describe("PartnerConfiguration", function () {
 
             await expect(ttmAccountManager.connect(signers.otherAccount1).registerService(serviceName))
                 .to.emit(ttmAccountManager, "ServiceRegistered")
-                .withArgs(serviceName, serviceHash);
+                .withArgs(serviceHash, serviceName);
 
             // get the SERVICE_ADMIN_ROLE
             const SERVICE_ADMIN_ROLE = await ttmAccount.SERVICE_ADMIN_ROLE();
@@ -558,20 +534,20 @@ describe("PartnerConfiguration", function () {
             const capabilities = [];
 
             await expect(
-                ttmAccount.connect(signers.otherAccount1).addService(serviceName, restrictedRate, capabilities),
+                ttmAccount.connect(signers.otherAccount1).addService(serviceHash, restrictedRate, capabilities),
             )
                 .to.emit(ttmAccount, "ServiceAdded")
-                .withArgs(serviceName);
+                .withArgs(serviceHash);
 
             // Unregister the service
             await expect(ttmAccountManager.connect(signers.otherAccount1).unregisterService(serviceName))
                 .to.emit(ttmAccountManager, "ServiceUnregistered")
-                .withArgs(serviceName, serviceHash);
+                .withArgs(serviceHash, serviceName);
 
             // Remove the service
-            await expect(ttmAccount.connect(signers.otherAccount1).removeService(serviceName))
+            await expect(ttmAccount.connect(signers.otherAccount1).removeService(serviceHash))
                 .to.emit(ttmAccount, "ServiceRemoved")
-                .withArgs(serviceName);
+                .withArgs(serviceHash);
         });
 
         it("should get all services even if one is unregistered on the manager", async function () {
@@ -593,7 +569,7 @@ describe("PartnerConfiguration", function () {
 
             await expect(ttmAccountManager.connect(signers.otherAccount1).registerService(serviceName))
                 .to.emit(ttmAccountManager, "ServiceRegistered")
-                .withArgs(serviceName, serviceHash);
+                .withArgs(serviceHash, serviceName);
 
             // get the SERVICE_ADMIN_ROLE
             const SERVICE_ADMIN_ROLE = await ttmAccount.SERVICE_ADMIN_ROLE();
@@ -611,22 +587,31 @@ describe("PartnerConfiguration", function () {
             const capabilities = [];
 
             await expect(
-                ttmAccount.connect(signers.otherAccount1).addService(serviceName, restrictedRate, capabilities),
+                ttmAccount.connect(signers.otherAccount1).addService(serviceHash, restrictedRate, capabilities),
             )
                 .to.emit(ttmAccount, "ServiceAdded")
-                .withArgs(serviceName);
+                .withArgs(serviceHash);
 
             // Unregister the service on the manager
             await expect(ttmAccountManager.connect(signers.otherAccount1).unregisterService(serviceName))
                 .to.emit(ttmAccountManager, "ServiceUnregistered")
-                .withArgs(serviceName, serviceHash);
+                .withArgs(serviceHash, serviceName);
 
             // Try to get all services
             const servicesFromTTMAccount = await ttmAccount.getSupportedServices();
-            expect(servicesFromTTMAccount).to.be.deep.equal([[serviceName], [[restrictedRate, capabilities]]]);
+            expect(servicesFromTTMAccount).to.be.deep.equal([[serviceHash], [[restrictedRate, capabilities]]]);
+
+            // The registry deliberately keeps resolving the deprecated name by hash even
+            // though the service is no longer registered (this is what the UI's bounded
+            // fallback in useResolvedServiceNames/getServiceNameByHash relies on).
+            expect(await ttmAccountManager.getServiceNameByHash(serviceHash)).to.equal(serviceName);
+            await expect(ttmAccountManager.getRegisteredServiceNameByHash(serviceHash)).to.be.revertedWithCustomError(
+                ttmAccountManager,
+                "ServiceNotRegistered",
+            );
         });
 
-        it("should get all wanted services even if one is unregistered on the manager", async function () {
+        it("should keep a wanted service hash even if it becomes unregistered on the manager", async function () {
             const { ttmAccountManager, ttmAccount } = await loadFixture(deployAndConfigureAllFixture);
 
             const SERVICE_REGISTRY_ADMIN_ROLE = await ttmAccountManager.SERVICE_REGISTRY_ADMIN_ROLE();
@@ -641,11 +626,13 @@ describe("PartnerConfiguration", function () {
                 .withArgs(SERVICE_REGISTRY_ADMIN_ROLE, signers.otherAccount1.address, signers.managerAdmin.address);
 
             const serviceName = "ttm.service.accommodation.v1alpha.AccommodationSearchService";
-            const serviceHash = ethers.keccak256(ethers.toUtf8Bytes(serviceName));
+            // Independently computed rather than read back from the contract, so a wrong
+            // storage key would still be caught.
+            const hash = serviceHash(serviceName);
 
             await expect(ttmAccountManager.connect(signers.otherAccount1).registerService(serviceName))
                 .to.emit(ttmAccountManager, "ServiceRegistered")
-                .withArgs(serviceName, serviceHash);
+                .withArgs(hash, serviceName);
 
             // get the SERVICE_ADMIN_ROLE
             const SERVICE_ADMIN_ROLE = await ttmAccount.SERVICE_ADMIN_ROLE();
@@ -659,19 +646,18 @@ describe("PartnerConfiguration", function () {
                 .to.emit(ttmAccount, "RoleGranted")
                 .withArgs(SERVICE_ADMIN_ROLE, signers.otherAccount1.address, signers.ttmAccountAdmin.address);
 
-            // Add wanted service
-            await expect(ttmAccount.connect(signers.otherAccount1).addWantedServices([serviceName]))
+            // Add wanted service by hash
+            await expect(ttmAccount.connect(signers.otherAccount1).addWantedServices([hash]))
                 .to.emit(ttmAccount, "WantedServiceAdded")
-                .withArgs(serviceName);
+                .withArgs(hash);
 
             // Unregister the service on the manager
             await expect(ttmAccountManager.connect(signers.otherAccount1).unregisterService(serviceName))
                 .to.emit(ttmAccountManager, "ServiceUnregistered")
-                .withArgs(serviceName, serviceHash);
+                .withArgs(hash, serviceName);
 
-            // Try to get all wanted services
-            const wantedServicesFromTTMAccount = await ttmAccount.getWantedServices();
-            expect(wantedServicesFromTTMAccount).to.be.deep.equal([serviceName]);
+            // The account still stores the hash even though the manager no longer knows the name
+            expect(await ttmAccount.getWantedServiceHashes()).to.be.deep.equal([hash]);
         });
     });
 
@@ -681,12 +667,12 @@ describe("PartnerConfiguration", function () {
                 deployAndConfigureAllWithRegisteredServicesFixture,
             );
 
-            await expect(ttmAccount.connect(signers.ttmServiceAdmin).addWantedServices([services.serviceName1]))
+            await expect(ttmAccount.connect(signers.ttmServiceAdmin).addWantedServices([services.serviceHash1]))
                 .to.emit(ttmAccount, "WantedServiceAdded")
-                .withArgs(services.serviceName1);
+                .withArgs(services.serviceHash1);
 
             // Try with non-auth address
-            await expect(ttmAccount.connect(signers.otherAccount1).addWantedServices([services.serviceName1]))
+            await expect(ttmAccount.connect(signers.otherAccount1).addWantedServices([services.serviceHash1]))
                 .to.be.revertedWithCustomError(ttmAccount, "AccessControlUnauthorizedAccount")
                 .withArgs(signers.otherAccount1.address, await ttmAccount.SERVICE_ADMIN_ROLE());
         });
@@ -700,26 +686,35 @@ describe("PartnerConfiguration", function () {
                 ttmAccount
                     .connect(signers.ttmServiceAdmin)
                     .addWantedServices([
-                        services.serviceName1,
-                        services.serviceName2,
-                        services.serviceName3,
-                        services.serviceName4,
-                        services.serviceName5,
-                        services.serviceName6,
+                        services.serviceHash1,
+                        services.serviceHash2,
+                        services.serviceHash3,
+                        services.serviceHash4,
+                        services.serviceHash5,
+                        services.serviceHash6,
                     ]),
             )
                 .to.emit(ttmAccount, "WantedServiceAdded")
-                .withArgs(services.serviceName1)
+                .withArgs(services.serviceHash1)
                 .to.emit(ttmAccount, "WantedServiceAdded")
-                .withArgs(services.serviceName2)
+                .withArgs(services.serviceHash2)
                 .to.emit(ttmAccount, "WantedServiceAdded")
-                .withArgs(services.serviceName3)
+                .withArgs(services.serviceHash3)
                 .to.emit(ttmAccount, "WantedServiceAdded")
-                .withArgs(services.serviceName4)
+                .withArgs(services.serviceHash4)
                 .to.emit(ttmAccount, "WantedServiceAdded")
-                .withArgs(services.serviceName5)
+                .withArgs(services.serviceHash5)
                 .to.emit(ttmAccount, "WantedServiceAdded")
-                .withArgs(services.serviceName6);
+                .withArgs(services.serviceHash6);
+
+            expect(await ttmAccount.getWantedServiceHashes()).to.be.deep.equal([
+                services.serviceHash1,
+                services.serviceHash2,
+                services.serviceHash3,
+                services.serviceHash4,
+                services.serviceHash5,
+                services.serviceHash6,
+            ]);
         });
 
         it("should revert if a wanted service is already added", async function () {
@@ -727,12 +722,12 @@ describe("PartnerConfiguration", function () {
                 deployAndConfigureAllWithRegisteredServicesFixture,
             );
 
-            await expect(ttmAccount.connect(signers.ttmServiceAdmin).addWantedServices([services.serviceName1]))
+            await expect(ttmAccount.connect(signers.ttmServiceAdmin).addWantedServices([services.serviceHash1]))
                 .to.emit(ttmAccount, "WantedServiceAdded")
-                .withArgs(services.serviceName1);
+                .withArgs(services.serviceHash1);
 
             await expect(
-                ttmAccount.connect(signers.ttmServiceAdmin).addWantedServices([services.serviceName1]),
+                ttmAccount.connect(signers.ttmServiceAdmin).addWantedServices([services.serviceHash1]),
             ).to.be.revertedWithCustomError(ttmAccount, "WantedServiceAlreadyExists");
         });
 
@@ -741,10 +736,12 @@ describe("PartnerConfiguration", function () {
                 deployAndConfigureAllWithRegisteredServicesFixture,
             );
 
+            // ttmServiceAdmin genuinely holds SERVICE_ADMIN_ROLE here (granted by the fixture),
+            // so this must revert on the registry lookup, not on access control.
+            const unregisteredHash = serviceHash("ttm.service.test.v0.NonRegisteredService");
+
             await expect(
-                ttmAccount
-                    .connect(signers.ttmServiceAdmin)
-                    .addWantedServices(["ttm.service.test.v0.NonRegisteredService"]),
+                ttmAccount.connect(signers.ttmServiceAdmin).addWantedServices([unregisteredHash]),
             ).to.be.revertedWithCustomError(ttmAccountManager, "ServiceNotRegistered");
         });
 
@@ -753,18 +750,20 @@ describe("PartnerConfiguration", function () {
                 deployAndConfigureAllWithRegisteredServicesFixture,
             );
 
-            await expect(ttmAccount.connect(signers.ttmServiceAdmin).addWantedServices([services.serviceName1]))
+            await expect(ttmAccount.connect(signers.ttmServiceAdmin).addWantedServices([services.serviceHash1]))
                 .to.emit(ttmAccount, "WantedServiceAdded")
-                .withArgs(services.serviceName1);
+                .withArgs(services.serviceHash1);
 
             // Try with non-auth address
             await expect(
-                ttmAccount.connect(signers.otherAccount1).removeWantedServices([services.serviceName1]),
+                ttmAccount.connect(signers.otherAccount1).removeWantedServices([services.serviceHash1]),
             ).to.be.revertedWithCustomError(ttmAccount, "AccessControlUnauthorizedAccount");
 
-            await expect(ttmAccount.connect(signers.ttmServiceAdmin).removeWantedServices([services.serviceName1]))
+            await expect(ttmAccount.connect(signers.ttmServiceAdmin).removeWantedServices([services.serviceHash1]))
                 .to.emit(ttmAccount, "WantedServiceRemoved")
-                .withArgs(services.serviceName1);
+                .withArgs(services.serviceHash1);
+
+            expect(await ttmAccount.getWantedServiceHashes()).to.be.deep.equal([]);
         });
 
         it("should remove multiple wanted services correctly", async function () {
@@ -775,22 +774,24 @@ describe("PartnerConfiguration", function () {
             await expect(
                 ttmAccount
                     .connect(signers.ttmServiceAdmin)
-                    .addWantedServices([services.serviceName1, services.serviceName2]),
+                    .addWantedServices([services.serviceHash1, services.serviceHash2]),
             )
                 .to.emit(ttmAccount, "WantedServiceAdded")
-                .withArgs(services.serviceName1)
+                .withArgs(services.serviceHash1)
                 .to.emit(ttmAccount, "WantedServiceAdded")
-                .withArgs(services.serviceName2);
+                .withArgs(services.serviceHash2);
 
             await expect(
                 ttmAccount
                     .connect(signers.ttmServiceAdmin)
-                    .removeWantedServices([services.serviceName1, services.serviceName2]),
+                    .removeWantedServices([services.serviceHash1, services.serviceHash2]),
             )
                 .to.emit(ttmAccount, "WantedServiceRemoved")
-                .withArgs(services.serviceName1)
+                .withArgs(services.serviceHash1)
                 .to.emit(ttmAccount, "WantedServiceRemoved")
-                .withArgs(services.serviceName2);
+                .withArgs(services.serviceHash2);
+
+            expect(await ttmAccount.getWantedServiceHashes()).to.be.deep.equal([]);
         });
 
         it("should revert removal if a wanted service does not exist", async function () {
@@ -799,7 +800,7 @@ describe("PartnerConfiguration", function () {
             );
 
             await expect(
-                ttmAccount.connect(signers.ttmServiceAdmin).removeWantedServices([services.serviceName1]),
+                ttmAccount.connect(signers.ttmServiceAdmin).removeWantedServices([services.serviceHash1]),
             ).to.be.revertedWithCustomError(ttmAccount, "WantedServiceDoesNotExist");
         });
 
@@ -808,28 +809,23 @@ describe("PartnerConfiguration", function () {
                 deployAndConfigureAllWithRegisteredServicesFixture,
             );
 
-            await expect(ttmAccount.connect(signers.ttmServiceAdmin).addWantedServices([services.serviceName1]))
+            await expect(ttmAccount.connect(signers.ttmServiceAdmin).addWantedServices([services.serviceHash1]))
                 .to.emit(ttmAccount, "WantedServiceAdded")
-                .withArgs(services.serviceName1);
+                .withArgs(services.serviceHash1);
 
             await expect(
                 ttmAccount
                     .connect(signers.ttmServiceAdmin)
-                    .addWantedServices([services.serviceName2, services.serviceName3]),
+                    .addWantedServices([services.serviceHash2, services.serviceHash3]),
             )
                 .to.emit(ttmAccount, "WantedServiceAdded")
-                .withArgs(services.serviceName2)
+                .withArgs(services.serviceHash2)
                 .to.emit(ttmAccount, "WantedServiceAdded")
-                .withArgs(services.serviceName3);
+                .withArgs(services.serviceHash3);
 
-            // Get wanted services
-            expect(await ttmAccount.getWantedServices()).to.be.deep.equal([
-                services.serviceName1,
-                services.serviceName2,
-                services.serviceName3,
-            ]);
-
-            // Get wanted service by hash
+            // Get wanted service hashes. services.serviceHash1-3 are independently computed
+            // in fixtures.js via ethers.keccak256, not read back from the contract, so this
+            // would catch a contract that stored under the wrong key even if self-consistent.
             expect(await ttmAccount.getWantedServiceHashes()).to.be.deep.equal([
                 services.serviceHash1,
                 services.serviceHash2,
@@ -843,16 +839,16 @@ describe("PartnerConfiguration", function () {
             );
 
             // Prior to adding, it should be unsupported
-            expect(await ttmAccount.isServiceSupported(services.serviceName1)).to.be.false;
+            expect(await ttmAccount.isServiceSupported(services.serviceHash1)).to.be.false;
 
             // Add the service
-            await ttmAccount.connect(signers.ttmServiceAdmin).addService(services.serviceName1, false, []);
+            await ttmAccount.connect(signers.ttmServiceAdmin).addService(services.serviceHash1, false, []);
 
             // Now it should be supported
-            expect(await ttmAccount.isServiceSupported(services.serviceName1)).to.be.true;
+            expect(await ttmAccount.isServiceSupported(services.serviceHash1)).to.be.true;
 
             // Non-registered or other services should still be unsupported
-            expect(await ttmAccount.isServiceSupported(services.serviceName2)).to.be.false;
+            expect(await ttmAccount.isServiceSupported(services.serviceHash2)).to.be.false;
         });
     });
 

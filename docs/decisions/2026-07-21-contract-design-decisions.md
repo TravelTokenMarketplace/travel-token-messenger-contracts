@@ -190,6 +190,41 @@ need to be malicious; ordinary composition is enough.
 Result: the booking can never be cancelled, and the refund stays locked in the
 partner's account.
 
+**Correction (2026-07-22, found during pre-deploy test backfill):** the
+diagnosis above is wrong in a way that matters, and none of the options below
+fix the actual problem.
+
+`ownerAccepted` is only ever set at
+`contracts/booking-token/BookingTokenCancellable.sol:226,299,352`, all gated
+on `msg.sender == owner`, and every public entry point in
+`contracts/booking-token/BookingToken.sol` is `onlyTTMAccount(msg.sender)`.
+That means the real blocker is: **the current owner must be a registered TTM
+Account.** `finalizeCancellation` reverts with `OwnerNotAcceptedCancellation`
+one layer _before_ the refund push described above is ever reached — the push
+is never attempted, so pull payments (either option below) would not change
+this outcome at all. `finalizeCancellation` would revert exactly as it does
+today.
+
+The reachable condition is not "the holder is a contract that cannot receive
+ETH." It is simply: **the booking token is transferred to a normal wallet.**
+An ordinary, willing EOA holder triggers this — not just ETH-rejecting
+contracts — because an EOA is never a registered TTM Account. This is a
+supported flow, not an exotic edge case: `checkTransferable`
+(`BookingToken.sol:646-653`) explicitly permits transferring a `BOUGHT` token
+to any address, and this is a standard ERC-721 with no transfer allowlist.
+
+No ETH is ever stranded — the whole call reverts atomically, so nothing about
+this is a funds-safety issue. The defect is liveness: the booking becomes
+permanently un-cancellable, with no retry, no admin override, no timeout, and
+no expiry path (`recordExpiration` explicitly reverts on `BOUGHT`). The only
+remedy today is a contract upgrade.
+
+Therefore: whichever option is chosen from the list below, it will not
+deliver the fix it promises. This decision needs to be re-framed around the
+actual blocker (the TTM-Account-holder gate) before it is decided. The
+behaviour described here is now pinned by a test in
+`test/BookingToken.test.js`.
+
 ### Options
 
 **A. Pull payment for refunds only** _(engineering recommendation)_

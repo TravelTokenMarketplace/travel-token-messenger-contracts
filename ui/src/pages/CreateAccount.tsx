@@ -12,7 +12,7 @@ import { findCreatedAccount } from "../lib/receipt";
 
 export function CreateAccount() {
   const { address } = useAccount();
-  const { manager, managerAbi, ttmAccountAbi, supported, chainId } = useActiveContracts();
+  const { manager, managerAbi, supported, chainId } = useActiveContracts();
   const { writeContractAsync } = useWriteContract();
   const navigate = useNavigate();
   const [admin, setAdmin] = useState("");
@@ -48,8 +48,8 @@ export function CreateAccount() {
   }
 
   function onConfirmed(receipt: TransactionReceipt) {
-    const created = findCreatedAccount(receipt.logs, ttmAccountAbi as Abi);
-    if (created) navigate(`/account/${created}`);
+    const created = findCreatedAccount(receipt.logs, managerAbi as Abi);
+    if (created) navigate(`/account/${created.account}`);
   }
 
   if (!supported) return <Card title="Create TTM Account">Connect to a supported network.</Card>;

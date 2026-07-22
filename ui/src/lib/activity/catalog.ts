@@ -17,11 +17,19 @@ import { shortAddress } from "../format";
 import { type ActivityEvent, type ActivitySource, type CatalogEntry } from "./types";
 
 // Helpers for rendering args. Logs are decoded by viem, so args carry their
-// solidity types: uint -> bigint, address -> string, bool -> boolean. Indexed
-// `string` params (e.g. a service name) arrive as a keccak hash, not the
-// original string. We render a short hash by default; useAccountActivity can
-// resolve the real name via the manager and inject it as `serviceLabel`, after
-// which renderSentence() is called again to upgrade the text.
+// solidity types: uint -> bigint, address -> string, bool -> boolean.
+//
+// Every account-side service event — `ServiceAdded`/`ServiceRemoved`/
+// `ServiceRestrictedRateUpdated`/`ServiceCapabilitiesUpdated`/
+// `ServiceCapabilityAdded`/`ServiceCapabilityRemoved`/`WantedServiceAdded`/
+// `WantedServiceRemoved` — carries an indexed `bytes32 serviceHash`, emitted
+// deliberately as a hash (not a hashed `string`), that viem decodes as-is. We
+// render a short hash by default; useAccountActivity resolves the real name
+// via the registry's service catalog and injects it as `serviceLabel`, after
+// which renderSentence() is called again to upgrade the text. The manager's
+// own `ServiceRegistered`/`ServiceUnregistered` events are a different code
+// path: they carry the actual `serviceName` string and are rendered directly
+// below, with no hash resolution involved.
 const addr = (v: unknown) => shortAddress(String(v));
 const id = (v: unknown) => `#${String(v)}`;
 const ether = (v: unknown) => formatEther(BigInt(v as bigint | number | string));
@@ -31,7 +39,7 @@ const str = (v: unknown) => String(v);
 function serviceLabel(args: Record<string, unknown>): string {
   const name = args.serviceLabel as string | undefined;
   if (name) return `"${name}"`;
-  return `(${addr(args.serviceName)})`;
+  return `(${addr(args.serviceHash)})`;
 }
 
 // The catalog references events by name; the ABI surface itself is the single
@@ -212,11 +220,6 @@ export function lookupEntry(source: ActivitySource, eventName: string): CatalogE
 export function renderSentence(source: ActivitySource, eventName: string, args: Record<string, unknown>): string {
   return lookupEntry(source, eventName)?.render(args) ?? eventName;
 }
-
-/** Account events whose indexed `serviceName` is a hash we can resolve to a name. */
-export const SERVICE_HASH_EVENTS = new Set(
-  CATALOG.filter((e) => e.source === "account" && e.category === "Services").map((e) => e.eventName),
-);
 
 /** The viem ABI events for a source, ready to pass as `getLogs({ events })`. */
 export function eventsForSource(source: ActivitySource): AbiEvent[] {
