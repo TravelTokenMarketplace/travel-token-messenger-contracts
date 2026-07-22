@@ -466,6 +466,19 @@ contract TTMAccount is
         token.safeTransferFrom(address(this), to, tokenId);
     }
 
+    /**
+     * @notice Approves an operator to transfer a specific ERC721 token held by
+     * this account. Required for listing a booking token on a marketplace or
+     * handing it to a custody provider.
+     *
+     * @param token The ERC721 contract
+     * @param to The operator being approved
+     * @param tokenId The token id
+     */
+    function approveERC721(IERC721 token, address to, uint256 tokenId) external onlyRole(WITHDRAWER_ROLE) {
+        token.approve(to, tokenId);
+    }
+
     /***************************************************
      *                PARTNER CONFIG                   *
      ***************************************************/

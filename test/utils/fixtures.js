@@ -29,6 +29,7 @@ async function setupSigners() {
         otherAccount1,
         otherAccount2,
         otherAccount3,
+        otherAccount4,
     ] = await ethers.getSigners();
 
     signers = {
@@ -48,6 +49,7 @@ async function setupSigners() {
         otherAccount1,
         otherAccount2,
         otherAccount3,
+        otherAccount4,
     };
 }
 

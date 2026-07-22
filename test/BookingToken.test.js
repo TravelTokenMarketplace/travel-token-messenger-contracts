@@ -3469,4 +3469,43 @@ describe("BookingToken", function () {
             ).to.be.revertedWithCustomError(bookingToken, "EnforcedPause");
         });
     });
+
+    describe("Transfer with pending cancellation", function () {
+        it("should close a pending proposal when an approved operator transfers", async function () {
+            const {
+                supplierTTMAccount,
+                distributorTTMAccount,
+                bookingToken,
+                tokenWithNativePayment,
+                supplierBookingOperator,
+            } = await loadFixture(deployCancellationSupportFixture);
+
+            // Supplier opens a cancellation proposal on a BOUGHT token that the
+            // distributor account owns.
+            await supplierTTMAccount
+                .connect(supplierBookingOperator)
+                .initiateCancellation(tokenWithNativePayment, 0n, 1, 1);
+
+            // The owner approves a third-party operator — a marketplace stand-in.
+            const operator = signers.otherAccount4;
+            await distributorTTMAccount
+                .connect(signers.ttmAccountAdmin)
+                .grantRole(await distributorTTMAccount.WITHDRAWER_ROLE(), signers.ttmAccountAdmin.address);
+            await distributorTTMAccount
+                .connect(signers.ttmAccountAdmin)
+                .approveERC721(await bookingToken.getAddress(), operator.address, tokenWithNativePayment);
+
+            // The operator transfers — it is neither the owner nor the supplier.
+            await expect(
+                bookingToken
+                    .connect(operator)
+                    .transferFrom(await distributorTTMAccount.getAddress(), operator.address, tokenWithNativePayment),
+            ).to.emit(bookingToken, "CancellationRejected");
+
+            // Proposal is closed, and the token moved.
+            const proposal = await bookingToken.getCancellationProposal(tokenWithNativePayment);
+            expect(proposal[0]).to.not.equal(1n); // 1 == PENDING
+            expect(await bookingToken.ownerOf(tokenWithNativePayment)).to.equal(operator.address);
+        });
+    });
 });

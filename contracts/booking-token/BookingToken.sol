@@ -623,9 +623,13 @@ contract BookingToken is
             address owner = _requireOwned(tokenId);
             address supplier = $._reservations[tokenId].supplier;
 
-            // Check if the current proposer is the owner
-            if (msg.sender != currentProposer) {
-                _rejectCancellation(
+            // The acting party is the owner: a transfer is initiated by the
+            // owner or by someone the owner approved. Keying off msg.sender
+            // here would revert for marketplace and custody operators.
+            if (owner == currentProposer) {
+                // The owner is abandoning their own proposal.
+                _withdrawCancellation(
+                    owner,
                     owner,
                     supplier,
                     tokenId,
@@ -633,7 +637,9 @@ contract BookingToken is
                     REJECTION_REASON_VERSION
                 );
             } else {
-                _withdrawCancellation(
+                // The counterparty's proposal is rejected.
+                _rejectCancellation(
+                    owner,
                     owner,
                     supplier,
                     tokenId,
@@ -834,7 +840,7 @@ contract BookingToken is
     ) external virtual onlyTTMAccount(msg.sender) {
         (address owner, address supplier) = _requireBoughtAndParties(tokenId);
 
-        _withdrawCancellation(owner, supplier, tokenId, withdrawalReason, withdrawalReasonVersion);
+        _withdrawCancellation(msg.sender, owner, supplier, tokenId, withdrawalReason, withdrawalReasonVersion);
     }
 
     function rejectCancellation(
@@ -844,7 +850,7 @@ contract BookingToken is
     ) external virtual onlyTTMAccount(msg.sender) {
         (address owner, address supplier) = _requireBoughtAndParties(tokenId);
 
-        _rejectCancellation(owner, supplier, tokenId, rejectionReason, rejectionReasonVersion);
+        _rejectCancellation(msg.sender, owner, supplier, tokenId, rejectionReason, rejectionReasonVersion);
     }
 
     function finalizeCancellation(
