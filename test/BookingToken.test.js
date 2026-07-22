@@ -436,6 +436,59 @@ describe("BookingToken", function () {
         });
     });
 
+    describe("Payment token enforcement", function () {
+        it("should revert minting with an undeclared payment token", async function () {
+            const { supplierTTMAccount, distributorTTMAccount, bookingToken, supplierBookingOperator } =
+                await loadFixture(deployCancellationSupportFixture);
+
+            // otherAccount4 was added to setupSigners in Task 1 and holds no role.
+            const undeclared = signers.otherAccount4.address;
+            const expiration = (await ethers.provider.getBlock("latest")).timestamp + 120;
+
+            await expect(
+                supplierTTMAccount.connect(supplierBookingOperator).mintBookingToken(
+                    await distributorTTMAccount.getAddress(),
+                    "data:application/json;base64,e30K",
+                    expiration,
+                    ethers.parseEther("0.05"),
+                    undeclared, // never added via addSupportedToken
+                    0,
+                    true,
+                ),
+            ).to.be.revertedWithCustomError(bookingToken, "PaymentTokenNotSupported");
+        });
+
+        it("should revert minting when the supplier has declared nothing", async function () {
+            const { distributorTTMAccount, bookingToken, otherTTMAccount, otherBookingOperator } = await loadFixture(
+                deployCancellationSupportFixture,
+            );
+
+            // Strip otherTTMAccount back to no payment configuration at all.
+            // getSupportedTokens returns a copy, so removing while iterating is safe.
+            // ttmAccountAdmin holds SERVICE_ADMIN_ROLE from initialize.
+            for (const token of await otherTTMAccount.getSupportedTokens()) {
+                await otherTTMAccount.connect(signers.ttmAccountAdmin).removeSupportedToken(token);
+            }
+            expect(await otherTTMAccount.getSupportedTokens()).to.have.lengthOf(0);
+
+            const expiration = (await ethers.provider.getBlock("latest")).timestamp + 120;
+
+            await expect(
+                otherTTMAccount
+                    .connect(otherBookingOperator)
+                    .mintBookingToken(
+                        await distributorTTMAccount.getAddress(),
+                        "data:application/json;base64,e30K",
+                        expiration,
+                        ethers.parseEther("0.05"),
+                        ethers.ZeroAddress,
+                        0,
+                        true,
+                    ),
+            ).to.be.revertedWithCustomError(bookingToken, "PaymentTokenNotSupported");
+        });
+    });
+
     describe("Buy", function () {
         it("Native: should buy a booking token correctly", async function () {
             const { ttmAccountManager, supplierTTMAccount, distributorTTMAccount, bookingToken } =

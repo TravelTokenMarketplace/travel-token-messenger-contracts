@@ -16,6 +16,9 @@ import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/ac
 // Manager Interface
 import { ITTMAccountManager } from "../manager/ITTMAccountManager.sol";
 
+// Account Interface
+import { ITTMAccount } from "../account/ITTMAccount.sol";
+
 // Utils
 import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -311,6 +314,13 @@ contract BookingToken is
      */
     error ZeroAddress();
 
+    /**
+     * @notice The supplier has not declared this payment token as supported.
+     *
+     * @param paymentToken The rejected payment token, or sentinel
+     */
+    error PaymentTokenNotSupported(address paymentToken);
+
     /***************************************************
      *                  MODIFIERS                      *
      ***************************************************/
@@ -398,6 +408,14 @@ contract BookingToken is
     ) public virtual onlyTTMAccount(msg.sender) whenNotPaused {
         // Require reservedFor to be a TTM Account
         requireTTMAccount(reservedFor);
+
+        // The supplier (msg.sender) must have declared this payment token.
+        // This bounds what a compromised or misconfigured booking operator can
+        // price a booking in. address(0) is native and address(1) is off-chain;
+        // both are declared through the same allowlist.
+        if (!ITTMAccount(msg.sender).isSupportedToken(address(paymentToken))) {
+            revert PaymentTokenNotSupported(address(paymentToken));
+        }
 
         BookingTokenStorage storage $ = _getBookingTokenStorage();
 
