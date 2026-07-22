@@ -245,6 +245,15 @@ async function deployBookingTokenFixture() {
     // Deposit NullUSD
     await nullUSD.transfer(distributorTTMAccount.getAddress(), ethers.parseUnits("1", nullUSDDecimals));
 
+    // Declare the payment tokens this supplier accepts. Once the allowlist is
+    // enforced at mint, a supplier that has declared nothing cannot trade.
+    const SUPPORTED_NATIVE = ethers.ZeroAddress;
+    const SUPPORTED_OFFCHAIN = ethers.getAddress("0x0000000000000000000000000000000000000001");
+
+    await supplierTTMAccount.connect(signers.ttmAccountAdmin).addSupportedToken(SUPPORTED_NATIVE);
+    await supplierTTMAccount.connect(signers.ttmAccountAdmin).addSupportedToken(SUPPORTED_OFFCHAIN);
+    await supplierTTMAccount.connect(signers.ttmAccountAdmin).addSupportedToken(await nullUSD.getAddress());
+
     return {
         ttmAccountManager,
         supplierTTMAccount,
