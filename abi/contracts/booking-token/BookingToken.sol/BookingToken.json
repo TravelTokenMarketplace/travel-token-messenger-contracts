@@ -349,6 +349,17 @@
   {
     "inputs": [
       {
+        "internalType": "address",
+        "name": "paymentToken",
+        "type": "address"
+      }
+    ],
+    "name": "PaymentTokenNotSupported",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "uint256",
         "name": "tokenId",
         "type": "uint256"

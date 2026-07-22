@@ -414,19 +414,6 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": false,
-        "internalType": "bool",
-        "name": "supportsOffChainPayment",
-        "type": "bool"
-      }
-    ],
-    "name": "OffChainPaymentSupportUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
         "indexed": true,
         "internalType": "address",
         "name": "token",
@@ -957,6 +944,29 @@
       }
     ],
     "name": "addWantedServices",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "contract IERC721",
+        "name": "token",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      }
+    ],
+    "name": "approveERC721",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -1530,6 +1540,25 @@
     "inputs": [
       {
         "internalType": "address",
+        "name": "_token",
+        "type": "address"
+      }
+    ],
+    "name": "isSupportedToken",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "supported",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
         "name": "reservedFor",
         "type": "address"
       },
@@ -1567,19 +1596,6 @@
     "name": "mintBookingToken",
     "outputs": [],
     "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "offChainPaymentSupported",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -1805,19 +1821,6 @@
       }
     ],
     "name": "setGasMoneyWithdrawal",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bool",
-        "name": "_isSupported",
-        "type": "bool"
-      }
-    ],
-    "name": "setOffChainPaymentSupported",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

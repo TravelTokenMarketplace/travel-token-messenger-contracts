@@ -130,19 +130,6 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": false,
-        "internalType": "bool",
-        "name": "supportsOffChainPayment",
-        "type": "bool"
-      }
-    ],
-    "name": "OffChainPaymentSupportUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
         "indexed": true,
         "internalType": "address",
         "name": "token",
@@ -332,12 +319,18 @@
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "offChainPaymentSupported",
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_token",
+        "type": "address"
+      }
+    ],
+    "name": "isSupportedToken",
     "outputs": [
       {
         "internalType": "bool",
-        "name": "",
+        "name": "supported",
         "type": "bool"
       }
     ],
