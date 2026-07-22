@@ -118,6 +118,15 @@ mapping(address account => address creator) _ttmAccountCreator;
 all. The divergence class disappears structurally rather than by guard, so no
 `grantRole`/`revokeRole`/`renounceRole` overrides are needed.
 
+**Creation invariant.** `_createTTMAccount` deploys the account through an
+`ERC1967Proxy` pointing at the current implementation and, in the same call,
+records the account in `_ttmAccounts` and its creator in `_ttmAccountCreator`
+(`msg.sender`). Registry membership and creator attribution are therefore
+established atomically at deployment — an implementation that deployed the
+account directly, or that added it to `_ttmAccounts` without writing
+`_ttmAccountCreator`, would violate this invariant. Tests must assert both the
+proxy deployment and the two recorded values.
+
 `BookingToken.isTTMAccount` (`contracts/booking-token/BookingToken.sol:700`) is
 unaffected — it already reads through `ITTMAccountManager`.
 
@@ -262,6 +271,13 @@ this rework made the file bigger, not smaller.
 so it keeps a single check against the manager. Today that validation is
 implicit in `getRegisteredServiceHash` reverting on an unknown name; hash-native
 makes it explicit.
+
+The same requirement applies to `addWantedServices`: every wanted-service hash
+must already be registered in the manager's `ServiceRegistry`, so it runs the
+identical per-hash check before recording the want. Both supported and wanted
+services share this invariant — an account may not advertise support for, or a
+want of, a service that does not exist in the registry. Each write path has an
+unregistered-hash test asserting the revert.
 
 Dropping it would let an account advertise a service that does not exist in the
 registry. It is a write path, called rarely, and the invariant is worth one
