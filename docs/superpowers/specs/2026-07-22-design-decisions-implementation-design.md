@@ -324,9 +324,8 @@ partner-facing work.
 
 **Deferred:** guided Safe creation inside `CreateAccount.tsx` — collecting
 owners and threshold, deploying through Safe's canonical `SafeProxyFactory`,
-pre-filling the result as the admin. Recorded for later, not built now. Safe's
-canonical deployment addresses on Base Sepolia are unverified and must be
-confirmed before that work starts.
+pre-filling the result as the admin. Recorded for later, not built now. The
+addresses it needs are in the appendix.
 
 **Rejected:** an on-chain `createTTMAccountWithSafe(...)` on the manager. It
 buys one transaction at the cost of a permanent dependency from our core
@@ -399,3 +398,39 @@ lands. Three items:
   rather than retry.
 - **Decision 5 is confirmed no-impact.** Recorded so the question is not
   reopened.
+
+---
+
+## Appendix — Safe contract addresses, Base Sepolia
+
+Safe v1.4.1 canonical deployments. Needed only by the deferred guided-creation
+work; the phase 2 connector work and the phase 3 Safe for our own roles both go
+through the Safe web app and need none of these.
+
+| Contract                          | Address                                      |
+| --------------------------------- | -------------------------------------------- |
+| `SafeProxyFactory`                | `0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67` |
+| `SafeL2`                          | `0x29fcB43b46531BcA003ddC8FCB67FFE91900C762` |
+| `Safe`                            | `0x41675C099F32341bf84BFc5382aF534df5C7461a` |
+| `CompatibilityFallbackHandler`    | `0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99` |
+| `MultiSend`                       | `0x38869bf66a61cF6bDB996A6aE40D5853Fd43B526` |
+| `MultiSendCallOnly`               | `0x9641d764fc13c8B624c04430C7356C1C7C8102e2` |
+| `CreateCall`                      | `0x9b35Af71d77eaf8d7e40252370304687390A1A52` |
+| `SignMessageLib`                  | `0xd53cd0aB83D845Ac265BE939c57F53AD838012c9` |
+| `SimulateTxAccessor`              | `0x3d4BA2E0884aa488718476ca2FB8Efc291A46199` |
+| `SafeMigration`                   | `0x526643F69b81B008F46d95CD5ced5eC0edFFDaC6` |
+| `SafeToL2Migration`               | `0xfF83F6335d8930cBad1c0D439A841f01888D9f69` |
+| `SafeToL2Setup`                   | `0xBD89A1CE4DDe368FFAB0eC35506eEcE0b1fFdc54` |
+
+Three things to get right when this work starts:
+
+- **Use `SafeL2` as the singleton, not `Safe`.** Base is an L2, and `SafeL2`
+  emits per-transaction events that Safe's Transaction Service indexes without
+  needing node tracing. A Safe deployed against the non-L2 singleton works
+  on-chain but may not appear correctly in Safe's own UI and API.
+- **Set `CompatibilityFallbackHandler` at setup.** It provides EIP-1271
+  signature verification, which anything asking the Safe to sign a message will
+  need.
+- **These are deterministic addresses, but deployment is per-chain.** They are
+  expected to be identical on Base mainnet; confirm that rather than assume it
+  before any mainnet use.
