@@ -74,6 +74,39 @@ Scope the change to the transfer path. The six external cancellation entry
 points keep authorizing against `msg.sender`, which is correct for them — they
 are direct calls by a party, not delegated transfers.
 
+### `approveERC721` is required for this to mean anything
+
+Found during pre-flight review of the implementation plan, and approved as a
+scope addition on 2026-07-22.
+
+Decisions 2 and 3 together would otherwise make this fix unreachable:
+
+- Decision 3 gates cancellation so that a pending proposal implies the owner
+  **is** a TTM Account.
+- `TTMAccount` has no `approve`, no `setApprovalForAll`, and no generic call
+  surface, so a TTM Account **cannot authorize an operator** at all.
+- Therefore "pending proposal + operator-initiated transfer" cannot occur.
+
+It is reachable today only by the route Decision 3 closes: an ordinary wallet
+holds the token, the supplier opens a doomed proposal against it, the wallet
+approves a marketplace, and that marketplace's transfer reverts.
+
+More to the point, Option B was chosen to preserve composability with
+marketplaces and custody providers — and a partner account currently cannot
+list a booking token on a marketplace, because it cannot approve one.
+
+So `TTMAccount` gains:
+
+```solidity
+function approveERC721(IERC721 token, address to, uint256 tokenId) external onlyRole(WITHDRAWER_ROLE) {
+    token.approve(to, tokenId);
+}
+```
+
+`WITHDRAWER_ROLE` mirrors the gating on the existing `transferERC721`
+(`contracts/account/TTMAccount.sol:462`), which is the right level: approving
+an operator and transferring outright are the same class of authority.
+
 ### Consequence accepted
 
 A booking token transferred to a non-TTM-Account address cannot be cancelled.

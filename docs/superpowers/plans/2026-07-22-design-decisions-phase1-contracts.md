@@ -4,7 +4,7 @@
 
 **Goal:** Implement the contract-side changes for design decisions 2, 3, 4 and 5, leaving the suite green and the ABIs regenerated.
 
-**Architecture:** Four independent contract changes against `contracts/booking-token/` and `contracts/account/` + `contracts/partner/`. Decisions 2 and 3 are coupled — D3's safety argument depends on D2's fix, so D2 lands first. Decision 4 is split into three tasks so the suite stays green throughout: add the query, update fixtures, then enforce.
+**Architecture:** Four contract changes against `contracts/booking-token/`, `contracts/account/` and `contracts/partner/`. Decisions 2 and 3 are coupled — D3's safety argument depends on D2's fix, so D2 lands first, and D2 additionally requires an `approveERC721` surface on `TTMAccount` without which its scenario is unreachable. Decision 4 is split across four tasks so the suite stays green throughout: add the query, declare tokens in fixtures, enforce at mint, then delete the superseded boolean.
 
 **Tech Stack:** Solidity 0.8.24, Hardhat, `@openzeppelin/contracts-upgradeable` v5, Chai + `hardhat-network-helpers` for tests, Prettier/ESLint/Solhint for lint.
 
@@ -30,8 +30,8 @@
 | `contracts/booking-token/BookingToken.sol` | Entry points, transfer path, mint. Transfer path keys off owner (T1); owner-must-be-TTM-Account gate (T2); payment enforcement at mint (T5). | 1, 2, 5 |
 | `contracts/partner/PartnerConfiguration.sol` | Partner config. Gains `isSupportedToken`; loses `_supportsOffChainPayment`. | 3, 6 |
 | `contracts/account/ITTMAccount.sol` | Currently a stub declaring only `initialize`. Gains `isSupportedToken` so `BookingToken` can call it. | 3 |
-| `contracts/account/TTMAccount.sol` | Loses `setOffChainPaymentSupported` (T6); bot role defaults and gas allowance (T7). | 6, 7 |
-| `test/utils/fixtures.js` | Shared fixtures. Must declare payment tokens before enforcement lands. | 4 |
+| `contracts/account/TTMAccount.sol` | Gains `approveERC721` (T1); loses `setOffChainPaymentSupported` (T6); bot role defaults and gas allowance (T7). | 1, 6, 7 |
+| `test/utils/fixtures.js` | Shared fixtures. Adds `otherAccount4` (T1); must declare payment tokens before enforcement lands (T4). | 1, 4 |
 | `test/BookingToken.test.js` | Transfer, cancellation and mint behaviour. | 1, 2, 5 |
 | `test/PartnerConfiguration.test.js` | `isSupportedToken`; off-chain test replaced by a sentinel test. | 3, 6 |
 | `test/TTMAccount.test.js` | `addMessengerBot` role grants. | 7 |
@@ -42,13 +42,15 @@
 ### Task 1: Decision 2 — authorize transfer-time proposal closing against the owner
 
 **Files:**
+- Modify: `contracts/account/TTMAccount.sol:462-467` (add `approveERC721`)
 - Modify: `contracts/booking-token/BookingTokenCancellable.sol:388-450`
 - Modify: `contracts/booking-token/BookingToken.sol:607-643`, `:830-848`
+- Modify: `test/utils/fixtures.js:14-51` (add `otherAccount4`)
 - Test: `test/BookingToken.test.js`
 
 **Interfaces:**
 - Consumes: nothing from earlier tasks.
-- Produces: `_rejectCancellation(address actor, address owner, address supplier, uint256 tokenId, uint16 rejectionReason, uint16 rejectionReasonVersion)` and `_withdrawCancellation(address actor, address owner, address supplier, uint256 tokenId, uint16 withdrawalReason, uint16 withdrawalVersion)` — both `internal virtual`, both now taking `actor` as the first parameter. Task 2 does not touch these.
+- Produces: `approveERC721(IERC721 token, address to, uint256 tokenId)` on `TTMAccount`, gated on `WITHDRAWER_ROLE`; `signers.otherAccount4` in `test/utils/fixtures.js`; `_rejectCancellation(address actor, address owner, address supplier, uint256 tokenId, uint16 rejectionReason, uint16 rejectionReasonVersion)` and `_withdrawCancellation(address actor, address owner, address supplier, uint256 tokenId, uint16 withdrawalReason, uint16 withdrawalVersion)` — both `internal virtual`, both now taking `actor` as the first parameter. Task 2 does not touch these.
 
 **Background:** `checkTransferable` auto-closes a `PENDING` proposal on transfer using protocol code `REJECTION_REASON_TRANSFER_ON_CHAIN = 99`. Two places assume `msg.sender` is a party to the booking: the `onlyOwnerOrSupplier` modifier on the two internal functions, and the branch choosing between them. When an approved operator transfers, both fail and the transfer reverts.
 
@@ -64,7 +66,38 @@ In `test/utils/fixtures.js`, add `otherAccount4` to both the destructuring array
 `otherAccount3`, at `:50`). `ethers.getSigners()` returns twenty accounts by
 default, so there is capacity.
 
-- [ ] **Step 2: Write the failing test**
+- [ ] **Step 2: Add `approveERC721` to `TTMAccount`**
+
+Without this, the operator scenario is unreachable and this task cannot be
+tested: Task 2 gates cancellation so a pending proposal implies the owner is a
+TTM Account, and `TTMAccount` currently has no `approve`, no
+`setApprovalForAll` and no generic call surface — so a TTM Account can never
+authorize an operator. This is also what makes marketplace and custody
+composability possible at all, which is why Option B was chosen.
+
+In `contracts/account/TTMAccount.sol`, directly after `transferERC721`
+(`:462-467`), add:
+
+```solidity
+    /**
+     * @notice Approves an operator to transfer a specific ERC721 token held by
+     * this account. Required for listing a booking token on a marketplace or
+     * handing it to a custody provider.
+     *
+     * @param token The ERC721 contract
+     * @param to The operator being approved
+     * @param tokenId The token id
+     */
+    function approveERC721(IERC721 token, address to, uint256 tokenId) external onlyRole(WITHDRAWER_ROLE) {
+        token.approve(to, tokenId);
+    }
+```
+
+`WITHDRAWER_ROLE` mirrors `transferERC721`: approving an operator and
+transferring outright are the same class of authority. `IERC721` is already
+imported for `transferERC721`.
+
+- [ ] **Step 3: Write the failing test**
 
 Add inside the `describe("BookingToken")` block in `test/BookingToken.test.js`:
 
@@ -79,23 +112,30 @@ describe("Transfer with pending cancellation", function () {
             supplierBookingOperator,
         } = await loadFixture(deployCancellationSupportFixture);
 
-        // Supplier opens a cancellation proposal on a BOUGHT token.
+        // Supplier opens a cancellation proposal on a BOUGHT token that the
+        // distributor account owns.
         await supplierTTMAccount
             .connect(supplierBookingOperator)
             .initiateCancellation(tokenWithNativePayment, 0n, 1, 1);
 
-        // The distributor account (the owner) approves an unrelated operator.
+        // The owner approves a third-party operator — a marketplace stand-in.
         const operator = signers.otherAccount4;
-        const WITHDRAWER_ROLE = await distributorTTMAccount.WITHDRAWER_ROLE();
         await distributorTTMAccount
             .connect(signers.ttmAccountAdmin)
-            .grantRole(WITHDRAWER_ROLE, signers.ttmAccountAdmin.address);
+            .grantRole(await distributorTTMAccount.WITHDRAWER_ROLE(), signers.ttmAccountAdmin.address);
+        await distributorTTMAccount
+            .connect(signers.ttmAccountAdmin)
+            .approveERC721(await bookingToken.getAddress(), operator.address, tokenWithNativePayment);
 
-        // Owner-initiated transfer out of the account, via the operator path.
+        // The operator transfers — it is neither the owner nor the supplier.
         await expect(
-            distributorTTMAccount
-                .connect(signers.ttmAccountAdmin)
-                .transferERC721(await bookingToken.getAddress(), operator.address, tokenWithNativePayment),
+            bookingToken
+                .connect(operator)
+                .transferFrom(
+                    await distributorTTMAccount.getAddress(),
+                    operator.address,
+                    tokenWithNativePayment,
+                ),
         ).to.emit(bookingToken, "CancellationRejected");
 
         // Proposal is closed, and the token moved.
@@ -106,12 +146,15 @@ describe("Transfer with pending cancellation", function () {
 });
 ```
 
-- [ ] **Step 3: Run the test to verify it fails**
+- [ ] **Step 4: Run the test to verify it fails**
 
 Run: `yarn test --grep "approved operator transfers"`
-Expected: FAIL. Confirm the failure reason before proceeding — it should be a revert from the cancellation path, not a setup error. If it passes, stop: the premise is wrong and the task needs re-deriving.
+Expected: FAIL with `NotOwnerOrSupplier`. `msg.sender` is the operator, which is
+neither owner nor supplier, so the `onlyOwnerOrSupplier` modifier on
+`_rejectCancellation` reverts. If the failure is anything else, stop and
+re-derive — a different error means the setup is wrong, not the premise.
 
-- [ ] **Step 4: Add the `actor` parameter to `_withdrawCancellation`**
+- [ ] **Step 5: Add the `actor` parameter to `_withdrawCancellation`**
 
 In `contracts/booking-token/BookingTokenCancellable.sol`, replace the `_withdrawCancellation` definition (currently at `:388-416`) with:
 
@@ -156,7 +199,7 @@ In `contracts/booking-token/BookingTokenCancellable.sol`, replace the `_withdraw
 
 The check order is unchanged — authorization, then status, then proposer — so existing revert-reason assertions keep passing.
 
-- [ ] **Step 5: Add the `actor` parameter to `_rejectCancellation`**
+- [ ] **Step 6: Add the `actor` parameter to `_rejectCancellation`**
 
 Replace the `_rejectCancellation` definition (currently at `:418-450`) with:
 
@@ -204,7 +247,7 @@ Replace the `_rejectCancellation` definition (currently at `:418-450`) with:
 
 Leave `_initiateCancellation`, `_acceptCancellation` and `_counterCancellation` untouched — they keep the `onlyOwnerOrSupplier` modifier, which is correct for direct calls.
 
-- [ ] **Step 6: Update the two external entry points to pass `msg.sender`**
+- [ ] **Step 7: Update the two external entry points to pass `msg.sender`**
 
 In `contracts/booking-token/BookingToken.sol`, in `withdrawCancellation` (at `:830-838`) change the internal call to:
 
@@ -220,7 +263,7 @@ and in `rejectCancellation` (at `:840-848`):
 
 Behaviour for direct calls is unchanged.
 
-- [ ] **Step 7: Key the transfer path off the owner**
+- [ ] **Step 8: Key the transfer path off the owner**
 
 In `checkTransferable` (`contracts/booking-token/BookingToken.sol:622-642`), replace the `if (cancellationStatus == CancellationProposalStatus.PENDING)` block body with:
 
@@ -258,7 +301,7 @@ In `checkTransferable` (`contracts/booking-token/BookingToken.sol:622-642`), rep
 
 **Documented behaviour difference:** if the *supplier* is an approved operator and is also the current proposer, the old code withdrew and the new code rejects, because the transfer is now attributed to the owner. This is intentional per the spec and only affects that exotic combination.
 
-- [ ] **Step 8: Run the new test and the full suite**
+- [ ] **Step 9: Run the new test and the full suite**
 
 Run: `yarn test --grep "approved operator transfers"`
 Expected: PASS
@@ -266,11 +309,11 @@ Expected: PASS
 Run: `yarn test`
 Expected: at least 160 passing, 0 failing.
 
-- [ ] **Step 9: Lint and commit**
+- [ ] **Step 10: Lint and commit**
 
 ```bash
 yarn lint
-git add contracts/booking-token/BookingTokenCancellable.sol contracts/booking-token/BookingToken.sol test/BookingToken.test.js
+git add contracts/account/TTMAccount.sol contracts/booking-token/BookingTokenCancellable.sol contracts/booking-token/BookingToken.sol test/BookingToken.test.js test/utils/fixtures.js
 git commit -m "fix(booking-token): authorize transfer-time proposal closing against the owner
 
 checkTransferable auto-closes a pending cancellation proposal using protocol
