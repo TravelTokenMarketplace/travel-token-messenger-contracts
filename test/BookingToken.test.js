@@ -466,6 +466,10 @@ describe("BookingToken", function () {
             // Strip otherTTMAccount back to no payment configuration at all.
             // getSupportedTokens returns a copy, so removing while iterating is safe.
             // ttmAccountAdmin holds SERVICE_ADMIN_ROLE from initialize.
+            // Drift guard: the fixture never declares anything for otherTTMAccount today,
+            // so this loop is currently a no-op. The lengthOf(0) assertion below is the
+            // real proof of the precondition; keep the loop so this stays true if the
+            // fixture changes.
             for (const token of await otherTTMAccount.getSupportedTokens()) {
                 await otherTTMAccount.connect(signers.ttmAccountAdmin).removeSupportedToken(token);
             }
@@ -3562,6 +3566,39 @@ describe("BookingToken", function () {
                     .connect(operator)
                     .transferFrom(await distributorTTMAccount.getAddress(), operator.address, tokenWithNativePayment),
             ).to.emit(bookingToken, "CancellationRejected");
+
+            // Proposal is closed, and the token moved.
+            const proposal = await bookingToken.getCancellationProposal(tokenWithNativePayment);
+            expect(proposal[0]).to.not.equal(1n); // 1 == PENDING
+            expect(await bookingToken.ownerOf(tokenWithNativePayment)).to.equal(operator.address);
+        });
+
+        it("should withdraw a pending proposal when the owner (as current proposer) transfers", async function () {
+            const { distributorTTMAccount, bookingToken, tokenWithNativePayment, distributorBookingOperator } =
+                await loadFixture(deployCancellationSupportFixture);
+
+            // The owner (distributor) opens the cancellation proposal itself, so it
+            // becomes the current proposer.
+            await distributorTTMAccount
+                .connect(distributorBookingOperator)
+                .initiateCancellation(tokenWithNativePayment, 0n, 1, 1);
+
+            // The owner approves a third-party operator — a marketplace stand-in.
+            const operator = signers.otherAccount4;
+            await distributorTTMAccount
+                .connect(signers.ttmAccountAdmin)
+                .grantRole(await distributorTTMAccount.WITHDRAWER_ROLE(), signers.ttmAccountAdmin.address);
+            await distributorTTMAccount
+                .connect(signers.ttmAccountAdmin)
+                .approveERC721(await bookingToken.getAddress(), operator.address, tokenWithNativePayment);
+
+            // The operator transfers on the owner's behalf. Since the owner is the
+            // current proposer, its own proposal is withdrawn, not rejected.
+            await expect(
+                bookingToken
+                    .connect(operator)
+                    .transferFrom(await distributorTTMAccount.getAddress(), operator.address, tokenWithNativePayment),
+            ).to.emit(bookingToken, "CancellationWithdrawn");
 
             // Proposal is closed, and the token moved.
             const proposal = await bookingToken.getCancellationProposal(tokenWithNativePayment);

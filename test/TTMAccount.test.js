@@ -556,6 +556,56 @@ describe("TTMAccount", function () {
                     .transferERC721(await bookingToken.getAddress(), signers.otherAccount2.address, 0n),
             ).to.be.revertedWithCustomError(supplierTTMAccount, "AccessControlUnauthorizedAccount");
         });
+
+        it("should approve an ERC721 operator only for an authorized caller", async function () {
+            const { supplierTTMAccount, distributorTTMAccount, bookingToken } = await loadFixture(
+                deployBookingTokenWithNullUSDFixture,
+            );
+
+            const tokenURI =
+                "data:application/json;base64,eyJuYW1lIjoiQ2FtaW5vIE1lc3NlbmdlciBCb29raW5nVG9rZW4gVGVzdCJ9Cg==";
+
+            const expirationTimestamp = Math.floor(Date.now() / 1000) + 120;
+
+            const price = ethers.parseEther("0.05");
+
+            // Grant BOOKING_OPERATOR_ROLE
+            const BOOKING_OPERATOR_ROLE = await supplierTTMAccount.BOOKING_OPERATOR_ROLE();
+            await supplierTTMAccount
+                .connect(signers.ttmAccountAdmin)
+                .grantRole(BOOKING_OPERATOR_ROLE, signers.btAdmin.address);
+
+            // Mint a reservation - the supplier TTMAccount holds the token until it is bought.
+            await supplierTTMAccount
+                .connect(signers.btAdmin)
+                .mintBookingToken(
+                    distributorTTMAccount.getAddress(),
+                    tokenURI,
+                    expirationTimestamp,
+                    price,
+                    ethers.ZeroAddress,
+                    0,
+                    true,
+                );
+
+            // Try to approve with a non-auth address
+            await expect(
+                supplierTTMAccount
+                    .connect(signers.otherAccount1)
+                    .approveERC721(await bookingToken.getAddress(), signers.otherAccount2.address, 0n),
+            ).to.be.revertedWithCustomError(supplierTTMAccount, "AccessControlUnauthorizedAccount");
+
+            // Approve with the authorized WITHDRAWER_ROLE holder
+            await expect(
+                supplierTTMAccount
+                    .connect(signers.withdrawer)
+                    .approveERC721(await bookingToken.getAddress(), signers.otherAccount2.address, 0n),
+            )
+                .to.emit(bookingToken, "Approval")
+                .withArgs(await supplierTTMAccount.getAddress(), signers.otherAccount2.address, 0n);
+
+            expect(await bookingToken.getApproved(0n)).to.equal(signers.otherAccount2.address);
+        });
     });
 
     describe("recordExpiration", function () {
