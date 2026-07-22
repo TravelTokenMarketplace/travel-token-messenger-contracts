@@ -1021,9 +1021,9 @@ run's output is committed.
 - [ ] **Step 2: Confirm the ABI reflects the changes**
 
 ```bash
-grep -c "offChainPaymentSupported" abi/*.json || echo "absent, as expected"
-grep -c "isSupportedToken" abi/*.json
-grep -c "PaymentTokenNotSupported" abi/*.json
+grep -r "offChainPaymentSupported" abi/ || echo "absent, as expected"
+grep -rl "isSupportedToken" abi/
+grep -rl "PaymentTokenNotSupported" abi/
 ```
 
 Expected: `offChainPaymentSupported` absent; `isSupportedToken` and `PaymentTokenNotSupported` present.
