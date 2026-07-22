@@ -184,9 +184,13 @@ starting values are 0.01 ETH per 24 hours.
 
 Unlike `MESSENGER_BOT_ROLE` and `BOOKING_OPERATOR_ROLE`, `GAS_WITHDRAWER_ROLE`
 is not granted by `addMessengerBot`. It must be granted explicitly by
-`DEFAULT_ADMIN_ROLE` via the inherited `grantRole`. This separates onboarding
-a bot from giving it access to funds: a `BOT_ADMIN_ROLE` holder can add and
-remove bots but cannot, by itself, authorize a bot to withdraw gas money.
+`DEFAULT_ADMIN_ROLE` via the inherited `grantRole`. This means a compromised
+bot key does not, by itself, come with standing authority to withdraw gas
+money: that authority is opt-in per bot, decided separately by
+`DEFAULT_ADMIN_ROLE`. It is not a fund-safety boundary against
+`BOT_ADMIN_ROLE` itself — `addMessengerBot` takes a `gasMoney` argument and
+sends that amount to the new bot immediately, and `BOT_ADMIN_ROLE` can also
+raise the default withdrawal limit via `setGasMoneyWithdrawal`.
 
 `BOOKING_OPERATOR_ROLE` enables a bot to mint and buy Booking Tokens by
 calling the corresponding functions on the {BookingToken} contract. The buy
@@ -632,13 +636,19 @@ Approves an operator to transfer a specific ERC721 token held by
 this account. Required for listing a booking token on a marketplace or
 handing it to a custody provider.
 
+_`token` is not restricted to ERC721 contracts: `approve(address,uint256)`
+shares its selector with ERC-20's `approve`, so calling this with an
+IERC20 address cast as IERC721 grants an ERC-20 allowance instead. This is
+not a privilege escalation — `WITHDRAWER_ROLE` can already move the
+account's ERC-20 balances outright via `transferERC20`._
+
 #### Parameters
 
-| Name    | Type             | Description                 |
-| ------- | ---------------- | --------------------------- |
-| token   | contract IERC721 | The ERC721 contract         |
-| to      | address          | The operator being approved |
-| tokenId | uint256          | The token id                |
+| Name    | Type             | Description                                                                                     |
+| ------- | ---------------- | ----------------------------------------------------------------------------------------------- |
+| token   | contract IERC721 | The ERC721 contract (or, due to the shared selector noted above, any ERC20-compatible contract) |
+| to      | address          | The operator being approved                                                                     |
+| tokenId | uint256          | The token id                                                                                    |
 
 ### addService
 
