@@ -83,35 +83,30 @@ yarn hardhat manager services:register \
 
 # 5. Optional: grant MIN_EXPIRATION_ADMIN_ROLE to change the 60s default
 
-# 7. Verify on Basescan
+# 6. Verify on Basescan
 yarn hardhat ignition verify chain-84532
 ```
 
 Marking the two `ERC1967Proxy` addresses as **proxies** on Basescan is a
 separate manual step in the Basescan UI.
 
-> **Overriding `managerAdmin` does NOT cascade to the other roles.** Hardhat
+> **Why the parameters file stays `{}` (Approach H).** Every role deploys onto
+> the deployer key and moves to the Safe in step 8 — a single, auditable
+> handoff. Do **not** set roles in `base_sepolia_parameters.json`. Splitting
+> custody between the parameters file and the handoff is fragile: Hardhat
 > Ignition 0.15.8 cannot resolve a module parameter used as another parameter's
 > default (`_resolveDefaultValue` only recurses into `AccountRuntimeValue`), so
 > `managerPauser`, `managerUpgrader`, `managerVersioner`, `bookingAdmin`, and
-> `bookingUpgrader` each default to **account 0 — the deployer key** —
-> independently of `managerAdmin`.
+> `bookingUpgrader` do **not** follow `managerAdmin` — each would silently stay
+> on the deployer with nothing in the dry-run or deploy output to warn you.
 >
-> If you point `managerAdmin` at a Safe and forget the others, those roles
-> silently stay on the deployer key. Nothing in the dry-run or deploy output
-> warns you.
->
-> **`managerVersioner` is the one exception — leave it as the deployer.** The
-> module itself calls `setAccountImplementation` and `setBookingTokenAddress`,
-> both `onlyRole(VERSIONER_ROLE)`, and both execute as account 0 during the
-> deploy. Pointing `managerVersioner` at a Safe in the parameters file makes
-> those calls revert mid-module, leaving a partially-configured manager on
-> chain. Transfer `VERSIONER_ROLE` to the Safe in the role-handoff step (step 8) instead, after the module has finished running.
->
-> **Set `managerPauser`, `managerUpgrader`, `bookingAdmin`, and
-> `bookingUpgrader` explicitly in `base_sepolia_parameters.json`** if they
-> should differ from the deployer, and verify role membership on-chain after
-> deploying, before step 8.
+> **`managerVersioner` must stay the deployer regardless.** The module itself
+> calls `setAccountImplementation` and `setBookingTokenAddress`, both
+> `onlyRole(VERSIONER_ROLE)`, as account 0 during the deploy. Pointing
+> `managerVersioner` at a Safe in the parameters file makes those calls revert
+> mid-module, leaving a partially-configured manager on chain. The role-handoff
+> step (step 8) moves `VERSIONER_ROLE` to the Safe after the module has
+> finished running.
 
 **8. Hand off privileged roles to the Safe.**
 
@@ -120,7 +115,8 @@ separate manual step in the Basescan UI.
 
 The task grants the Safe `DEFAULT_ADMIN_ROLE`, `UPGRADER_ROLE`, `VERSIONER_ROLE`,
 `PAUSER_ROLE` and `SERVICE_REGISTRY_ADMIN_ROLE` on the manager and
-`DEFAULT_ADMIN_ROLE`/`UPGRADER_ROLE`/`PAUSER_ROLE` on BookingToken; grants the
+`DEFAULT_ADMIN_ROLE`/`UPGRADER_ROLE`/`PAUSER_ROLE` on BookingToken (plus
+`MIN_EXPIRATION_ADMIN_ROLE` if the deployer was granted it in step 5); grants the
 hot pauser `PAUSER_ROLE` on both; **verifies the Safe holds every role before it
 renounces anything** (the manager is a singleton — an incomplete grant must not
 strand it without an admin); then renounces the deployer's roles,
