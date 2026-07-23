@@ -19,8 +19,6 @@ React 18 + Vite + TypeScript · Tailwind (class-based dark mode) · wagmi v2 + v
 
 If service reads break with decode errors, the usual cause is a stale `../abi/` — regenerate it from the repo root with `yarn hardhat export-abi`.
 
-- `VITE_WALLETCONNECT_PROJECT_ID` (optional): enables the WalletConnect wallet option; inert when unset. See `.env.example`.
-
 ## Structure
 
 - `config/chains.ts` — `APP_CHAINS` (Base, Base Sepolia) and `ENABLED_CHAINS` (enabled **and** has deployed contracts).
@@ -38,6 +36,7 @@ If service reads break with decode errors, the usual cause is a stale `../abi/` 
 - **Permission-gated actions** are wrapped in `RoleGate` with a human `action` label (renders a `PermissionHint` like "Can't add bot" when the wallet lacks the role).
 - **Inputs** use the shared `Input` component / `inputClass`; selects and menus use HeadlessUI (`NetworkSelector`, `ConnectButton`, `Checkbox`, `Autocomplete`).
 - **Dark mode** is Tailwind `class` strategy; every color needs a `dark:` variant.
+- `VITE_WALLETCONNECT_PROJECT_ID` (optional): enables the WalletConnect wallet option; inert when unset. See `.env.example`.
 
 ## Design system ("transit-board terminal")
 
