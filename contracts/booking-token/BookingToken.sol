@@ -16,6 +16,9 @@ import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/ac
 // Manager Interface
 import { ITTMAccountManager } from "../manager/ITTMAccountManager.sol";
 
+// Account Interface
+import { ITTMAccount } from "../account/ITTMAccount.sol";
+
 // Utils
 import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -311,6 +314,13 @@ contract BookingToken is
      */
     error ZeroAddress();
 
+    /**
+     * @notice The supplier has not declared this payment token as supported.
+     *
+     * @param paymentToken The rejected payment token, or sentinel
+     */
+    error PaymentTokenNotSupported(address paymentToken);
+
     /***************************************************
      *                  MODIFIERS                      *
      ***************************************************/
@@ -398,6 +408,14 @@ contract BookingToken is
     ) public virtual onlyTTMAccount(msg.sender) whenNotPaused {
         // Require reservedFor to be a TTM Account
         requireTTMAccount(reservedFor);
+
+        // The supplier (msg.sender) must have declared this payment token.
+        // This bounds what a compromised or misconfigured booking operator can
+        // price a booking in. address(0) is native and address(1) is off-chain;
+        // both are declared through the same allowlist.
+        if (!ITTMAccount(msg.sender).isSupportedToken(address(paymentToken))) {
+            revert PaymentTokenNotSupported(address(paymentToken));
+        }
 
         BookingTokenStorage storage $ = _getBookingTokenStorage();
 
@@ -623,9 +641,13 @@ contract BookingToken is
             address owner = _requireOwned(tokenId);
             address supplier = $._reservations[tokenId].supplier;
 
-            // Check if the current proposer is the owner
-            if (msg.sender != currentProposer) {
-                _rejectCancellation(
+            // The acting party is the owner: a transfer is initiated by the
+            // owner or by someone the owner approved. Keying off msg.sender
+            // here would revert for marketplace and custody operators.
+            if (owner == currentProposer) {
+                // The owner is abandoning their own proposal.
+                _withdrawCancellation(
+                    owner,
                     owner,
                     supplier,
                     tokenId,
@@ -633,7 +655,9 @@ contract BookingToken is
                     REJECTION_REASON_VERSION
                 );
             } else {
-                _withdrawCancellation(
+                // The counterparty's proposal is rejected.
+                _rejectCancellation(
+                    owner,
                     owner,
                     supplier,
                     tokenId,
@@ -788,6 +812,11 @@ contract BookingToken is
         // Revert if token does not exist
         owner = _requireOwned(tokenId);
 
+        // Cancellation is only possible while a TTM Account holds the token.
+        // A wallet owner can never call acceptCancellation (every entry point
+        // is onlyTTMAccount), so a proposal against one could never finalize.
+        requireTTMAccount(owner);
+
         // Get storage
         BookingTokenStorage storage $ = _getBookingTokenStorage();
 
@@ -834,7 +863,7 @@ contract BookingToken is
     ) external virtual onlyTTMAccount(msg.sender) {
         (address owner, address supplier) = _requireBoughtAndParties(tokenId);
 
-        _withdrawCancellation(owner, supplier, tokenId, withdrawalReason, withdrawalReasonVersion);
+        _withdrawCancellation(msg.sender, owner, supplier, tokenId, withdrawalReason, withdrawalReasonVersion);
     }
 
     function rejectCancellation(
@@ -844,7 +873,7 @@ contract BookingToken is
     ) external virtual onlyTTMAccount(msg.sender) {
         (address owner, address supplier) = _requireBoughtAndParties(tokenId);
 
-        _rejectCancellation(owner, supplier, tokenId, rejectionReason, rejectionReasonVersion);
+        _rejectCancellation(msg.sender, owner, supplier, tokenId, rejectionReason, rejectionReasonVersion);
     }
 
     function finalizeCancellation(

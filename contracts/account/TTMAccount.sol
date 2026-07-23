@@ -35,7 +35,17 @@ import { GasMoneyManager } from "./GasMoneyManager.sol";
  * and `period` (seconds) set by the `BOT_ADMIN_ROLE`. The limit and period
  * apply per bot address: each bot tracks its own withdrawals against the
  * same limit, independently of every other bot on the account. Default
- * starting values are 10 ETH per 24 hours.
+ * starting values are 0.01 ETH per 24 hours.
+ *
+ * Unlike `MESSENGER_BOT_ROLE` and `BOOKING_OPERATOR_ROLE`, `GAS_WITHDRAWER_ROLE`
+ * is not granted by `addMessengerBot`. It must be granted explicitly by
+ * `DEFAULT_ADMIN_ROLE` via the inherited `grantRole`. This means a compromised
+ * bot key does not, by itself, come with standing authority to withdraw gas
+ * money: that authority is opt-in per bot, decided separately by
+ * `DEFAULT_ADMIN_ROLE`. It is not a fund-safety boundary against
+ * `BOT_ADMIN_ROLE` itself — `addMessengerBot` takes a `gasMoney` argument and
+ * sends that amount to the new bot immediately, and `BOT_ADMIN_ROLE` can also
+ * raise the default withdrawal limit via `setGasMoneyWithdrawal`.
  *
  * `BOOKING_OPERATOR_ROLE` enables a bot to mint and buy Booking Tokens by
  * calling the corresponding functions on the {BookingToken} contract. The buy
@@ -82,8 +92,9 @@ contract TTMAccount is
 
     /**
      * @notice Gas withdrawer role can withdraw gas money from the contract. This is
-     * intended to be used by the bots and is granted when `addMessengerBot` is
-     * called.
+     * intended to be used by the bots, but is not granted by `addMessengerBot`.
+     * `DEFAULT_ADMIN_ROLE` must grant it explicitly, so a `BOT_ADMIN_ROLE`
+     * holder can onboard and remove bots but cannot give them access to funds.
      */
     bytes32 public constant GAS_WITHDRAWER_ROLE = keccak256("GAS_WITHDRAWER_ROLE");
 
@@ -254,7 +265,7 @@ contract TTMAccount is
         $._bookingToken = bookingToken;
 
         // Initialize GasMoneyManager
-        uint256 withdrawalLimit = 10 ether; // 10 ETH
+        uint256 withdrawalLimit = 0.01 ether; // 0.01 ETH
         uint256 withdrawalPeriod = 24 hours; // per 24 hours
         __GasMoneyManager_init(withdrawalLimit, withdrawalPeriod);
     }
@@ -466,6 +477,26 @@ contract TTMAccount is
         token.safeTransferFrom(address(this), to, tokenId);
     }
 
+    /**
+     * @notice Approves an operator to transfer a specific ERC721 token held by
+     * this account. Required for listing a booking token on a marketplace or
+     * handing it to a custody provider.
+     *
+     * @dev `token` is not restricted to ERC721 contracts: `approve(address,uint256)`
+     * shares its selector with ERC-20's `approve`, so calling this with an
+     * IERC20 address cast as IERC721 grants an ERC-20 allowance instead. This is
+     * not a privilege escalation — `WITHDRAWER_ROLE` can already move the
+     * account's ERC-20 balances outright via `transferERC20`.
+     *
+     * @param token The ERC721 contract (or, due to the shared selector noted
+     * above, any ERC20-compatible contract)
+     * @param to The operator being approved
+     * @param tokenId The token id
+     */
+    function approveERC721(IERC721 token, address to, uint256 tokenId) external onlyRole(WITHDRAWER_ROLE) {
+        token.approve(to, tokenId);
+    }
+
     /***************************************************
      *                PARTNER CONFIG                   *
      ***************************************************/
@@ -665,15 +696,6 @@ contract TTMAccount is
      ***************************************************/
 
     /**
-     * @notice Sets if off-chain payment is supported.
-     *
-     * @param _isSupported true if off-chain payment is supported
-     */
-    function setOffChainPaymentSupported(bool _isSupported) public onlyRole(SERVICE_ADMIN_ROLE) {
-        _setOffChainPaymentSupported(_isSupported);
-    }
-
-    /**
      * @notice Adds a supported payment token.
      *
      * @param _supportedToken address of the token
@@ -729,7 +751,6 @@ contract TTMAccount is
         // Grant roles to bot
         _grantRole(MESSENGER_BOT_ROLE, bot);
         _grantRole(BOOKING_OPERATOR_ROLE, bot);
-        _grantRole(GAS_WITHDRAWER_ROLE, bot);
 
         emit MessengerBotAdded(bot);
 

@@ -465,13 +465,14 @@ ACCOUNT_SCOPE.task("payment-token:list", "List supported payment tokens from TTM
 
         const supportedTokens = await ttmAccount.getSupportedTokens();
         console.log("💵 Supported payment tokens:");
-        console.log(supportedTokens);
-
-        try {
-            const offChainSupported = await ttmAccount.offChainPaymentSupported();
-            console.log(`🔗 Off-chain payment supported: ${offChainSupported ? "✅" : "❌"}`);
-        } catch (e) {
-            console.log("Failed to fetch off-chain payment support info.");
+        for (const token of supportedTokens) {
+            if (token === "0x0000000000000000000000000000000000000000") {
+                console.log(`${token} (native currency)`);
+            } else if (token === "0x0000000000000000000000000000000000000001") {
+                console.log(`${token} (off-chain payment)`);
+            } else {
+                console.log(token);
+            }
         }
     });
 
@@ -1071,33 +1072,6 @@ ACCOUNT_SCOPE.task("pubkey:list", "List all public keys registered on TTMAccount
             if (addresses.length === 0) {
                 console.log("No public keys registered.");
             }
-        } catch (error) {
-            handleTransactionError(error, ttmAccount);
-        }
-    });
-
-ACCOUNT_SCOPE.task("payment:set-offchain", "Set if off-chain payment is supported by TTMAccount")
-    .addOptionalParam(
-        "privateKey",
-        "Private key to use, default: TTMACCOUNT_PK env variable",
-        process.env.TTMACCOUNT_PK,
-    )
-    .addOptionalParam(
-        "ttmAccount",
-        "TTMAccount address, default: TTMACCOUNT_ADDRESS env variable",
-        process.env.TTMACCOUNT_ADDRESS,
-    )
-    .addParam("supported", "true if supported, false otherwise", null, types.boolean)
-    .setAction(async (taskArgs, hre) => {
-        const ttmAccount = await getTTMAccount(taskArgs.ttmAccount);
-        console.log("TTMAccount:", taskArgs.ttmAccount);
-
-        try {
-            const signer = new ethers.Wallet(taskArgs.privateKey, ethers.provider);
-            console.log(`Setting off-chain payment support to: ${taskArgs.supported}`);
-            const tx = await ttmAccount.connect(signer).setOffChainPaymentSupported(taskArgs.supported);
-            const receipt = await tx.wait();
-            console.log("Tx:", receipt.hash);
         } catch (error) {
             handleTransactionError(error, ttmAccount);
         }

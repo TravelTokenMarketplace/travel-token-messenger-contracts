@@ -152,6 +152,19 @@ Returns the gas money withdrawal details for an account.
 function initialize(address manager, address bookingToken, address owner, address upgrader) external
 ```
 
+### isSupportedToken
+
+```solidity
+function isSupportedToken(address _token) external view returns (bool)
+```
+
+Whether a payment token is declared as supported by this account.
+
+Payment mode is encoded as an address, matching BookingToken:
+`address(0)` is native currency, `address(1)` is off-chain payment, and
+any other value is an ERC-20 address. All three are declared through the
+same allowlist.
+
 ## TTMAccount
 
 A TTM Account manages funds, minting/buying of booking tokens, provided
@@ -167,7 +180,17 @@ contract to be used as gas money. This is restricted with a `limit` (wei)
 and `period` (seconds) set by the `BOT_ADMIN_ROLE`. The limit and period
 apply per bot address: each bot tracks its own withdrawals against the
 same limit, independently of every other bot on the account. Default
-starting values are 10 ETH per 24 hours.
+starting values are 0.01 ETH per 24 hours.
+
+Unlike `MESSENGER_BOT_ROLE` and `BOOKING_OPERATOR_ROLE`, `GAS_WITHDRAWER_ROLE`
+is not granted by `addMessengerBot`. It must be granted explicitly by
+`DEFAULT_ADMIN_ROLE` via the inherited `grantRole`. This means a compromised
+bot key does not, by itself, come with standing authority to withdraw gas
+money: that authority is opt-in per bot, decided separately by
+`DEFAULT_ADMIN_ROLE`. It is not a fund-safety boundary against
+`BOT_ADMIN_ROLE` itself — `addMessengerBot` takes a `gasMoney` argument and
+sends that amount to the new bot immediately, and `BOT_ADMIN_ROLE` can also
+raise the default withdrawal limit via `setGasMoneyWithdrawal`.
 
 `BOOKING_OPERATOR_ROLE` enables a bot to mint and buy Booking Tokens by
 calling the corresponding functions on the {BookingToken} contract. The buy
@@ -212,8 +235,9 @@ bytes32 GAS_WITHDRAWER_ROLE
 ```
 
 Gas withdrawer role can withdraw gas money from the contract. This is
-intended to be used by the bots and is granted when `addMessengerBot` is
-called.
+intended to be used by the bots, but is not granted by `addMessengerBot`.
+`DEFAULT_ADMIN_ROLE` must grant it explicitly, so a `BOT_ADMIN_ROLE`
+holder can onboard and remove bots but cannot give them access to funds.
 
 ### WITHDRAWER_ROLE
 
@@ -602,6 +626,30 @@ This function reverts if `to` is the zero address.
 | to      | address          | The address to transfer the tokens to |
 | tokenId | uint256          | The token id of the token             |
 
+### approveERC721
+
+```solidity
+function approveERC721(contract IERC721 token, address to, uint256 tokenId) external
+```
+
+Approves an operator to transfer a specific ERC721 token held by
+this account. Required for listing a booking token on a marketplace or
+handing it to a custody provider.
+
+_`token` is not restricted to ERC721 contracts: `approve(address,uint256)`
+shares its selector with ERC-20's `approve`, so calling this with an
+IERC20 address cast as IERC721 grants an ERC-20 allowance instead. This is
+not a privilege escalation — `WITHDRAWER_ROLE` can already move the
+account's ERC-20 balances outright via `transferERC20`._
+
+#### Parameters
+
+| Name    | Type             | Description                                                                                     |
+| ------- | ---------------- | ----------------------------------------------------------------------------------------------- |
+| token   | contract IERC721 | The ERC721 contract (or, due to the shared selector noted above, any ERC20-compatible contract) |
+| to      | address          | The operator being approved                                                                     |
+| tokenId | uint256          | The token id                                                                                    |
+
 ### addService
 
 ```solidity
@@ -754,20 +802,6 @@ Removes services from this account's wanted list.
 | Name          | Type      | Description                                 |
 | ------------- | --------- | ------------------------------------------- |
 | serviceHashes | bytes32[] | Hashes of the service names to stop wanting |
-
-### setOffChainPaymentSupported
-
-```solidity
-function setOffChainPaymentSupported(bool _isSupported) public
-```
-
-Sets if off-chain payment is supported.
-
-#### Parameters
-
-| Name          | Type | Description                            |
-| ------------- | ---- | -------------------------------------- |
-| \_isSupported | bool | true if off-chain payment is supported |
 
 ### addSupportedToken
 
@@ -1285,6 +1319,20 @@ error ZeroAddress()
 
 A required address parameter was the zero address.
 
+### PaymentTokenNotSupported
+
+```solidity
+error PaymentTokenNotSupported(address paymentToken)
+```
+
+The supplier has not declared this payment token as supported.
+
+#### Parameters
+
+| Name         | Type    | Description                             |
+| ------------ | ------- | --------------------------------------- |
+| paymentToken | address | The rejected payment token, or sentinel |
+
 ### onlyTTMAccount
 
 ```solidity
@@ -1800,13 +1848,13 @@ function _counterCancellation(address owner, address supplier, uint256 tokenId, 
 ### \_withdrawCancellation
 
 ```solidity
-function _withdrawCancellation(address owner, address supplier, uint256 tokenId, uint16 withdrawalReason, uint16 withdrawalVersion) internal virtual
+function _withdrawCancellation(address actor, address owner, address supplier, uint256 tokenId, uint16 withdrawalReason, uint16 withdrawalVersion) internal virtual
 ```
 
 ### \_rejectCancellation
 
 ```solidity
-function _rejectCancellation(address owner, address supplier, uint256 tokenId, uint16 rejectionReason, uint16 rejectionReasonVersion) internal virtual
+function _rejectCancellation(address actor, address owner, address supplier, uint256 tokenId, uint16 rejectionReason, uint16 rejectionReasonVersion) internal virtual
 ```
 
 ### \_finalizeCancellation
@@ -2566,7 +2614,6 @@ struct Service {
 
 ```solidity
 struct PaymentInfo {
-  bool _supportsOffChainPayment;
   struct EnumerableSet.AddressSet _supportedTokens;
 }
 ```
@@ -2648,12 +2695,6 @@ event PaymentTokenAdded(address token)
 
 ```solidity
 event PaymentTokenRemoved(address token)
-```
-
-### OffChainPaymentSupportUpdated
-
-```solidity
-event OffChainPaymentSupportUpdated(bool supportsOffChainPayment)
 ```
 
 ### PublicKeyAdded
@@ -2932,21 +2973,29 @@ Returns supported token addresses.
 | ------ | --------- | ------------------------- |
 | tokens | address[] | Supported token addresses |
 
-### \_setOffChainPaymentSupported
+### isSupportedToken
 
 ```solidity
-function _setOffChainPaymentSupported(bool _supportsOffChainPayment) internal virtual
+function isSupportedToken(address _token) public view virtual returns (bool supported)
 ```
 
-Sets the off-chain payment support is supported.
+Returns whether a payment token is declared as supported.
 
-### offChainPaymentSupported
+The two sentinel values are legitimate members of this set:
+`address(0)` means native currency and `address(1)` means off-chain
+payment, matching how `BookingToken` encodes payment mode.
 
-```solidity
-function offChainPaymentSupported() public view virtual returns (bool)
-```
+#### Parameters
 
-Returns true if off-chain payment is supported for the given service.
+| Name    | Type    | Description                          |
+| ------- | ------- | ------------------------------------ |
+| \_token | address | Payment token address, or a sentinel |
+
+#### Return Values
+
+| Name      | Type | Description                   |
+| --------- | ---- | ----------------------------- |
+| supported | bool | Whether the token is declared |
 
 ### \_addPublicKey
 

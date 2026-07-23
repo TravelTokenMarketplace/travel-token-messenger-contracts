@@ -386,12 +386,19 @@ abstract contract BookingTokenCancellable is Initializable {
     }
 
     function _withdrawCancellation(
+        address actor,
         address owner,
         address supplier,
         uint256 tokenId,
         uint16 withdrawalReason,
         uint16 withdrawalVersion
-    ) internal virtual onlyOwnerOrSupplier(owner, supplier) {
+    ) internal virtual {
+        // Authorize the acting party, which is not necessarily msg.sender: on
+        // the transfer path the owner acts through an approved operator.
+        if (actor != owner && actor != supplier) {
+            revert NotOwnerOrSupplier();
+        }
+
         Proposal storage proposal = _getBookingTokenCancellableStorage()._proposals[tokenId];
 
         // Revert if not in PENDING state
@@ -400,7 +407,7 @@ abstract contract BookingTokenCancellable is Initializable {
         }
 
         // Only current proposer can withdraw
-        if (msg.sender != proposal.currentProposer) {
+        if (actor != proposal.currentProposer) {
             revert OnlyCurrentProposerCanWithdrawCancellation(tokenId);
         }
 
@@ -416,12 +423,19 @@ abstract contract BookingTokenCancellable is Initializable {
     }
 
     function _rejectCancellation(
+        address actor,
         address owner,
         address supplier,
         uint256 tokenId,
         uint16 rejectionReason,
         uint16 rejectionReasonVersion
-    ) internal virtual onlyOwnerOrSupplier(owner, supplier) {
+    ) internal virtual {
+        // Authorize the acting party, which is not necessarily msg.sender: on
+        // the transfer path the owner acts through an approved operator.
+        if (actor != owner && actor != supplier) {
+            revert NotOwnerOrSupplier();
+        }
+
         Proposal storage proposal = _getBookingTokenCancellableStorage()._proposals[tokenId];
 
         // Revert if not in PENDING state
@@ -430,7 +444,7 @@ abstract contract BookingTokenCancellable is Initializable {
         }
 
         // Proposer can not reject the cancellation
-        if (msg.sender == proposal.currentProposer) {
+        if (actor == proposal.currentProposer) {
             revert ProposerCanNotRejectCancellation(tokenId);
         }
 

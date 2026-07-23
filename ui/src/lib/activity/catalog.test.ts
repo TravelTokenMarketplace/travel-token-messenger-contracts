@@ -41,9 +41,6 @@ describe("catalog rendering", () => {
     expect(render("account", "Deposit", { sender: ACC, amount: 1_500000000000000000n })).toBe(
       "Deposit of 1.5 from 0xaAaA…0001",
     );
-    expect(render("account", "OffChainPaymentSupportUpdated", { supportsOffChainPayment: true })).toBe(
-      "Off-chain payment support enabled",
-    );
   });
 
   it("falls back to a short service hash when the name isn't resolved", () => {
