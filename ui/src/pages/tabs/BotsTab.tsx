@@ -16,9 +16,9 @@ import { useHasRole } from "../../hooks/useHasRole";
 import { roleHash, type RoleName } from "../../lib/roles";
 import { shortRoleName } from "../../lib/format";
 
-// A fully-provisioned bot holds all three roles; an admin can revoke any of
-// them individually, so we surface exactly which ones each address has.
-const BOT_ROLES: RoleName[] = ["MESSENGER_BOT_ROLE", "BOOKING_OPERATOR_ROLE", "GAS_WITHDRAWER_ROLE"];
+// addMessengerBot grants exactly these two roles (Decision 5). GAS_WITHDRAWER_ROLE
+// is opt-in and managed on the Roles tab, so it is not listed here.
+export const BOT_ROLES: RoleName[] = ["MESSENGER_BOT_ROLE", "BOOKING_OPERATOR_ROLE"];
 
 function BotBalance({ bot }: { bot: Address }) {
   const { chainId } = useActiveContracts();
