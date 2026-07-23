@@ -29,11 +29,7 @@ if (viemChains.length === 0) {
 // registered, and injected + Safe still work.
 const wcProjectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID as string | undefined;
 
-const connectors = [
-  injected(),
-  safe(),
-  ...(wcProjectId ? [walletConnect({ projectId: wcProjectId })] : []),
-];
+const connectors = [injected(), safe(), ...(wcProjectId ? [walletConnect({ projectId: wcProjectId })] : [])];
 
 export const wagmiConfig = createConfig({
   chains: viemChains as [Chain, ...Chain[]],

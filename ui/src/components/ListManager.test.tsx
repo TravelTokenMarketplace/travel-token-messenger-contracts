@@ -41,9 +41,7 @@ describe("ListManager", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: /native currency/i }));
-    await waitFor(() =>
-      expect(onAdd).toHaveBeenCalledWith("0x0000000000000000000000000000000000000000"),
-    );
+    await waitFor(() => expect(onAdd).toHaveBeenCalledWith("0x0000000000000000000000000000000000000000"));
   });
 
   it("hides a preset already present in items", () => {

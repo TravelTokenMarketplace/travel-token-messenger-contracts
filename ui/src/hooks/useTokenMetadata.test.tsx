@@ -6,7 +6,7 @@ let mockMulticall: { data: unknown; isLoading: boolean };
 
 // The spy MUST be `mock`-prefixed — vi.mock factories may only reference
 // top-level variables whose names start with `mock`.
-const mockReadSpy = vi.fn(() => mockMulticall);
+const mockReadSpy = vi.fn((_arg: unknown) => mockMulticall);
 vi.mock("wagmi", () => ({ useReadContracts: (arg: unknown) => mockReadSpy(arg) }));
 vi.mock("./useActiveContracts", () => ({ useActiveContracts: () => ({ chainId: 84532 }) }));
 
