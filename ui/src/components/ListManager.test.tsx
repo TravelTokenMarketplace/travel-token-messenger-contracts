@@ -28,4 +28,34 @@ describe("ListManager", () => {
     expect(screen.getByText(/can't add token/i)).toBeInTheDocument();
     expect(screen.getAllByText(/DEFAULT_ADMIN_ROLE/).length).toBeGreaterThan(0);
   });
+
+  it("renders preset quick-add buttons and calls onAdd with the preset value", async () => {
+    const onAdd = vi.fn().mockResolvedValue("0xhash");
+    render(
+      <ListManager
+        {...base}
+        hasRole
+        items={[]}
+        onAdd={onAdd}
+        presets={[{ label: "Native currency", value: "0x0000000000000000000000000000000000000000" }]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /native currency/i }));
+    await waitFor(() =>
+      expect(onAdd).toHaveBeenCalledWith("0x0000000000000000000000000000000000000000"),
+    );
+  });
+
+  it("hides a preset already present in items", () => {
+    render(
+      <ListManager
+        {...base}
+        hasRole
+        items={["0x0000000000000000000000000000000000000000"]}
+        onAdd={vi.fn()}
+        presets={[{ label: "Native currency", value: "0x0000000000000000000000000000000000000000" }]}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /native currency/i })).not.toBeInTheDocument();
+  });
 });

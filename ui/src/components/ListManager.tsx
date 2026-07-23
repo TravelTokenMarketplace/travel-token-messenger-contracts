@@ -21,6 +21,8 @@ interface ListManagerProps {
   renderItem?: (value: string) => ReactNode;
   /** Optional autocomplete suggestions for the add input. */
   suggestions?: string[];
+  /** Optional one-click add buttons (e.g. native / off-chain sentinels). */
+  presets?: { label: string; value: string }[];
 }
 
 export function ListManager(props: ListManagerProps) {
@@ -53,6 +55,21 @@ export function ListManager(props: ListManagerProps) {
         </ul>
       )}
       <RoleGate hasRole={hasRole} roleName={roleName} action={addLabel}>
+        {props.presets && props.presets.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-2">
+            {props.presets
+              .filter((p) => !items.some((it) => it.toLowerCase() === p.value.toLowerCase()))
+              .map((p) => (
+                <TxButton
+                  key={p.value}
+                  label={p.label}
+                  icon={<Plus className="h-4 w-4" />}
+                  write={() => props.onAdd(p.value)}
+                  onConfirmed={() => props.onChanged?.()}
+                />
+              ))}
+          </div>
+        )}
         <div className="flex items-end gap-2">
           {suggestions ? (
             <Autocomplete
