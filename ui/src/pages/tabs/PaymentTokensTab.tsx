@@ -6,6 +6,7 @@ import { useActiveContracts } from "../../hooks/useActiveContracts";
 import { useContractList } from "../../hooks/useContractList";
 import { useHasRole } from "../../hooks/useHasRole";
 import { useTokenMetadata } from "../../hooks/useTokenMetadata";
+import { NATIVE_SENTINEL, OFFCHAIN_SENTINEL } from "../../lib/paymentTokens";
 
 export function PaymentTokensTab({ account }: { account: Address }) {
   const { ttmAccountAbi } = useActiveContracts();
@@ -24,6 +25,10 @@ export function PaymentTokensTab({ account }: { account: Address }) {
       hasRole={hasRole}
       addLabel="Add token"
       addPlaceholder="Token address 0x…"
+      presets={[
+        { label: "Native currency", value: NATIVE_SENTINEL },
+        { label: "Off-chain payment", value: OFFCHAIN_SENTINEL },
+      ]}
       onAdd={(v) =>
         writeContractAsync({ address: account, abi, functionName: "addSupportedToken", args: [v as Address] })
       }

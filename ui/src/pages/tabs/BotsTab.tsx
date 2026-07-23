@@ -16,9 +16,9 @@ import { useHasRole } from "../../hooks/useHasRole";
 import { roleHash, type RoleName } from "../../lib/roles";
 import { shortRoleName } from "../../lib/format";
 
-// A fully-provisioned bot holds all three roles; an admin can revoke any of
-// them individually, so we surface exactly which ones each address has.
-const BOT_ROLES: RoleName[] = ["MESSENGER_BOT_ROLE", "BOOKING_OPERATOR_ROLE", "GAS_WITHDRAWER_ROLE"];
+// addMessengerBot grants exactly these two roles (Decision 5). GAS_WITHDRAWER_ROLE
+// is opt-in and managed on the Roles tab, so it is not listed here.
+export const BOT_ROLES: RoleName[] = ["MESSENGER_BOT_ROLE", "BOOKING_OPERATOR_ROLE"];
 
 function BotBalance({ bot }: { bot: Address }) {
   const { chainId } = useActiveContracts();
@@ -109,7 +109,7 @@ function BotRow({
               label="Remove"
               variant="danger"
               icon={<Trash2 className="h-4 w-4" />}
-              tooltip="Revokes all three bot roles from this address — sends a transaction to your wallet."
+              tooltip="Revokes this bot's roles (Messenger Bot, Booking Operator, and any Gas Withdrawer) from this address — sends a transaction to your wallet."
               write={() =>
                 writeContractAsync({ address: account, abi, functionName: "removeMessengerBot", args: [bot] })
               }
@@ -151,8 +151,9 @@ export function BotsTab({ account }: { account: Address }) {
   return (
     <Card title="Messenger Bots">
       <p className="mb-3 text-xs text-tarmac-500 dark:text-tarmac-400">
-        A bot is an address granted three roles — Messenger Bot, Booking Operator and Gas Withdrawer — and funded with
-        native tokens for transaction fees. Each bot's roles are shown below; an amber badge means that role is missing.
+        A bot is an address granted two roles — Messenger Bot and Booking Operator — and funded with native tokens for
+        transaction fees. Gas Withdrawer is optional and granted separately on the Roles tab. Each bot's roles are shown
+        below; an amber badge means that role is missing.
       </p>
       {isLoading || roleLoading ? (
         <p>Loading…</p>

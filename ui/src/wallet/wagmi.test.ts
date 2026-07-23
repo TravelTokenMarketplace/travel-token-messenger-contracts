@@ -25,3 +25,13 @@ describe("wagmiConfig", () => {
     }
   });
 });
+
+describe("connectors", () => {
+  it("registers injected and safe, and omits walletConnect without a project id", () => {
+    const ids = wagmiConfig.connectors.map((c) => c.id);
+    expect(ids).toContain("injected");
+    expect(ids).toContain("safe");
+    // VITE_WALLETCONNECT_PROJECT_ID is unset in the test env.
+    expect(ids).not.toContain("walletConnect");
+  });
+});

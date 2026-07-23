@@ -1,6 +1,7 @@
 import { type Address } from "viem";
 import { useReadContracts } from "wagmi";
 import { ERC20_ABI } from "../lib/erc20";
+import { isSentinel, paymentTokenLabel } from "../lib/paymentTokens";
 import { useActiveContracts } from "./useActiveContracts";
 
 export interface TokenMeta {
@@ -27,19 +28,28 @@ export function useTokenMetadata(addresses: Address[]): { meta: Map<string, Toke
     list.push(a);
   }
 
+  const readList = list.filter((a) => !isSentinel(a));
+
   const { data, isLoading } = useReadContracts({
     allowFailure: true,
-    contracts: list.flatMap((address) => [
+    contracts: readList.flatMap((address) => [
       { chainId, address, abi: ERC20_ABI, functionName: "symbol" } as const,
       { chainId, address, abi: ERC20_ABI, functionName: "name" } as const,
       { chainId, address, abi: ERC20_ABI, functionName: "decimals" } as const,
     ]),
-    query: { enabled: list.length > 0 },
+    query: { enabled: readList.length > 0 },
   });
 
   const meta = new Map<string, TokenMeta>();
+
+  // Sentinels never hit the chain; they carry static labels.
+  for (const address of list) {
+    const label = paymentTokenLabel(address);
+    if (label) meta.set(address.toLowerCase(), { address, symbol: label.symbol, name: label.name });
+  }
+
   if (data) {
-    list.forEach((address, i) => {
+    readList.forEach((address, i) => {
       const s = data[i * 3];
       const n = data[i * 3 + 1];
       const d = data[i * 3 + 2];

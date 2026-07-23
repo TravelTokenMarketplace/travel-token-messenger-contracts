@@ -1,6 +1,6 @@
 import { http, type Chain } from "viem";
 import { createConfig } from "wagmi";
-import { injected } from "wagmi/connectors";
+import { injected, safe, walletConnect } from "wagmi/connectors";
 import { ENABLED_CHAINS, type AppChain } from "../config/chains";
 
 function toViemChain(c: AppChain): Chain {
@@ -24,8 +24,15 @@ if (viemChains.length === 0) {
   );
 }
 
+// WalletConnect is optional: it needs a project id from WalletConnect/Reown
+// Cloud. Without VITE_WALLETCONNECT_PROJECT_ID the connector is simply not
+// registered, and injected + Safe still work.
+const wcProjectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID as string | undefined;
+
+const connectors = [injected(), safe(), ...(wcProjectId ? [walletConnect({ projectId: wcProjectId })] : [])];
+
 export const wagmiConfig = createConfig({
   chains: viemChains as [Chain, ...Chain[]],
-  connectors: [injected()],
+  connectors,
   transports: Object.fromEntries(ENABLED_CHAINS.map((c) => [c.id, http(c.rpcUrl)])),
 });
