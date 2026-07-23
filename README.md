@@ -50,6 +50,19 @@ The Ignition module deploys the contracts but leaves the system **inert** —
 `initialize` grants only DEFAULT_ADMIN/PAUSER/UPGRADER/VERSIONER, so no
 services can be registered until roles are granted. Follow every step.
 
+**Prerequisite — create custody keys.** Before deploying:
+
+- Create the Safe on Base Sepolia via the Safe web app: `SafeL2` singleton
+  (`0x29fcB43b46531BcA003ddC8FCB67FFE91900C762`) with the
+  `CompatibilityFallbackHandler` (`0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99`),
+  the owner set you control, and your chosen threshold. Record the Safe address.
+- Provision a dedicated hot **pauser** EOA, separate from the Safe owner keys.
+
+`base_sepolia_parameters.json` stays `{}` — every role deploys onto the deployer
+key and is handed off in step 8. This keeps `managerVersioner` on the deployer
+through the Ignition run (the module's `setAccountImplementation` /
+`setBookingTokenAddress` calls need `VERSIONER_ROLE` as account 0).
+
 ```bash
 # 1. Configuration
 yarn hardhat vars set BASE_SEPOLIA_DEPLOYER_PRIVATE_KEY
@@ -69,7 +82,6 @@ yarn hardhat manager services:register \
   --json ./services/00_initial.json --network base_sepolia
 
 # 5. Optional: grant MIN_EXPIRATION_ADMIN_ROLE to change the 60s default
-# 6. Grant PAUSER_ROLE on BookingToken to the operations key
 
 # 7. Verify on Basescan
 yarn hardhat ignition verify chain-84532
@@ -101,10 +113,21 @@ separate manual step in the Basescan UI.
 > should differ from the deployer, and verify role membership on-chain after
 > deploying, before step 8.
 
-**8. Hand off admin roles.** Transfer `DEFAULT_ADMIN_ROLE`, `UPGRADER_ROLE`,
-and `VERSIONER_ROLE` to the Safe, verify the Safe can act, and only **then**
-renounce the deployer's roles. The manager is a singleton — renouncing before
-verifying is unrecoverable.
+**8. Hand off privileged roles to the Safe.**
+
+    yarn hardhat roles handoff --network base_sepolia \
+      --safe <safe-address> --pauser <hot-pauser-address>
+
+The task grants the Safe `DEFAULT_ADMIN_ROLE`, `UPGRADER_ROLE`, `VERSIONER_ROLE`,
+`PAUSER_ROLE` and `SERVICE_REGISTRY_ADMIN_ROLE` on the manager and
+`DEFAULT_ADMIN_ROLE`/`UPGRADER_ROLE`/`PAUSER_ROLE` on BookingToken; grants the
+hot pauser `PAUSER_ROLE` on both; **verifies the Safe holds every role before it
+renounces anything** (the manager is a singleton — an incomplete grant must not
+strand it without an admin); then renounces the deployer's roles,
+`DEFAULT_ADMIN_ROLE` last. It is idempotent and safe to re-run.
+
+Pass `--keep-deployer-as-default-admin` to keep the deployer as a break-glass
+recovery admin. **Testnet only** — do not use it on Base mainnet.
 
 **9. Commit `ignition/deployments/chain-84532/`.** The UI reads
 `deployed_addresses.json` and filters enabled chains by whether contracts
