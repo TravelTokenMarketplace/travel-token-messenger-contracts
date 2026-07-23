@@ -126,6 +126,30 @@ describe("handoffRoles", function () {
         expect(await has(manager, "UPGRADER_ROLE", deployer.address)).to.be.true;
     });
 
+    it("relays MIN_EXPIRATION_ADMIN_ROLE to the Safe when the deployer holds it", async function () {
+        const { manager, bookingToken, deployer, safe, pauser } = await loadFixture(deployAllOnDeployerFixture);
+
+        await bookingToken.grantRole(await bookingToken.MIN_EXPIRATION_ADMIN_ROLE(), deployer.address);
+
+        await handoffRoles({
+            manager,
+            bookingToken,
+            deployer,
+            safe: safe.address,
+            pauser: pauser.address,
+            log: quiet,
+        });
+
+        expect(
+            await has(bookingToken, "MIN_EXPIRATION_ADMIN_ROLE", safe.address),
+            "bt MIN_EXPIRATION_ADMIN_ROLE -> safe",
+        ).to.be.true;
+        expect(
+            await has(bookingToken, "MIN_EXPIRATION_ADMIN_ROLE", deployer.address),
+            "bt MIN_EXPIRATION_ADMIN_ROLE deployer renounced",
+        ).to.be.false;
+    });
+
     it("is idempotent — a second run is a no-op and leaves the topology unchanged", async function () {
         const { manager, bookingToken, deployer, safe, pauser } = await loadFixture(deployAllOnDeployerFixture);
 

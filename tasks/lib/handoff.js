@@ -20,7 +20,7 @@ const MANAGER_RENOUNCE_ORDER = [
     "SERVICE_REGISTRY_ADMIN_ROLE",
     "DEFAULT_ADMIN_ROLE",
 ];
-const BOOKINGTOKEN_RENOUNCE_ORDER = ["UPGRADER_ROLE", "PAUSER_ROLE", "DEFAULT_ADMIN_ROLE"];
+const BOOKINGTOKEN_RENOUNCE_ORDER = ["UPGRADER_ROLE", "PAUSER_ROLE", "MIN_EXPIRATION_ADMIN_ROLE", "DEFAULT_ADMIN_ROLE"];
 
 async function grantIfMissing(contract, roleName, address, deployer, log) {
     const role = await contract[roleName]();
@@ -93,6 +93,9 @@ async function handoffRoles({
         await assertHolds(bookingToken, role, safe, "bookingToken", missing);
     }
     await assertHolds(bookingToken, "PAUSER_ROLE", pauser, "bookingToken", missing);
+    if (deployerHasMinExp) {
+        await assertHolds(bookingToken, "MIN_EXPIRATION_ADMIN_ROLE", safe, "bookingToken", missing);
+    }
     if (missing.length > 0) {
         throw new Error(`Verify gate failed: ${missing.join("; ")}. Deployer roles left untouched.`);
     }
@@ -107,9 +110,6 @@ async function handoffRoles({
     for (const role of BOOKINGTOKEN_RENOUNCE_ORDER) {
         if (role === "DEFAULT_ADMIN_ROLE" && keepDeployerAsDefaultAdmin) continue;
         await renounceIfHeld(bookingToken, role, deployer, log);
-    }
-    if (deployerHasMinExp) {
-        await renounceIfHeld(bookingToken, "MIN_EXPIRATION_ADMIN_ROLE", deployer, log);
     }
 
     // 4. FINAL SUMMARY
