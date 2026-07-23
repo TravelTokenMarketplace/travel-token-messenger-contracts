@@ -8,6 +8,7 @@ const { vars } = require("hardhat/config");
 // Tasks
 require("./tasks/manager");
 require("./tasks/account");
+require("./tasks/roles");
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
