@@ -19,6 +19,8 @@ React 18 + Vite + TypeScript · Tailwind (class-based dark mode) · wagmi v2 + v
 
 If service reads break with decode errors, the usual cause is a stale `../abi/` — regenerate it from the repo root with `yarn hardhat export-abi`.
 
+- `VITE_WALLETCONNECT_PROJECT_ID` (optional): enables the WalletConnect wallet option; inert when unset. See `.env.example`.
+
 ## Structure
 
 - `config/chains.ts` — `APP_CHAINS` (Base, Base Sepolia) and `ENABLED_CHAINS` (enabled **and** has deployed contracts).
