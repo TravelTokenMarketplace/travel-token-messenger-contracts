@@ -50,6 +50,19 @@ The Ignition module deploys the contracts but leaves the system **inert** —
 `initialize` grants only DEFAULT_ADMIN/PAUSER/UPGRADER/VERSIONER, so no
 services can be registered until roles are granted. Follow every step.
 
+**Prerequisite — create custody keys.** Before deploying:
+
+- Create the Safe on Base Sepolia via the Safe web app: `SafeL2` singleton
+  (`0x29fcB43b46531BcA003ddC8FCB67FFE91900C762`) with the
+  `CompatibilityFallbackHandler` (`0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99`),
+  the owner set you control, and your chosen threshold. Record the Safe address.
+- Provision a dedicated hot **pauser** EOA, separate from the Safe owner keys.
+
+`base_sepolia_parameters.json` stays `{}` — every role deploys onto the deployer
+key and is handed off in step 8. This keeps `managerVersioner` on the deployer
+through the Ignition run (the module's `setAccountImplementation` /
+`setBookingTokenAddress` calls need `VERSIONER_ROLE` as account 0).
+
 ```bash
 # 1. Configuration
 yarn hardhat vars set BASE_SEPOLIA_DEPLOYER_PRIVATE_KEY
@@ -69,42 +82,67 @@ yarn hardhat manager services:register \
   --json ./services/00_initial.json --network base_sepolia
 
 # 5. Optional: grant MIN_EXPIRATION_ADMIN_ROLE to change the 60s default
-# 6. Grant PAUSER_ROLE on BookingToken to the operations key
 
-# 7. Verify on Basescan
+# 6. Verify on Basescan
 yarn hardhat ignition verify chain-84532
 ```
 
 Marking the two `ERC1967Proxy` addresses as **proxies** on Basescan is a
 separate manual step in the Basescan UI.
 
-> **Overriding `managerAdmin` does NOT cascade to the other roles.** Hardhat
+> **Why the parameters file stays `{}` (Approach H).** Every role deploys onto
+> the deployer key and moves to the Safe in step 8 — a single, auditable
+> handoff. Do **not** set roles in `base_sepolia_parameters.json`. Splitting
+> custody between the parameters file and the handoff is fragile: Hardhat
 > Ignition 0.15.8 cannot resolve a module parameter used as another parameter's
 > default (`_resolveDefaultValue` only recurses into `AccountRuntimeValue`), so
 > `managerPauser`, `managerUpgrader`, `managerVersioner`, `bookingAdmin`, and
-> `bookingUpgrader` each default to **account 0 — the deployer key** —
-> independently of `managerAdmin`.
+> `bookingUpgrader` do **not** follow `managerAdmin` — each would silently stay
+> on the deployer with nothing in the dry-run or deploy output to warn you.
 >
-> If you point `managerAdmin` at a Safe and forget the others, those roles
-> silently stay on the deployer key. Nothing in the dry-run or deploy output
-> warns you.
->
-> **`managerVersioner` is the one exception — leave it as the deployer.** The
-> module itself calls `setAccountImplementation` and `setBookingTokenAddress`,
-> both `onlyRole(VERSIONER_ROLE)`, and both execute as account 0 during the
-> deploy. Pointing `managerVersioner` at a Safe in the parameters file makes
-> those calls revert mid-module, leaving a partially-configured manager on
-> chain. Transfer `VERSIONER_ROLE` to the Safe in the role-handoff step (step 8) instead, after the module has finished running.
->
-> **Set `managerPauser`, `managerUpgrader`, `bookingAdmin`, and
-> `bookingUpgrader` explicitly in `base_sepolia_parameters.json`** if they
-> should differ from the deployer, and verify role membership on-chain after
-> deploying, before step 8.
+> **`managerVersioner` must stay the deployer regardless.** The module itself
+> calls `setAccountImplementation` and `setBookingTokenAddress`, both
+> `onlyRole(VERSIONER_ROLE)`, as account 0 during the deploy. Pointing
+> `managerVersioner` at a Safe in the parameters file makes those calls revert
+> mid-module, leaving a partially-configured manager on chain. The role-handoff
+> step (step 8) moves `VERSIONER_ROLE` to the Safe after the module has
+> finished running.
 
-**8. Hand off admin roles.** Transfer `DEFAULT_ADMIN_ROLE`, `UPGRADER_ROLE`,
-and `VERSIONER_ROLE` to the Safe, verify the Safe can act, and only **then**
-renounce the deployer's roles. The manager is a singleton — renouncing before
-verifying is unrecoverable.
+**8. Hand off privileged roles to the Safe.**
+
+```bash
+yarn hardhat roles handoff --network base_sepolia \
+  --safe <safe-address> --pauser <hot-pauser-address>
+```
+
+Before sending any transaction the task **preflights the three principals**: the
+deployer, Safe and hot pauser must be three distinct, non-zero addresses; the
+Safe must be a contract that answers `getOwners()`/`getThreshold()`; and the hot
+pauser must be an EOA that holds no administrative role on either contract.
+
+The task then prints the Safe's **singleton** (read from the proxy's storage slot
+0), its owner set and its threshold, and stops short of granting anything until
+you have read them. Answering the Safe interface proves an interface, not
+provenance — **check the singleton against the `SafeL2` address in the
+prerequisites above**; the task reports it rather than enforcing an allowlist, so
+that our tooling carries no hard-coded per-chain Safe deployment addresses. Each of these is a one-way mistake —
+a mistyped EOA passed as `--safe` would receive every administrative role and
+pass the verify gate, and `--safe` equal to the deployer would strip the
+manager's last admin during the renounce loop.
+
+The task then grants the Safe `DEFAULT_ADMIN_ROLE`, `UPGRADER_ROLE`, `VERSIONER_ROLE`,
+`PAUSER_ROLE` and `SERVICE_REGISTRY_ADMIN_ROLE` on the manager and
+`DEFAULT_ADMIN_ROLE`/`UPGRADER_ROLE`/`PAUSER_ROLE` on BookingToken (plus
+`MIN_EXPIRATION_ADMIN_ROLE` if the deployer was granted it in step 5); grants the
+hot pauser `PAUSER_ROLE` on both; **verifies the Safe holds every role before it
+renounces anything** (the manager is a singleton — an incomplete grant must not
+strand it without an admin); then renounces the deployer's roles,
+`DEFAULT_ADMIN_ROLE` last. It is idempotent and safe to re-run.
+
+Pass `--keep-deployer-as-default-admin` to keep the deployer as a break-glass
+recovery admin. **Testnet only** — the task refuses the flag on any network
+outside `hardhat`, `localhost` and `base_sepolia`, so it cannot reach Base
+mainnet, where it would be permanent.
 
 **9. Commit `ignition/deployments/chain-84532/`.** The UI reads
 `deployed_addresses.json` and filters enabled chains by whether contracts

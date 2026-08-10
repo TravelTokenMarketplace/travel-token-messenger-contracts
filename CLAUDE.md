@@ -10,7 +10,7 @@ Solidity smart contracts for the Travel Token Messenger ecosystem, built with Ha
     - `booking-token/` — `BookingToken` (ERC-721) + cancellable/operator extensions
     - `partner/` — shared base contracts: `PartnerConfiguration`, `ServiceRegistry`
     - `test/` — mocks/helpers used by tests
-- `tasks/` — Hardhat tasks for management: `manager.js`, `account.js` (registered in `hardhat.config.js`). The UI mirrors these.
+- `tasks/` — Hardhat tasks for management: `manager.js`, `account.js`, and `roles.js` (all registered in `hardhat.config.js`). `manager.js`/`account.js` are mirrored by the UI; `roles.js` is a separate `roles` scope for privileged-role administration (deploy-time custody handoff), which the UI deliberately does not expose.
 - `ignition/` — Hardhat Ignition deployment: `modules/messenger.js`, per-network `*_parameters.json`, and recorded deployments in `deployments/chain-<id>/`
 - `abi/` — exported ABIs (see ABIs note below)
 - `scripts/`, `services/`, `utils/`, `examples/`, `go/` — supporting code
