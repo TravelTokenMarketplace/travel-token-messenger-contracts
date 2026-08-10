@@ -150,6 +150,175 @@ describe("handoffRoles", function () {
         ).to.be.false;
     });
 
+    it("rejects a Safe that is the deployer, before touching any role", async function () {
+        const { manager, bookingToken, deployer, pauser } = await loadFixture(deployAllOnDeployerFixture);
+
+        await expect(
+            handoffRoles({
+                manager,
+                bookingToken,
+                deployer,
+                safe: deployer.address,
+                pauser: pauser.address,
+                log: quiet,
+            }),
+        ).to.be.rejectedWith(/must be three distinct addresses/i);
+
+        // Nothing ran: the deployer keeps everything, the pauser got nothing.
+        expect(await has(manager, "DEFAULT_ADMIN_ROLE", deployer.address)).to.be.true;
+        expect(await has(manager, "PAUSER_ROLE", pauser.address)).to.be.false;
+    });
+
+    it("rejects a hot pauser that is the deployer", async function () {
+        const { manager, bookingToken, deployer, safe } = await loadFixture(deployAllOnDeployerFixture);
+
+        await expect(
+            handoffRoles({
+                manager,
+                bookingToken,
+                deployer,
+                safe: safe.address,
+                pauser: deployer.address,
+                log: quiet,
+            }),
+        ).to.be.rejectedWith(/must be three distinct addresses/i);
+
+        expect(await has(manager, "DEFAULT_ADMIN_ROLE", safe.address), "safe untouched").to.be.false;
+    });
+
+    it("rejects a hot pauser that is the Safe", async function () {
+        const { manager, bookingToken, deployer, safe } = await loadFixture(deployAllOnDeployerFixture);
+
+        await expect(
+            handoffRoles({
+                manager,
+                bookingToken,
+                deployer,
+                safe: safe.address,
+                pauser: safe.address,
+                log: quiet,
+            }),
+        ).to.be.rejectedWith(/must be three distinct addresses/i);
+    });
+
+    it("compares principals case-insensitively", async function () {
+        const { manager, bookingToken, deployer, pauser } = await loadFixture(deployAllOnDeployerFixture);
+
+        await expect(
+            handoffRoles({
+                manager,
+                bookingToken,
+                deployer,
+                safe: deployer.address.toLowerCase(),
+                pauser: pauser.address,
+                log: quiet,
+            }),
+        ).to.be.rejectedWith(/must be three distinct addresses/i);
+    });
+
+    it("rejects the zero address as a principal", async function () {
+        const { manager, bookingToken, deployer, safe } = await loadFixture(deployAllOnDeployerFixture);
+
+        await expect(
+            handoffRoles({
+                manager,
+                bookingToken,
+                deployer,
+                safe: ethers.ZeroAddress,
+                pauser: safe.address,
+                log: quiet,
+            }),
+        ).to.be.rejectedWith(/zero address/i);
+    });
+
+    it("rejects a malformed principal address", async function () {
+        const { manager, bookingToken, deployer, safe } = await loadFixture(deployAllOnDeployerFixture);
+
+        await expect(
+            handoffRoles({
+                manager,
+                bookingToken,
+                deployer,
+                safe: safe.address,
+                pauser: "0xnot-an-address",
+                log: quiet,
+            }),
+        ).to.be.rejectedWith(/pauser/i);
+    });
+
+    it("reports MIN_EXPIRATION_ADMIN_ROLE in the summary when it was transferred", async function () {
+        const { manager, bookingToken, deployer, safe, pauser } = await loadFixture(deployAllOnDeployerFixture);
+
+        await bookingToken.grantRole(await bookingToken.MIN_EXPIRATION_ADMIN_ROLE(), deployer.address);
+
+        const summary = await handoffRoles({
+            manager,
+            bookingToken,
+            deployer,
+            safe: safe.address,
+            pauser: pauser.address,
+            log: quiet,
+        });
+
+        expect(summary.bookingToken.safe.MIN_EXPIRATION_ADMIN_ROLE, "safe holds it").to.be.true;
+        expect(summary.bookingToken.deployer.MIN_EXPIRATION_ADMIN_ROLE, "deployer renounced it").to.be.false;
+    });
+
+    it("omits MIN_EXPIRATION_ADMIN_ROLE from the summary when the deployer never held it", async function () {
+        const { manager, bookingToken, deployer, safe, pauser } = await loadFixture(deployAllOnDeployerFixture);
+
+        const summary = await handoffRoles({
+            manager,
+            bookingToken,
+            deployer,
+            safe: safe.address,
+            pauser: pauser.address,
+            log: quiet,
+        });
+
+        expect(summary.bookingToken.safe).to.not.have.property("MIN_EXPIRATION_ADMIN_ROLE");
+        expect(summary.bookingToken.deployer).to.not.have.property("MIN_EXPIRATION_ADMIN_ROLE");
+    });
+
+    it("rejects a hot pauser that already holds an administrative role on the manager", async function () {
+        const { manager, bookingToken, deployer, safe, pauser } = await loadFixture(deployAllOnDeployerFixture);
+
+        await manager.grantRole(await manager.VERSIONER_ROLE(), pauser.address);
+
+        await expect(
+            handoffRoles({
+                manager,
+                bookingToken,
+                deployer,
+                safe: safe.address,
+                pauser: pauser.address,
+                log: quiet,
+            }),
+        ).to.be.rejectedWith(/hot pauser.*administrative role/is);
+
+        // Aborted before granting: the Safe still holds nothing.
+        expect(await has(manager, "DEFAULT_ADMIN_ROLE", safe.address)).to.be.false;
+    });
+
+    it("rejects a hot pauser that already holds an administrative role on BookingToken", async function () {
+        const { manager, bookingToken, deployer, safe, pauser } = await loadFixture(deployAllOnDeployerFixture);
+
+        await bookingToken.grantRole(await bookingToken.MIN_EXPIRATION_ADMIN_ROLE(), pauser.address);
+
+        await expect(
+            handoffRoles({
+                manager,
+                bookingToken,
+                deployer,
+                safe: safe.address,
+                pauser: pauser.address,
+                log: quiet,
+            }),
+        ).to.be.rejectedWith(/hot pauser.*administrative role/is);
+
+        expect(await has(bookingToken, "DEFAULT_ADMIN_ROLE", safe.address)).to.be.false;
+    });
+
     it("is idempotent — a second run is a no-op and leaves the topology unchanged", async function () {
         const { manager, bookingToken, deployer, safe, pauser } = await loadFixture(deployAllOnDeployerFixture);
 

@@ -1,6 +1,8 @@
 // Pure role-handoff logic, unit-tested in test/handoff.test.js. The Hardhat
 // task in tasks/roles.js is a thin wrapper that resolves contracts + signer.
 
+const { getAddress, ZeroAddress } = require("ethers");
+
 // Roles the Safe must end up holding.
 const MANAGER_SAFE_ROLES = [
     "DEFAULT_ADMIN_ROLE",
@@ -21,6 +23,12 @@ const MANAGER_RENOUNCE_ORDER = [
     "DEFAULT_ADMIN_ROLE",
 ];
 const BOOKINGTOKEN_RENOUNCE_ORDER = ["UPGRADER_ROLE", "PAUSER_ROLE", "MIN_EXPIRATION_ADMIN_ROLE", "DEFAULT_ADMIN_ROLE"];
+
+// The hot pauser is a standing online key: it must be able to pause, and nothing
+// else. These are every role on each contract other than PAUSER_ROLE — holding
+// one would leave the pauser silently privileged after the deployer renounces.
+const MANAGER_ADMIN_ROLES = MANAGER_SAFE_ROLES.filter((role) => role !== "PAUSER_ROLE");
+const BOOKINGTOKEN_ADMIN_ROLES = ["DEFAULT_ADMIN_ROLE", "UPGRADER_ROLE", "MIN_EXPIRATION_ADMIN_ROLE"];
 
 async function grantIfMissing(contract, roleName, address, deployer, log) {
     const role = await contract[roleName]();
@@ -56,15 +64,81 @@ async function membership(contract, roleNames, address) {
     return out;
 }
 
+function normalizePrincipal(label, value) {
+    let address;
+    try {
+        address = getAddress(value);
+    } catch {
+        throw new Error(`Invalid ${label} address: ${value}`);
+    }
+    if (address === ZeroAddress) {
+        throw new Error(`The ${label} must not be the zero address.`);
+    }
+    return address;
+}
+
+// The manager is a singleton: if two principals collide, the verify gate checks
+// an address that is about to be stripped by the renounce loop and passes. With
+// safe === deployer that strips the last DEFAULT_ADMIN_ROLE and bricks it; with
+// pauser === deployer it leaves no hot pauser. Reject before the first tx.
+function validatePrincipals({ deployer, safe, pauser }) {
+    const principals = {
+        deployer: normalizePrincipal("deployer", deployer),
+        safe: normalizePrincipal("safe", safe),
+        pauser: normalizePrincipal("pauser", pauser),
+    };
+
+    const seen = new Map();
+    for (const [label, address] of Object.entries(principals)) {
+        const clash = seen.get(address);
+        if (clash) {
+            throw new Error(
+                `The deployer, Safe and hot pauser must be three distinct addresses — ` +
+                    `${clash} and ${label} are both ${address}.`,
+            );
+        }
+        seen.set(address, label);
+    }
+    return principals;
+}
+
+// Catches a typo'd or reused hot-pauser key: on a fresh deploy the pauser is a
+// new EOA holding nothing, so this is a no-op — but if it does hold admin
+// authority, the deployer renounce would lock that in unnoticed.
+async function assertPauserIsNotPrivileged(manager, bookingToken, pauser) {
+    const held = [];
+    for (const role of MANAGER_ADMIN_ROLES) {
+        if (await manager.hasRole(await manager[role](), pauser)) held.push(`manager.${role}`);
+    }
+    for (const role of BOOKINGTOKEN_ADMIN_ROLES) {
+        if (await bookingToken.hasRole(await bookingToken[role](), pauser)) held.push(`bookingToken.${role}`);
+    }
+    if (held.length > 0) {
+        throw new Error(
+            `The hot pauser ${pauser} already holds an administrative role (${held.join(", ")}). ` +
+                `It must hold PAUSER_ROLE only — check the address, or revoke those roles first.`,
+        );
+    }
+}
+
 async function handoffRoles({
     manager,
     bookingToken,
     deployer,
-    safe,
-    pauser,
+    safe: safeInput,
+    pauser: pauserInput,
     keepDeployerAsDefaultAdmin = false,
     log = console.log,
 }) {
+    // 0. PREFLIGHT — no transaction has been sent yet, so throwing here is free.
+    const { safe, pauser } = validatePrincipals({
+        deployer: deployer.address,
+        safe: safeInput,
+        pauser: pauserInput,
+    });
+
+    await assertPauserIsNotPrivileged(manager, bookingToken, pauser);
+
     // 1. GRANT
     log("Granting roles to the Safe and hot pauser...");
     for (const role of MANAGER_SAFE_ROLES) {
@@ -112,7 +186,12 @@ async function handoffRoles({
         await renounceIfHeld(bookingToken, role, deployer, log);
     }
 
-    // 4. FINAL SUMMARY
+    // 4. FINAL SUMMARY — the only operator-facing confirmation, so it must cover
+    // the optional role too whenever it was actually part of the handoff.
+    const bookingTokenSummaryRoles = deployerHasMinExp
+        ? [...BOOKINGTOKEN_SAFE_ROLES, "MIN_EXPIRATION_ADMIN_ROLE"]
+        : BOOKINGTOKEN_SAFE_ROLES;
+
     return {
         manager: {
             safe: await membership(manager, MANAGER_SAFE_ROLES, safe),
@@ -120,9 +199,9 @@ async function handoffRoles({
             deployer: await membership(manager, MANAGER_SAFE_ROLES, deployer.address),
         },
         bookingToken: {
-            safe: await membership(bookingToken, BOOKINGTOKEN_SAFE_ROLES, safe),
+            safe: await membership(bookingToken, bookingTokenSummaryRoles, safe),
             pauser: await membership(bookingToken, ["PAUSER_ROLE"], pauser),
-            deployer: await membership(bookingToken, BOOKINGTOKEN_SAFE_ROLES, deployer.address),
+            deployer: await membership(bookingToken, bookingTokenSummaryRoles, deployer.address),
         },
     };
 }
