@@ -329,6 +329,15 @@ module.exports = {
 };
 ```
 
+> **Superseded — read `tasks/lib/handoff.js`, not this snippet.** The reference
+> implementation above renounced `MIN_EXPIRATION_ADMIN_ROLE` _after_
+> `DEFAULT_ADMIN_ROLE`, which cannot work once the admin is gone. The shipped code
+> folds it into `BOOKINGTOKEN_RENOUNCE_ORDER` ahead of `DEFAULT_ADMIN_ROLE` and
+> covers it conditionally in the verify gate (commit `5a8333b`). The shipped
+> version also adds a principal preflight (distinct, non-zero deployer/Safe/pauser
+> and a pauser that holds no administrative role) and reports the optional role in
+> the final summary — all absent here.
+
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `yarn hardhat test test/handoff.test.js`

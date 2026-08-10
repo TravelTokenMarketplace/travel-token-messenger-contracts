@@ -127,7 +127,7 @@ The extra grant/revoke transactions cost trivially more gas on testnet.
 3. **Setup as deployer** — grant `SERVICE_REGISTRY_ADMIN_ROLE` to the deployer,
    register the 63 canonical services. (The BookingToken `PAUSER` grant that was
    README step 6 moves into the handoff task.)
-4. **Handoff** — `yarn hardhat roles:handoff --safe <addr> --pauser <addr>
+4. **Handoff** — `yarn hardhat roles handoff --safe <addr> --pauser <addr>
    --network base_sepolia`. See the task spec below.
 5. **Finalize** — commit `ignition/deployments/chain-84532/`, fill the README
    address table, bump the contracts Go module in the bot and matrix-app-service.
@@ -220,7 +220,7 @@ Fold the above into the existing `Deploy (Hardhat Ignition)` runbook:
   step 1).
 - **Step 6** (manual BookingToken `PAUSER` grant) → removed; handled by the
   task.
-- **Step 8** → replaced by `yarn hardhat roles:handoff …`, documenting the flag,
+- **Step 8** → replaced by `yarn hardhat roles handoff …`, documenting the flag,
   the verify gate, and the full role list (including `SERVICE_REGISTRY_ADMIN_ROLE`
   and `PAUSER` to both Safe and hot key). Keep the "verify before renounce — the
   manager is a singleton" warning.

@@ -110,10 +110,21 @@ separate manual step in the Basescan UI.
 
 **8. Hand off privileged roles to the Safe.**
 
-    yarn hardhat roles handoff --network base_sepolia \
-      --safe <safe-address> --pauser <hot-pauser-address>
+```bash
+yarn hardhat roles handoff --network base_sepolia \
+  --safe <safe-address> --pauser <hot-pauser-address>
+```
 
-The task grants the Safe `DEFAULT_ADMIN_ROLE`, `UPGRADER_ROLE`, `VERSIONER_ROLE`,
+Before sending any transaction the task **preflights the three principals**: the
+deployer, Safe and hot pauser must be three distinct, non-zero addresses; the
+Safe must be a contract that answers `getOwners()`/`getThreshold()` (its owner
+set is printed for you to confirm); and the hot pauser must be an EOA that holds
+no administrative role on either contract. Each of these is a one-way mistake —
+a mistyped EOA passed as `--safe` would receive every administrative role and
+pass the verify gate, and `--safe` equal to the deployer would strip the
+manager's last admin during the renounce loop.
+
+The task then grants the Safe `DEFAULT_ADMIN_ROLE`, `UPGRADER_ROLE`, `VERSIONER_ROLE`,
 `PAUSER_ROLE` and `SERVICE_REGISTRY_ADMIN_ROLE` on the manager and
 `DEFAULT_ADMIN_ROLE`/`UPGRADER_ROLE`/`PAUSER_ROLE` on BookingToken (plus
 `MIN_EXPIRATION_ADMIN_ROLE` if the deployer was granted it in step 5); grants the
@@ -123,7 +134,9 @@ strand it without an admin); then renounces the deployer's roles,
 `DEFAULT_ADMIN_ROLE` last. It is idempotent and safe to re-run.
 
 Pass `--keep-deployer-as-default-admin` to keep the deployer as a break-glass
-recovery admin. **Testnet only** — do not use it on Base mainnet.
+recovery admin. **Testnet only** — the task refuses the flag on any network
+outside `hardhat`, `localhost` and `base_sepolia`, so it cannot reach Base
+mainnet, where it would be permanent.
 
 **9. Commit `ignition/deployments/chain-84532/`.** The UI reads
 `deployed_addresses.json` and filters enabled chains by whether contracts
