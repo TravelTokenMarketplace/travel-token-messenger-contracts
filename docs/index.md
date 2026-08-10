@@ -3242,16 +3242,27 @@ function getVersion() public pure returns (string)
 
 ## MockSafe
 
-Minimal stand-in for a Gnosis Safe: just the two owner-set getters the
-`roles handoff` preflight probes.
+Minimal stand-in for a Gnosis Safe: the two owner-set getters the
+`roles handoff` preflight probes, over a `SafeProxy`-shaped storage layout.
 
-_Used to exercise the custody-type preflight in `tasks/lib/preflight.js`
-without pulling the Safe contracts into this repo's dependency tree._
+_`singleton` is declared first so it occupies storage slot 0, exactly as
+`SafeProxy` does — that is the slot the preflight reads to report which Safe
+implementation the address is running. Used to exercise the custody-type
+preflight in `tasks/lib/preflight.js` without pulling the Safe contracts into
+this repo's dependency tree._
+
+### singleton
+
+```solidity
+address singleton
+```
+
+_Slot 0, mirroring `SafeProxy.singleton`._
 
 ### constructor
 
 ```solidity
-constructor(address[] owners_, uint256 threshold_) public
+constructor(address singleton_, address[] owners_, uint256 threshold_) public
 ```
 
 ### getOwners

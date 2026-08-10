@@ -53,11 +53,13 @@ ROLES_SCOPE.task("handoff", "Hand privileged roles to a Safe (+ hot pauser) and 
 
         // Custody-type preflight before any transaction: role membership cannot
         // tell a Safe from a mistyped EOA, and this is a one-way handoff.
-        const { owners, threshold } = await preflightCustody({
+        const { owners, threshold, singleton } = await preflightCustody({
             provider: ethers.provider,
             safe: taskArgs.safe,
             pauser: taskArgs.pauser,
         });
+        console.log(`\nSafe singleton: ${singleton ?? "unknown (slot 0 is empty — is this a Safe proxy?)"}`);
+        console.log("    Check this against the SafeL2 singleton in the README before continuing.");
         console.log(`\nSafe owners (threshold ${threshold} of ${owners.length}):`);
         for (const owner of owners) {
             console.log(`  - ${owner}`);

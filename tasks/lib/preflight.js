@@ -3,7 +3,7 @@
 // role logic against contract handles, this one is about who the counterparties
 // actually are on chain.
 
-const { Contract } = require("ethers");
+const { Contract, ZeroAddress, dataSlice, getAddress } = require("ethers");
 
 // Safe's owner-set getters. Probing them proves the address is a live Safe and
 // not merely some contract that happens to sit at a mistyped address.
@@ -22,6 +22,19 @@ function assertBreakGlassAllowed(networkName) {
                 `and is allowed only on: ${BREAK_GLASS_NETWORKS.join(", ")}.`,
         );
     }
+}
+
+// A SafeProxy holds its singleton (the Safe implementation it delegates to) in
+// storage slot 0. Answering getOwners()/getThreshold() proves an interface, not
+// provenance — reporting the singleton lets the operator check it against the
+// address in the runbook. Deliberately *reported, not enforced*: pinning a
+// per-chain singleton allowlist here would bake Safe's deployment addresses into
+// our tooling, the same coupling rejected for createTTMAccountWithSafe in phase 2,
+// and a stale entry would block a legitimate deploy.
+async function readSafeSingleton(provider, safe) {
+    const slot0 = await provider.getStorage(safe, 0);
+    const candidate = getAddress(dataSlice(slot0, 12));
+    return candidate === ZeroAddress ? null : candidate;
 }
 
 // Verifies custody *type*, which role membership cannot express: the Safe must
@@ -56,7 +69,7 @@ async function preflightCustody({ provider, safe, pauser }) {
         );
     }
 
-    return { owners: [...owners], threshold };
+    return { owners: [...owners], threshold, singleton: await readSafeSingleton(provider, safe) };
 }
 
-module.exports = { assertBreakGlassAllowed, preflightCustody, BREAK_GLASS_NETWORKS, SAFE_ABI };
+module.exports = { assertBreakGlassAllowed, preflightCustody, readSafeSingleton, BREAK_GLASS_NETWORKS, SAFE_ABI };

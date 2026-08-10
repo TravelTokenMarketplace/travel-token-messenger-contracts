@@ -117,9 +117,15 @@ yarn hardhat roles handoff --network base_sepolia \
 
 Before sending any transaction the task **preflights the three principals**: the
 deployer, Safe and hot pauser must be three distinct, non-zero addresses; the
-Safe must be a contract that answers `getOwners()`/`getThreshold()` (its owner
-set is printed for you to confirm); and the hot pauser must be an EOA that holds
-no administrative role on either contract. Each of these is a one-way mistake —
+Safe must be a contract that answers `getOwners()`/`getThreshold()`; and the hot
+pauser must be an EOA that holds no administrative role on either contract.
+
+The task then prints the Safe's **singleton** (read from the proxy's storage slot
+0), its owner set and its threshold, and stops short of granting anything until
+you have read them. Answering the Safe interface proves an interface, not
+provenance — **check the singleton against the `SafeL2` address in the
+prerequisites above**; the task reports it rather than enforcing an allowlist, so
+that our tooling carries no hard-coded per-chain Safe deployment addresses. Each of these is a one-way mistake —
 a mistyped EOA passed as `--safe` would receive every administrative role and
 pass the verify gate, and `--safe` equal to the deployer would strip the
 manager's last admin during the renounce loop.
