@@ -1,5 +1,6 @@
 require("@nomicfoundation/hardhat-toolbox");
 const { handoffRoles } = require("./lib/handoff");
+const { assertBreakGlassAllowed, preflightCustody } = require("./lib/preflight");
 
 const ROLES_SCOPE = scope("roles", "Privileged-role administration");
 
@@ -41,11 +42,27 @@ ROLES_SCOPE.task("handoff", "Hand privileged roles to a Safe (+ hot pauser) and 
         console.log(`Safe:     ${taskArgs.safe}`);
         console.log(`Pauser:   ${taskArgs.pauser}`);
         if (taskArgs.keepDeployerAsDefaultAdmin) {
+            // Throws outside the testnet allowlist — this flag must never reach a
+            // production chain, where it would be permanent.
+            assertBreakGlassAllowed(hre.network.name);
             console.log(
                 "\n⚠️  --keep-deployer-as-default-admin is set: the deployer keeps DEFAULT_ADMIN_ROLE.\n" +
                     "    This is a TESTNET recovery hatch. Do NOT use it on Base mainnet.\n",
             );
         }
+
+        // Custody-type preflight before any transaction: role membership cannot
+        // tell a Safe from a mistyped EOA, and this is a one-way handoff.
+        const { owners, threshold } = await preflightCustody({
+            provider: ethers.provider,
+            safe: taskArgs.safe,
+            pauser: taskArgs.pauser,
+        });
+        console.log(`\nSafe owners (threshold ${threshold} of ${owners.length}):`);
+        for (const owner of owners) {
+            console.log(`  - ${owner}`);
+        }
+        console.log("\nThese keys become the only administrators once the deployer renounces.\n");
 
         const summary = await handoffRoles({
             manager,

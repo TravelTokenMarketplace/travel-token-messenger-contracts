@@ -3240,6 +3240,36 @@ Returns all registered service **names**.
 function getVersion() public pure returns (string)
 ```
 
+## MockSafe
+
+Minimal stand-in for a Gnosis Safe: just the two owner-set getters the
+`roles handoff` preflight probes.
+
+_Used to exercise the custody-type preflight in `tasks/lib/preflight.js`
+without pulling the Safe contracts into this repo's dependency tree._
+
+### constructor
+
+```solidity
+constructor(address[] owners_, uint256 threshold_) public
+```
+
+### getOwners
+
+```solidity
+function getOwners() external view returns (address[])
+```
+
+Mirrors `Safe.getOwners()`.
+
+### getThreshold
+
+```solidity
+function getThreshold() external view returns (uint256)
+```
+
+Mirrors `Safe.getThreshold()`.
+
 ## NullUSD
 
 ### constructor
