@@ -11,9 +11,16 @@ ERC-721 `BookingToken` representing bookings, targeting the Base network.
 The contracts are deployed with a fresh state on Base Sepolia (testnet).
 Addresses will be recorded here after each deployment.
 
-| Base Sepolia (84532)       | Address |
-| -------------------------- | ------- |
-| _pending fresh deployment_ | —       |
+| Base Sepolia (84532)          | Address                                      |
+| ----------------------------- | -------------------------------------------- |
+| `TTMAccountManager` (proxy)   | `0xFE6587D20F8F9a57823B6aB62a19Fc857202Ca03` |
+| `TTMAccountManager` (impl)    | `0xEa8e753D5262fDc7D1D2bA2c2DfB89086B69F931` |
+| `BookingToken` (proxy)        | `0xB9ac3D8898e8bE5481a0DDCb7692692979794efC` |
+| `BookingToken` (impl)         | `0xe5F52581fA62c0A1d83A798f1621530d3620D0eA` |
+| `TTMAccount` (implementation) | `0x792bDd0C6a2a58DfC055b03d664149977FffDDc1` |
+| `BookingTokenOperator` (lib)  | `0xCbbdebde31ff19B1541Ab316f0FA456f3e79B3Dc` |
+
+All six are verified on [Basescan](https://sepolia.basescan.org/).
 
 ## Getting Started
 
