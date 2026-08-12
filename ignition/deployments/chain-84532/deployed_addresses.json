@@ -1,0 +1,10 @@
+{
+  "TravelTokenMessengerModule#BookingToken": "0xe5F52581fA62c0A1d83A798f1621530d3620D0eA",
+  "TravelTokenMessengerModule#BookingTokenOperator": "0xCbbdebde31ff19B1541Ab316f0FA456f3e79B3Dc",
+  "TravelTokenMessengerModule#TTMAccountManager": "0xEa8e753D5262fDc7D1D2bA2c2DfB89086B69F931",
+  "TravelTokenMessengerModule#TTMAccount": "0x792bDd0C6a2a58DfC055b03d664149977FffDDc1",
+  "TravelTokenMessengerModule#ManagerERC1967Proxy": "0xFE6587D20F8F9a57823B6aB62a19Fc857202Ca03",
+  "TravelTokenMessengerModule#ManagerProxy": "0xFE6587D20F8F9a57823B6aB62a19Fc857202Ca03",
+  "TravelTokenMessengerModule#BookingTokenERC1967Proxy": "0xB9ac3D8898e8bE5481a0DDCb7692692979794efC",
+  "TravelTokenMessengerModule#BookingTokenProxy": "0xB9ac3D8898e8bE5481a0DDCb7692692979794efC"
+}
