@@ -19,15 +19,19 @@ import { hashServiceName } from "../../lib/serviceCatalog";
 import { type ParsedService, groupServicesByPackage } from "../../lib/serviceName";
 import { useTx } from "../../tx/TxProvider";
 
-// Deterministic accent colour per package, for quick visual grouping.
+// Deterministic accent colour per package, for quick visual grouping. Like the
+// activity palette, this is a categorical system: every entry must be a hue the
+// eye can tell apart from all the others, or two packages read as one. Note
+// `teal-500` (#14B8A6) is indistinguishable from `brand-500` (#12B8A6) — don't
+// reintroduce it here.
 const PKG_DOTS = [
   "bg-brand-500",
-  "bg-brand-500",
+  "bg-lime-500",
   "bg-amber-500",
   "bg-sky-500",
   "bg-rose-500",
   "bg-violet-500",
-  "bg-teal-500",
+  "bg-green-500",
   "bg-orange-500",
 ];
 function pkgColor(pkg: string): string {
