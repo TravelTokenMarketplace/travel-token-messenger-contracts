@@ -50,7 +50,7 @@ start=$(date +%s.%N)
 
 # Set workdir
 if [ -z "${WORKDIR}" ]; then
-    # travel-token-messenger-bot root folder
+    # travel-token-messenger-contracts root folder
     WORKDIR=$(
         cd "$(dirname "${BASH_SOURCE[0]}")"
         cd .. && pwd
