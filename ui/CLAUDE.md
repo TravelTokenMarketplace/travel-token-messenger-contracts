@@ -35,7 +35,7 @@ If service reads break with decode errors, the usual cause is a stale `../abi/` 
 - **All user-facing writes go through `TxButton`** (which calls `useTx().track`) — don't call `writeContractAsync` directly for actions without tracking. `track` waits for the receipt, then `onConfirmed` fires and **all queries are invalidated** so the whole view refreshes. Use `onConfirmed` for side effects like clearing inputs; do **not** add manual refetch timers.
 - **Permission-gated actions** are wrapped in `RoleGate` with a human `action` label (renders a `PermissionHint` like "Can't add bot" when the wallet lacks the role).
 - **Inputs** use the shared `Input` component / `inputClass`; selects and menus use HeadlessUI (`NetworkSelector`, `ConnectButton`, `Checkbox`, `Autocomplete`).
-- **Dark mode** is Tailwind `class` strategy; every color needs a `dark:` variant.
+- **Dark mode** is Tailwind `class` strategy; every color needs a `dark:` variant — **except solid accent swatches**, which are the same saturated hue in both themes. A `dark:` variant is for restoring contrast that the theme flip takes away, which is a text problem: `lib/activity/style.ts` puts `dark:` on the `text-*` half of every entry and leaves all nine solid `dot` swatches (and the `bg-*-500/10` tints) bare. `ServicesTab`'s `PKG_DOTS` follows the same rule. Doubling a categorical palette's entries also eats the hue separation it exists to provide, so don't "fix" those two.
 - `VITE_WALLETCONNECT_PROJECT_ID` (optional): enables the WalletConnect wallet option; inert when unset. See `.env.example`.
 
 ## Design system ("transit-board terminal")
