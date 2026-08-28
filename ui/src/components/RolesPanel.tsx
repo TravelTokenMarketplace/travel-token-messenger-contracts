@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { ChevronRight, ShieldCheck, ShieldPlus, Trash2 } from "lucide-react";
 import { type Abi, type Address, isAddress } from "viem";
-import { useChainPinnedWrite } from "../hooks/useChainPinnedWrite";
+import { useAccount } from "wagmi";
 import { AddressDisplay } from "./AddressDisplay";
 import { inputClass } from "./Input";
 import { RoleGate } from "./RoleGate";
 import { RowAction } from "./RowAction";
 import { TxButton } from "./TxButton";
+import { useChainPinnedWrite } from "../hooks/useChainPinnedWrite";
 import { useHasRole } from "../hooks/useHasRole";
 import { useRoleMembers } from "../hooks/useRoleMembers";
 import { roleHash, type RoleName } from "../lib/roles";
@@ -30,6 +31,65 @@ function RoleHeader({
       <span className="font-mono text-[11px] text-tarmac-400">{role}</span>
       {badge}
     </>
+  );
+}
+
+const REVOKE_CONFIRM_WORD = "REVOKE";
+
+function sameAddress(a: string | undefined, b: string | undefined): boolean {
+  return Boolean(a && b && a.toLowerCase() === b.toLowerCase());
+}
+
+/**
+ * Revoke button that demands a typed confirmation for the revocations that
+ * cannot be undone from the UI afterwards.
+ *
+ * Removing the last `DEFAULT_ADMIN_ROLE` holder strands the contract for good —
+ * neither the account nor the manager overrides `revokeRole`/`renounceRole`, and
+ * AccessControl itself is happy to remove the final admin. Revoking your own
+ * role has the same shape from where the operator is sitting. Both used to be a
+ * single mis-aimed click in a list of rows that all look alike.
+ */
+function RevokeAction({
+  label,
+  warning,
+  disabled,
+  write,
+  onConfirmed,
+}: {
+  label: string;
+  /** Why this particular revocation is dangerous; undefined for a routine one. */
+  warning?: string;
+  disabled?: boolean;
+  write: () => Promise<`0x${string}`>;
+  onConfirmed?: () => void;
+}) {
+  const [typed, setTyped] = useState("");
+  const confirmed = !warning || typed.trim().toUpperCase() === REVOKE_CONFIRM_WORD;
+  return (
+    <div className="flex flex-col items-end gap-1">
+      {warning && (
+        <div className="flex items-center justify-end gap-2">
+          <span className="max-w-xs text-right text-xs text-signal-fg dark:text-signal-dark">{warning}</span>
+          <input
+            className={`w-32 ${inputClass}`}
+            placeholder={`Type ${REVOKE_CONFIRM_WORD}`}
+            aria-label={`Type ${REVOKE_CONFIRM_WORD} to confirm`}
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+          />
+        </div>
+      )}
+      <TxButton
+        label="Revoke"
+        variant="danger"
+        icon={<Trash2 className="h-4 w-4" />}
+        disabled={disabled || !confirmed}
+        tooltip={warning ?? `Revokes ${label} from this address — sends a transaction to your wallet.`}
+        write={write}
+        onConfirmed={onConfirmed}
+      />
+    </div>
   );
 }
 
@@ -97,7 +157,20 @@ function EnumerableRoleRow({
 }) {
   const { writeContractAsync } = useChainPinnedWrite();
   const { members, isLoading, refetch } = useRoleMembers(account, abi, role);
+  const { address: connected } = useAccount();
   const label = shortRoleName(role);
+
+  // The member list is already loaded here, so the last-admin check costs nothing extra.
+  function revokeWarning(member: string): string | undefined {
+    const warnings: string[] = [];
+    if (role === "DEFAULT_ADMIN_ROLE" && members.length === 1) {
+      warnings.push("This is the only admin — revoking it locks administration of this contract permanently.");
+    }
+    if (sameAddress(member, connected)) {
+      warnings.push("This is your own address — you lose this role the moment it confirms.");
+    }
+    return warnings.length ? warnings.join(" ") : undefined;
+  }
 
   return (
     <li className="rounded-md border border-tarmac-100 dark:border-tarmac-700/60">
@@ -135,11 +208,9 @@ function EnumerableRoleRow({
                 <AddressDisplay address={m} className="text-sm" />
                 {hasAdmin && (
                   <RowAction>
-                    <TxButton
-                      label="Revoke"
-                      variant="danger"
-                      icon={<Trash2 className="h-4 w-4" />}
-                      tooltip={`Revokes ${label} from this address — sends a transaction to your wallet.`}
+                    <RevokeAction
+                      label={label}
+                      warning={revokeWarning(m)}
                       write={() =>
                         writeContractAsync({
                           address: account,
@@ -181,8 +252,27 @@ function NonEnumerableRoleRow({
 }) {
   const { writeContractAsync } = useChainPinnedWrite();
   const { hasRole: youHold } = useHasRole(account, abi, role);
+  const { address: connected } = useAccount();
   const [revokee, setRevokee] = useState("");
   const label = shortRoleName(role);
+  const trimmedRevokee = revokee.trim();
+
+  // No member list to consult here, so the last-admin case cannot be ruled out —
+  // say so rather than let an admin revocation through as though it were checked.
+  function revokeWarning(): string | undefined {
+    if (!isAddress(trimmedRevokee)) return undefined;
+    const warnings: string[] = [];
+    if (role === "DEFAULT_ADMIN_ROLE") {
+      warnings.push(
+        "This contract cannot list role members, so whether this is the last admin cannot be checked here. " +
+          "Revoking the last admin locks administration permanently.",
+      );
+    }
+    if (sameAddress(trimmedRevokee, connected)) {
+      warnings.push("This is your own address — you lose this role the moment it confirms.");
+    }
+    return warnings.length ? warnings.join(" ") : undefined;
+  }
 
   return (
     <li className="rounded-md border border-tarmac-100 dark:border-tarmac-700/60">
@@ -230,18 +320,16 @@ function NonEnumerableRoleRow({
                   value={revokee}
                   onChange={(e) => setRevokee(e.target.value)}
                 />
-                <TxButton
-                  label="Revoke"
-                  variant="danger"
-                  icon={<Trash2 className="h-4 w-4" />}
-                  disabled={!isAddress(revokee.trim())}
-                  tooltip={`Revokes ${label} from this address — sends a transaction to your wallet.`}
+                <RevokeAction
+                  label={label}
+                  warning={revokeWarning()}
+                  disabled={!isAddress(trimmedRevokee)}
                   write={() =>
                     writeContractAsync({
                       address: account,
                       abi,
                       functionName: "revokeRole",
-                      args: [roleHash(role), revokee.trim() as Address],
+                      args: [roleHash(role), trimmedRevokee as Address],
                     })
                   }
                   onConfirmed={() => setRevokee("")}
