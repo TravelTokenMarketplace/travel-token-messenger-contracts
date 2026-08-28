@@ -52,12 +52,15 @@ function sameAddress(a: string | undefined, b: string | undefined): boolean {
  */
 function RevokeAction({
   label,
+  target,
   warning,
   disabled,
   write,
   onConfirmed,
 }: {
   label: string;
+  /** The address this button would revoke from; changing it clears the confirmation. */
+  target: string;
   /** Why this particular revocation is dangerous; undefined for a routine one. */
   warning?: string;
   disabled?: boolean;
@@ -65,6 +68,17 @@ function RevokeAction({
   onConfirmed?: () => void;
 }) {
   const [typed, setTyped] = useState("");
+  // The non-enumerable row keeps one RevokeAction mounted while the operator
+  // edits the address beside it, so the word typed for one address would still
+  // count for whatever address replaced it — the ceremony would be performed
+  // once and then stand for every revocation after it. Clearing during render
+  // rather than in an effect means `confirmed` is never briefly true for an
+  // address nobody confirmed.
+  const [confirmedFor, setConfirmedFor] = useState(target);
+  if (confirmedFor !== target) {
+    setConfirmedFor(target);
+    setTyped("");
+  }
   const confirmed = !warning || typed.trim().toUpperCase() === REVOKE_CONFIRM_WORD;
   return (
     <div className="flex flex-col items-end gap-1">
@@ -210,6 +224,7 @@ function EnumerableRoleRow({
                   <RowAction>
                     <RevokeAction
                       label={label}
+                      target={m}
                       warning={revokeWarning(m)}
                       write={() =>
                         writeContractAsync({
@@ -322,6 +337,7 @@ function NonEnumerableRoleRow({
                 />
                 <RevokeAction
                   label={label}
+                  target={trimmedRevokee}
                   warning={revokeWarning()}
                   disabled={!isAddress(trimmedRevokee)}
                   write={() =>

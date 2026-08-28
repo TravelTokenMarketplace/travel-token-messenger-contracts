@@ -92,4 +92,31 @@ describe("RolesPanel", () => {
     expect(screen.getAllByText(/cannot be checked/i).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /revoke/i })).toBeDisabled();
   });
+
+  it("makes a new revoke target retype the confirmation", () => {
+    // One revoke button serves whatever address is in the box beside it, so the
+    // word typed for the first address must not still stand for the second.
+    mockAddress = addr;
+    mockReadData = true;
+    wrap(<RolesPanel address={addr} abi={[]} roles={["DEFAULT_ADMIN_ROLE"]} enumerable={false} />);
+    fireEvent.click(screen.getByRole("button", { name: /admin/i }));
+    const box = screen.getByPlaceholderText("Address 0x… to revoke");
+
+    fireEvent.change(box, { target: { value: other } });
+    fireEvent.change(screen.getByLabelText(/type revoke to confirm/i), { target: { value: "REVOKE" } });
+    expect(screen.getByRole("button", { name: /revoke/i })).toBeEnabled();
+
+    fireEvent.change(box, { target: { value: "0x4444444444444444444444444444444444444444" } });
+    expect(screen.getByLabelText(/type revoke to confirm/i)).toHaveValue("");
+    expect(screen.getByRole("button", { name: /revoke/i })).toBeDisabled();
+  });
+
+  it("keeps the confirmation while the target is unchanged", () => {
+    mockAddress = addr;
+    mockReadData = [other];
+    wrap(<RolesPanel address={addr} abi={[]} roles={["DEFAULT_ADMIN_ROLE"]} enumerable />);
+    fireEvent.click(screen.getByRole("button", { name: /admin/i }));
+    fireEvent.change(screen.getByLabelText(/type revoke to confirm/i), { target: { value: "REVOKE" } });
+    expect(screen.getAllByRole("button", { name: /revoke/i })[0]).toBeEnabled();
+  });
 });
