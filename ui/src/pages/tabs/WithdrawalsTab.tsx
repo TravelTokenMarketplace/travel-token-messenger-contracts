@@ -1,18 +1,18 @@
 import { useState } from "react";
 import { ArrowUpFromLine } from "lucide-react";
 import { type Abi, type Address, parseEther } from "viem";
-import { useWriteContract } from "wagmi";
 import { Card } from "../../components/Card";
 import { Input } from "../../components/Input";
 import { RoleGate } from "../../components/RoleGate";
 import { TxButton } from "../../components/TxButton";
 import { useActiveContracts } from "../../hooks/useActiveContracts";
+import { useChainPinnedWrite } from "../../hooks/useChainPinnedWrite";
 import { useHasRole } from "../../hooks/useHasRole";
 
 export function WithdrawalsTab({ account }: { account: Address }) {
   const { ttmAccountAbi } = useActiveContracts();
   const abi = ttmAccountAbi as Abi;
-  const { writeContractAsync } = useWriteContract();
+  const { writeContractAsync } = useChainPinnedWrite();
   const { hasRole } = useHasRole(account, abi, "WITHDRAWER_ROLE");
   const [recipient, setRecipient] = useState("");
   const [amount, setAmount] = useState("0");

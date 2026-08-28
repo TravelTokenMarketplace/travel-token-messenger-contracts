@@ -2,6 +2,7 @@ import { type ReactNode, useState } from "react";
 import { Loader2 } from "lucide-react";
 import type { TransactionReceipt } from "viem";
 import { useTx } from "../tx/TxProvider";
+import { useChainMismatch } from "../hooks/useChainMismatch";
 import { Tooltip } from "./Tooltip";
 
 interface TxButtonProps {
@@ -17,6 +18,9 @@ interface TxButtonProps {
 
 export function TxButton({ label, disabled, write, onConfirmed, icon, variant = "primary", tooltip }: TxButtonProps) {
   const { track } = useTx();
+  // Every user-facing write funnels through this button, which makes it the one
+  // place a wrong-network write can be stopped for all of them at once.
+  const { mismatched, reason } = useChainMismatch();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
 
@@ -39,11 +43,12 @@ export function TxButton({ label, disabled, write, onConfirmed, icon, variant = 
 
   return (
     <div className="flex flex-col gap-1">
-      <Tooltip content={tooltip ?? "Sends a transaction to your wallet to confirm."}>
+      <Tooltip content={mismatched ? reason : (tooltip ?? "Sends a transaction to your wallet to confirm.")}>
         <button
           type="button"
-          disabled={disabled || pending}
+          disabled={disabled || pending || mismatched}
           data-pending={pending || undefined}
+          data-chain-mismatch={mismatched || undefined}
           onClick={handleClick}
           className={`inline-flex items-center justify-center gap-1.5 rounded-sm px-3 py-1.5 font-mono text-xs font-medium uppercase tracking-[0.08em] transition-colors disabled:opacity-50 ${
             pending ? "bg-departure-500 text-white" : color

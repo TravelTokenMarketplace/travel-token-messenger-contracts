@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { type Abi, type Address, type Hex } from "viem";
-import { useWriteContract } from "wagmi";
 import { AddressDisplay } from "../../components/AddressDisplay";
 import { Card } from "../../components/Card";
 import { Input } from "../../components/Input";
@@ -9,13 +8,14 @@ import { RoleGate } from "../../components/RoleGate";
 import { RowAction } from "../../components/RowAction";
 import { TxButton } from "../../components/TxButton";
 import { useActiveContracts } from "../../hooks/useActiveContracts";
+import { useChainPinnedWrite } from "../../hooks/useChainPinnedWrite";
 import { useContractList } from "../../hooks/useContractList";
 import { useHasRole } from "../../hooks/useHasRole";
 
 export function PubkeysTab({ account }: { account: Address }) {
   const { ttmAccountAbi } = useActiveContracts();
   const abi = ttmAccountAbi as Abi;
-  const { writeContractAsync } = useWriteContract();
+  const { writeContractAsync } = useChainPinnedWrite();
   const { items, isLoading, refetch } = useContractList(account, abi, "getPublicKeysAddresses");
   const { hasRole } = useHasRole(account, abi, "SERVICE_ADMIN_ROLE");
   const [addr, setAddr] = useState("");

@@ -1,7 +1,7 @@
 import { useId, useState } from "react";
 import { ChevronRight, Plus, Trash2, X } from "lucide-react";
 import { type Abi, type Address, type Hex } from "viem";
-import { useReadContract, useReadContracts, useWriteContract } from "wagmi";
+import { useReadContract, useReadContracts } from "wagmi";
 import { Autocomplete } from "../../components/Autocomplete";
 import { Card } from "../../components/Card";
 import { Checkbox } from "../../components/Checkbox";
@@ -11,6 +11,8 @@ import { RowAction } from "../../components/RowAction";
 import { Tooltip } from "../../components/Tooltip";
 import { TxButton } from "../../components/TxButton";
 import { useActiveContracts } from "../../hooks/useActiveContracts";
+import { useChainMismatch } from "../../hooks/useChainMismatch";
+import { useChainPinnedWrite } from "../../hooks/useChainPinnedWrite";
 import { useContractList } from "../../hooks/useContractList";
 import { useHasRole } from "../../hooks/useHasRole";
 import { useResolvedServiceNames, useServiceCatalog } from "../../hooks/useServiceCatalog";
@@ -95,10 +97,17 @@ function SupportedServiceRow({
   onToggle: () => void;
   onChanged: () => void;
 }) {
-  const { writeContractAsync } = useWriteContract();
+  const { writeContractAsync } = useChainPinnedWrite();
   const { track } = useTx();
+  // The rate pill and the capability chips are writes that cannot be `TxButton`s
+  // without losing the inline shape that makes them readable in a dense row, so
+  // they carry the wrong-network guard themselves. Every write in this row is
+  // pinned to the app's chain regardless — wagmi refuses a mismatched one — but
+  // without this the controls stay live and the refusal only lands after a click.
+  const { mismatched, reason } = useChainMismatch();
   const [busy, setBusy] = useState(false);
   const [newCap, setNewCap] = useState("");
+  const blocked = busy || mismatched;
 
   async function run(label: string, functionName: string, args: unknown[], after?: () => void) {
     setBusy(true);
@@ -166,14 +175,17 @@ function SupportedServiceRow({
                 <span className="text-xs font-medium text-tarmac-500 dark:text-tarmac-400">Rate</span>
                 <Tooltip
                   content={
-                    service.restricted
-                      ? "Restricted rate is ON. Click to disable it — sends a transaction to your wallet."
-                      : "Restricted rate is OFF. Click to enable it — sends a transaction to your wallet."
+                    mismatched
+                      ? reason
+                      : service.restricted
+                        ? "Restricted rate is ON. Click to disable it — sends a transaction to your wallet."
+                        : "Restricted rate is OFF. Click to enable it — sends a transaction to your wallet."
                   }
                 >
                   <button
                     type="button"
-                    disabled={busy}
+                    disabled={blocked}
+                    data-chain-mismatch={mismatched || undefined}
                     onClick={() =>
                       run(
                         `${service.restricted ? "Disable" : "Enable"} restricted rate · ${service.name}`,
@@ -202,10 +214,13 @@ function SupportedServiceRow({
                       className="inline-flex items-center gap-1 rounded bg-tarmac-100 px-2 py-0.5 text-xs text-tarmac-600 dark:bg-tarmac-700 dark:text-tarmac-300"
                     >
                       {c}
-                      <Tooltip content={`Remove capability "${c}" — sends a transaction to your wallet.`}>
+                      <Tooltip
+                        content={mismatched ? reason : `Remove capability "${c}" — sends a transaction to your wallet.`}
+                      >
                         <button
                           type="button"
-                          disabled={busy}
+                          disabled={blocked}
+                          data-chain-mismatch={mismatched || undefined}
                           onClick={() =>
                             run(`Remove capability "${c}" · ${service.name}`, "removeServiceCapability", [
                               service.hash,
@@ -226,7 +241,7 @@ function SupportedServiceRow({
                     value={newCap}
                     onChange={(e) => setNewCap(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" && newCap.trim()) {
+                      if (e.key === "Enter" && newCap.trim() && !blocked) {
                         run(
                           `Add capability "${newCap.trim()}" · ${service.name}`,
                           "addServiceCapability",
@@ -236,10 +251,15 @@ function SupportedServiceRow({
                       }
                     }}
                   />
-                  <Tooltip content="Add this capability to the service — sends a transaction to your wallet.">
+                  <Tooltip
+                    content={
+                      mismatched ? reason : "Add this capability to the service — sends a transaction to your wallet."
+                    }
+                  >
                     <button
                       type="button"
-                      disabled={busy || !newCap.trim()}
+                      disabled={blocked || !newCap.trim()}
+                      data-chain-mismatch={mismatched || undefined}
                       onClick={() =>
                         run(
                           `Add capability "${newCap.trim()}" · ${service.name}`,
@@ -290,7 +310,7 @@ function SupportedServices({
   registered: string[];
 }) {
   const { chainId } = useActiveContracts();
-  const { writeContractAsync } = useWriteContract();
+  const { writeContractAsync } = useChainPinnedWrite();
   const { catalog } = useServiceCatalog();
   const serviceInputId = useId();
   // The catalog covers currently-registered names; falling back to hashing the
@@ -456,7 +476,7 @@ function WantedServices({
   hasRole: boolean;
   registered: string[];
 }) {
-  const { writeContractAsync } = useWriteContract();
+  const { writeContractAsync } = useChainPinnedWrite();
   const { catalog } = useServiceCatalog();
   const { items: hashes, isLoading: hashesLoading, refetch } = useContractList(account, abi, "getWantedServiceHashes");
   const [name, setName] = useState("");

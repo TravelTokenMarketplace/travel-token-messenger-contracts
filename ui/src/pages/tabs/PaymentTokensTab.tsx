@@ -1,8 +1,8 @@
 import { type Abi, type Address } from "viem";
-import { useWriteContract } from "wagmi";
 import { ListManager } from "../../components/ListManager";
 import { TokenDisplay } from "../../components/TokenDisplay";
 import { useActiveContracts } from "../../hooks/useActiveContracts";
+import { useChainPinnedWrite } from "../../hooks/useChainPinnedWrite";
 import { useContractList } from "../../hooks/useContractList";
 import { useHasRole } from "../../hooks/useHasRole";
 import { useTokenMetadata } from "../../hooks/useTokenMetadata";
@@ -11,7 +11,7 @@ import { NATIVE_SENTINEL, OFFCHAIN_SENTINEL } from "../../lib/paymentTokens";
 export function PaymentTokensTab({ account }: { account: Address }) {
   const { ttmAccountAbi } = useActiveContracts();
   const abi = ttmAccountAbi as Abi;
-  const { writeContractAsync } = useWriteContract();
+  const { writeContractAsync } = useChainPinnedWrite();
   const { items, isLoading, refetch } = useContractList(account, abi, "getSupportedTokens");
   const { hasRole, isLoading: roleLoading } = useHasRole(account, abi, "SERVICE_ADMIN_ROLE");
   const { meta } = useTokenMetadata(items as Address[]);

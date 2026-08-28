@@ -5,7 +5,13 @@ import { NATIVE_SENTINEL } from "../../lib/paymentTokens";
 
 const writeContractAsync = vi.fn().mockResolvedValue("0xhash");
 
-vi.mock("wagmi", () => ({ useWriteContract: () => ({ writeContractAsync }) }));
+vi.mock("wagmi", () => ({
+  useAccount: () => ({ address: undefined, isConnected: false, chainId: 84532 }),
+  useWriteContract: () => ({ writeContractAsync }),
+}));
+vi.mock("../../wallet/activeChain", () => ({
+  useActiveChain: () => ({ activeChainId: 84532, setActiveChainId: vi.fn() }),
+}));
 vi.mock("../../hooks/useActiveContracts", () => ({
   useActiveContracts: () => ({ ttmAccountAbi: [] }),
 }));

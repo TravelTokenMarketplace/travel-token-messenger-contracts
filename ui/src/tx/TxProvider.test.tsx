@@ -8,8 +8,12 @@ vi.mock("wagmi", () => ({ useConfig: () => ({}) }));
 
 const waitMock = vi.fn();
 vi.mock("wagmi/actions", () => ({
-  getAccount: () => ({ chainId: 84532 }),
   waitForTransactionReceipt: (...args: unknown[]) => waitMock(...args),
+}));
+// The app is showing Base while the wallet sits elsewhere — the receipt must be
+// awaited on the former, since that is the chain every write is pinned to.
+vi.mock("../wallet/activeChain", () => ({
+  useActiveChain: () => ({ activeChainId: 8453, setActiveChainId: vi.fn() }),
 }));
 
 function Harness({ onConfirmed }: { onConfirmed: () => void }) {
@@ -58,6 +62,16 @@ describe("TxProvider", () => {
     resolveReceipt({ status: "success" });
     await waitFor(() => expect(screen.getByTestId("tx")).toHaveTextContent("Do thing:confirmed"));
     expect(onConfirmed).toHaveBeenCalledTimes(1);
+  });
+
+  it("awaits the receipt on the chain the app is showing", async () => {
+    waitMock.mockResolvedValue({ status: "success" });
+
+    renderHarness(vi.fn());
+    fireEvent.click(screen.getByText("go"));
+
+    await waitFor(() => expect(screen.getByTestId("tx")).toHaveTextContent("Do thing:confirmed"));
+    expect(waitMock).toHaveBeenLastCalledWith(expect.anything(), { hash: "0xhash", chainId: 8453 });
   });
 
   it("stays confirmed even if onConfirmed throws", async () => {

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("wagmi", () => ({
+  useAccount: () => ({ address: undefined, isConnected: false, chainId: 84532 }),
   useBalance: () => ({ data: undefined }),
   useReadContracts: () => ({ data: undefined, isLoading: false }),
   useWriteContract: () => ({ writeContractAsync: vi.fn() }),

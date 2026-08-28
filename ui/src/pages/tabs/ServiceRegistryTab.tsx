@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { type Abi } from "viem";
-import { useReadContract, useWriteContract } from "wagmi";
+import { useReadContract } from "wagmi";
 import { Card } from "../../components/Card";
 import { CopyButton } from "../../components/CopyButton";
 import { inputClass } from "../../components/Input";
@@ -9,6 +9,7 @@ import { RoleGate } from "../../components/RoleGate";
 import { RowAction } from "../../components/RowAction";
 import { TxButton } from "../../components/TxButton";
 import { useActiveContracts } from "../../hooks/useActiveContracts";
+import { useChainPinnedWrite } from "../../hooks/useChainPinnedWrite";
 import { useHasRole } from "../../hooks/useHasRole";
 import { groupServicesByPackage, parseServiceName } from "../../lib/serviceName";
 
@@ -16,7 +17,7 @@ export function ServiceRegistryTab() {
   const { manager, managerAbi, chainId, supported } = useActiveContracts();
   const abi = managerAbi as Abi;
   const { hasRole } = useHasRole(manager, abi, "SERVICE_REGISTRY_ADMIN_ROLE");
-  const { writeContractAsync } = useWriteContract();
+  const { writeContractAsync } = useChainPinnedWrite();
   const { data, isLoading, refetch } = useReadContract({
     chainId,
     address: manager,

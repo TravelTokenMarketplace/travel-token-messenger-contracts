@@ -2,18 +2,19 @@ import { useState } from "react";
 import { PlusCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { type Abi, type Address, type TransactionReceipt, parseEther } from "viem";
-import { useAccount, useWriteContract } from "wagmi";
+import { useAccount } from "wagmi";
 import { APP_CHAINS } from "../config/chains";
 import { Card } from "../components/Card";
 import { Input } from "../components/Input";
 import { TxButton } from "../components/TxButton";
 import { useActiveContracts } from "../hooks/useActiveContracts";
+import { useChainPinnedWrite } from "../hooks/useChainPinnedWrite";
 import { findCreatedAccount } from "../lib/receipt";
 
 export function CreateAccount() {
   const { address } = useAccount();
   const { manager, managerAbi, supported, chainId } = useActiveContracts();
-  const { writeContractAsync } = useWriteContract();
+  const { writeContractAsync } = useChainPinnedWrite();
   const navigate = useNavigate();
   const [admin, setAdmin] = useState("");
   const [upgrader, setUpgrader] = useState("");

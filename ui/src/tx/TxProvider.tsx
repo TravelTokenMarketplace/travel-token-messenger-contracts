@@ -2,7 +2,8 @@ import { createContext, useCallback, useContext, useState, type ReactNode } from
 import type { Hex, TransactionReceipt } from "viem";
 import { useQueryClient } from "@tanstack/react-query";
 import { useConfig } from "wagmi";
-import { getAccount, waitForTransactionReceipt } from "wagmi/actions";
+import { waitForTransactionReceipt } from "wagmi/actions";
+import { useActiveChain } from "../wallet/activeChain";
 
 export type TxState = "pending" | "confirmed" | "failed";
 
@@ -64,6 +65,13 @@ const nextId = () => `tx-${Date.now()}-${counter++}`;
 export function TxProvider({ children }: { children: ReactNode }) {
   const config = useConfig();
   const queryClient = useQueryClient();
+  // Writes are pinned to the app's chain, so that is the chain the transaction
+  // is on and the chain its receipt must be awaited from. Reading the wallet's
+  // chain after submission instead would answer a different question: a wallet
+  // moved between confirming and returning would send us polling a chain the
+  // transaction was never on, and the panel would settle on "failed" for a
+  // transaction that mined — taking the refetch that follows confirmation with it.
+  const { activeChainId } = useActiveChain();
   const [txs, setTxs] = useState<TrackedTx[]>([]);
 
   const update = useCallback((id: string, patch: Partial<TrackedTx>) => {
@@ -79,14 +87,13 @@ export function TxProvider({ children }: { children: ReactNode }) {
       // Submission errors propagate to the caller and create no panel entry.
       const hash = await write();
       const id = nextId();
-      const chainId = getAccount(config).chainId;
-      setTxs((prev) => [{ id, label, hash, chainId, state: "pending" }, ...prev]);
+      setTxs((prev) => [{ id, label, hash, chainId: activeChainId, state: "pending" }, ...prev]);
       // Wait for mining off the critical path so the panel reflects on-chain
       // confirmation even after the triggering row action is hidden.
       void (async () => {
         let receipt: TransactionReceipt;
         try {
-          receipt = await waitForTransactionReceipt(config, { hash, chainId });
+          receipt = await waitForTransactionReceipt(config, { hash, chainId: activeChainId });
         } catch {
           update(id, { state: "failed" });
           return;
@@ -109,7 +116,7 @@ export function TxProvider({ children }: { children: ReactNode }) {
         void queryClient.invalidateQueries();
       })();
     },
-    [config, queryClient, update],
+    [config, activeChainId, queryClient, update],
   );
 
   return <TxContext.Provider value={{ txs, track, dismiss }}>{children}</TxContext.Provider>;
