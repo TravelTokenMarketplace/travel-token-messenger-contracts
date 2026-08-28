@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { Pause, Play, Save } from "lucide-react";
 import { type Abi, type Address, isAddress } from "viem";
-import { useReadContract, useWriteContract } from "wagmi";
+import { useReadContract } from "wagmi";
 import { AddressDisplay } from "../../components/AddressDisplay";
 import { Card } from "../../components/Card";
 import { inputClass } from "../../components/Input";
 import { RoleGate } from "../../components/RoleGate";
 import { TxButton } from "../../components/TxButton";
 import { useActiveContracts } from "../../hooks/useActiveContracts";
+import { useChainPinnedWrite } from "../../hooks/useChainPinnedWrite";
 import { useHasRole } from "../../hooks/useHasRole";
 
 function AddressSetting({
@@ -30,7 +31,7 @@ function AddressSetting({
   const { manager, managerAbi } = useActiveContracts();
   const abi = managerAbi as Abi;
   const { hasRole } = useHasRole(manager, abi, roleName);
-  const { writeContractAsync } = useWriteContract();
+  const { writeContractAsync } = useChainPinnedWrite();
   const [value, setValue] = useState("");
   const trimmed = value.trim();
   const valid = isAddress(trimmed);
@@ -69,7 +70,7 @@ function AddressSetting({
 export function ManagerConfigTab() {
   const { manager, managerAbi, chainId, supported } = useActiveContracts();
   const abi = managerAbi as Abi;
-  const { writeContractAsync } = useWriteContract();
+  const { writeContractAsync } = useChainPinnedWrite();
   const { hasRole: canPause } = useHasRole(manager, abi, "PAUSER_ROLE");
 
   const {

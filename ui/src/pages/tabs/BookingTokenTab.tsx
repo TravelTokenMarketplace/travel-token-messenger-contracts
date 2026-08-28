@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Save } from "lucide-react";
 import { type Abi, type Address, isAddress } from "viem";
-import { useReadContract, useWriteContract } from "wagmi";
+import { useReadContract } from "wagmi";
 import { AddressDisplay } from "../../components/AddressDisplay";
 import { Card } from "../../components/Card";
 import { inputClass } from "../../components/Input";
@@ -9,6 +9,7 @@ import { RoleGate } from "../../components/RoleGate";
 import { RolesPanel } from "../../components/RolesPanel";
 import { TxButton } from "../../components/TxButton";
 import { useActiveContracts } from "../../hooks/useActiveContracts";
+import { useChainPinnedWrite } from "../../hooks/useChainPinnedWrite";
 import { useHasRole } from "../../hooks/useHasRole";
 import { BOOKINGTOKEN_ROLES } from "../../lib/roles";
 
@@ -20,7 +21,7 @@ function formatVersion(v: unknown): string {
 export function BookingTokenTab() {
   const { bookingToken, bookingTokenAbi, chainId, supported } = useActiveContracts();
   const abi = bookingTokenAbi as Abi;
-  const { writeContractAsync } = useWriteContract();
+  const { writeContractAsync } = useChainPinnedWrite();
   const enabled = { query: { enabled: supported } };
 
   const { data: name } = useReadContract({ chainId, address: bookingToken, abi, functionName: "name", ...enabled });

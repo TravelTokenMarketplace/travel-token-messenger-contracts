@@ -2,6 +2,13 @@ import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ListManager } from "./ListManager";
 
+vi.mock("wagmi", () => ({
+  useAccount: () => ({ address: undefined, isConnected: false, chainId: 84532 }),
+}));
+vi.mock("../wallet/activeChain", () => ({
+  useActiveChain: () => ({ activeChainId: 84532, setActiveChainId: vi.fn() }),
+}));
+
 const base = {
   title: "Payment Tokens",
   isLoading: false,

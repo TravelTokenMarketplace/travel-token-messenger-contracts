@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ChevronRight, ShieldCheck, ShieldPlus, Trash2 } from "lucide-react";
 import { type Abi, type Address, isAddress } from "viem";
-import { useWriteContract } from "wagmi";
+import { useChainPinnedWrite } from "../hooks/useChainPinnedWrite";
 import { AddressDisplay } from "./AddressDisplay";
 import { inputClass } from "./Input";
 import { RoleGate } from "./RoleGate";
@@ -46,7 +46,7 @@ function GrantForm({
   label: string;
   onDone: () => void;
 }) {
-  const { writeContractAsync } = useWriteContract();
+  const { writeContractAsync } = useChainPinnedWrite();
   const [grantee, setGrantee] = useState("");
   const trimmed = grantee.trim();
   const valid = isAddress(trimmed);
@@ -95,7 +95,7 @@ function EnumerableRoleRow({
   open: boolean;
   onToggle: () => void;
 }) {
-  const { writeContractAsync } = useWriteContract();
+  const { writeContractAsync } = useChainPinnedWrite();
   const { members, isLoading, refetch } = useRoleMembers(account, abi, role);
   const label = shortRoleName(role);
 
@@ -179,7 +179,7 @@ function NonEnumerableRoleRow({
   open: boolean;
   onToggle: () => void;
 }) {
-  const { writeContractAsync } = useWriteContract();
+  const { writeContractAsync } = useChainPinnedWrite();
   const { hasRole: youHold } = useHasRole(account, abi, role);
   const [revokee, setRevokee] = useState("");
   const label = shortRoleName(role);

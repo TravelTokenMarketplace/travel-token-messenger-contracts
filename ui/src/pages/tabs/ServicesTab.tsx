@@ -1,7 +1,7 @@
 import { useId, useState } from "react";
 import { ChevronRight, Plus, Trash2, X } from "lucide-react";
 import { type Abi, type Address, type Hex } from "viem";
-import { useReadContract, useReadContracts, useWriteContract } from "wagmi";
+import { useReadContract, useReadContracts } from "wagmi";
 import { Autocomplete } from "../../components/Autocomplete";
 import { Card } from "../../components/Card";
 import { Checkbox } from "../../components/Checkbox";
@@ -11,6 +11,7 @@ import { RowAction } from "../../components/RowAction";
 import { Tooltip } from "../../components/Tooltip";
 import { TxButton } from "../../components/TxButton";
 import { useActiveContracts } from "../../hooks/useActiveContracts";
+import { useChainPinnedWrite } from "../../hooks/useChainPinnedWrite";
 import { useContractList } from "../../hooks/useContractList";
 import { useHasRole } from "../../hooks/useHasRole";
 import { useResolvedServiceNames, useServiceCatalog } from "../../hooks/useServiceCatalog";
@@ -95,7 +96,7 @@ function SupportedServiceRow({
   onToggle: () => void;
   onChanged: () => void;
 }) {
-  const { writeContractAsync } = useWriteContract();
+  const { writeContractAsync } = useChainPinnedWrite();
   const { track } = useTx();
   const [busy, setBusy] = useState(false);
   const [newCap, setNewCap] = useState("");
@@ -290,7 +291,7 @@ function SupportedServices({
   registered: string[];
 }) {
   const { chainId } = useActiveContracts();
-  const { writeContractAsync } = useWriteContract();
+  const { writeContractAsync } = useChainPinnedWrite();
   const { catalog } = useServiceCatalog();
   const serviceInputId = useId();
   // The catalog covers currently-registered names; falling back to hashing the
@@ -456,7 +457,7 @@ function WantedServices({
   hasRole: boolean;
   registered: string[];
 }) {
-  const { writeContractAsync } = useWriteContract();
+  const { writeContractAsync } = useChainPinnedWrite();
   const { catalog } = useServiceCatalog();
   const { items: hashes, isLoading: hashesLoading, refetch } = useContractList(account, abi, "getWantedServiceHashes");
   const [name, setName] = useState("");

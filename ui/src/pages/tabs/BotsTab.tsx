@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { AlertTriangle, Check, Info, Plus, Trash2 } from "lucide-react";
 import { type Abi, type Address, parseEther } from "viem";
-import { useBalance, useReadContracts, useWriteContract } from "wagmi";
+import { useBalance, useReadContracts } from "wagmi";
 import { APP_CHAINS } from "../../config/chains";
 import { AddressDisplay } from "../../components/AddressDisplay";
 import { Card } from "../../components/Card";
@@ -11,6 +11,7 @@ import { RowAction } from "../../components/RowAction";
 import { Tooltip } from "../../components/Tooltip";
 import { TxButton } from "../../components/TxButton";
 import { useActiveContracts } from "../../hooks/useActiveContracts";
+import { useChainPinnedWrite } from "../../hooks/useChainPinnedWrite";
 import { useRoleMembers } from "../../hooks/useRoleMembers";
 import { useHasRole } from "../../hooks/useHasRole";
 import { roleHash, type RoleName } from "../../lib/roles";
@@ -95,7 +96,7 @@ function BotRow({
   hasRole: boolean;
   onChanged: () => void;
 }) {
-  const { writeContractAsync } = useWriteContract();
+  const { writeContractAsync } = useChainPinnedWrite();
   return (
     <li className="group flex flex-col gap-2 py-2.5">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -126,7 +127,7 @@ function BotRow({
 export function BotsTab({ account }: { account: Address }) {
   const { ttmAccountAbi, chainId } = useActiveContracts();
   const abi = ttmAccountAbi as Abi;
-  const { writeContractAsync } = useWriteContract();
+  const { writeContractAsync } = useChainPinnedWrite();
   const { members, isLoading, refetch } = useRoleMembers(account, abi, "MESSENGER_BOT_ROLE");
   const { hasRole, isLoading: roleLoading } = useHasRole(account, abi, "BOT_ADMIN_ROLE");
   const { data: accountBalance } = useBalance({ address: account, chainId });
