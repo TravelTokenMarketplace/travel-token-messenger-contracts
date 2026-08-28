@@ -65,6 +65,22 @@ services can be registered until roles are granted. Follow every step.
   the owner set you control, and your chosen threshold. Record the Safe address.
 - Provision a dedicated hot **pauser** EOA, separate from the Safe owner keys.
 
+**Prerequisite — check every implementation locks itself.** Each upgradeable
+contract (`TTMAccountManager`, `TTMAccount`, `BookingToken`) must have a
+constructor calling `_disableInitializers()`, so that only its proxy can ever
+be initialized. An implementation without one can be initialized by anyone,
+who then holds the admin and upgrader roles on it. That gives no power over the
+proxies or their state, but it leaves an attacker-owned contract carrying our
+code and emitting our events, which misleads indexers and verification tooling.
+Deploying a fresh implementation later does **not** retract one already
+claimed, so this has to be right before the deploy rather than after it.
+
+> `BookingToken` shipped without this constructor, so the implementation behind
+> the Base Sepolia deployment is claimable and always will be. It was left in
+> place deliberately: replacing it would not retract it, and with no path from
+> it to the proxies there is nothing to gain from an upgrade cycle. Mainnet must
+> not repeat it.
+
 `base_sepolia_parameters.json` stays `{}` — every role deploys onto the deployer
 key and is handed off in step 8. This keeps `managerVersioner` on the deployer
 through the Ignition run (the module's `setAccountImplementation` /

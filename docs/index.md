@@ -1341,6 +1341,12 @@ modifier onlyTTMAccount(address account)
 
 Only TTMAccount modifier.
 
+### constructor
+
+```solidity
+constructor() public
+```
+
 ### initialize
 
 ```solidity

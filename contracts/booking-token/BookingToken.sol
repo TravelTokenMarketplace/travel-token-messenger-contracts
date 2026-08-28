@@ -337,6 +337,24 @@ contract BookingToken is
      *                   INITIALIZE                    *
      ***************************************************/
 
+    /**
+     * @notice Locks the implementation contract so it can never be initialized.
+     *
+     * @dev Only the proxy is meant to be initialized. Without this, the
+     * implementation is left with its initializer untouched and anyone can call
+     * it directly and take the admin and upgrader roles on it. That confers no
+     * power over the proxies and their state, but it leaves an
+     * attacker-controlled contract carrying this contract's code and events,
+     * which misleads indexers and verification tooling.
+     *
+     * The two sibling upgradeable contracts already do this; this one was
+     * missing it.
+     */
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     function initialize(address manager, address defaultAdmin, address upgrader) public initializer {
         if (manager == address(0) || defaultAdmin == address(0) || upgrader == address(0)) {
             revert ZeroAddress();

@@ -19,6 +19,30 @@ const {
 } = require("./utils/fixtures");
 
 describe("BookingToken", function () {
+    describe("Implementation", function () {
+        // Only the proxy is meant to be initialized. An implementation left
+        // initializable can be claimed by anyone, who then holds the admin and
+        // upgrader roles on a contract carrying this code — harmless to the
+        // proxies, but an attacker-owned lookalike that confuses indexers and
+        // verification tooling. The two sibling upgradeable contracts lock
+        // theirs in the constructor; this asserts that this one does too.
+        it("should not be initializable directly", async function () {
+            await setupSigners();
+
+            const BookingToken = await ethers.getContractFactory("BookingToken");
+            const bookingTokenImpl = await BookingToken.deploy();
+            await bookingTokenImpl.waitForDeployment();
+
+            await expect(
+                bookingTokenImpl.initialize(
+                    signers.btAdmin.address,
+                    signers.btAdmin.address,
+                    signers.btUpgrader.address,
+                ),
+            ).to.be.revertedWithCustomError(bookingTokenImpl, "InvalidInitialization");
+        });
+    });
+
     describe("Main", function () {
         it("should deploy correctly", async function () {
             const { ttmAccountManager, supplierTTMAccount, distributorTTMAccount, bookingToken } =
